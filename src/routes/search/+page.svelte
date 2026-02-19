@@ -1,27 +1,10 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 
 	let { data } = $props();
 
-	let searchInput = $state('');
-	let debounceTimer: ReturnType<typeof setTimeout>;
-
 	let query = $derived((data.query as string) || '');
 	let results = $derived(data.results);
-
-	// Sync input from server data when URL changes (e.g. from TopBar search)
-	$effect(() => {
-		searchInput = query;
-	});
-
-	function handleInput() {
-		clearTimeout(debounceTimer);
-		debounceTimer = setTimeout(() => {
-			if (searchInput.trim()) {
-				goto(`/search?q=${encodeURIComponent(searchInput.trim())}`);
-			}
-		}, 300);
-	}
 
 	function highlightTerms(text: string, q: string): string {
 		if (!q || !text) return text;
@@ -61,15 +44,15 @@
 		<h1 class="text-lg font-bold text-zinc-100">Search</h1>
 	</div>
 
-	<div class="mb-6">
+	<form method="GET" action={resolve('/search')} class="mb-6">
 		<input
-			bind:value={searchInput}
-			oninput={handleInput}
+			name="q"
 			type="text"
+			value={query}
 			placeholder="Search across all sessions..."
 			class="w-full rounded-lg border border-zinc-800 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600"
 		/>
-	</div>
+	</form>
 
 	{#if query}
 		<div class="mb-4 text-xs text-zinc-500">
@@ -80,7 +63,7 @@
 	<div class="space-y-3">
 		{#each results as result (result.sessionId)}
 			<a
-				href="/session/{result.projectId}/{result.sessionId}"
+				href={resolve(`/session/${result.projectId}/${result.sessionId}`)}
 				class="block rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 transition-all hover:border-zinc-700 hover:bg-zinc-900"
 			>
 				<div class="flex items-center gap-2 mb-2">

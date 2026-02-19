@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import type { Project } from '$lib/types.js';
 	import { page } from '$app/state';
 
@@ -14,7 +15,7 @@
 		: 'w-0 overflow-hidden'}"
 >
 	<div class="flex items-center justify-between border-b border-zinc-800 p-4">
-		<a href="/" class="flex items-center gap-2 text-sm font-bold text-zinc-100">
+		<a href={resolve('/')} class="flex items-center gap-2 text-sm font-bold text-zinc-100">
 			<span class="text-accent-400 text-lg">CI</span>
 			<span>Inspector</span>
 		</a>
@@ -31,7 +32,7 @@
 		</div>
 		{#each projects as project (project.id)}
 			<a
-				href="/projects/{project.id}"
+				href={resolve(`/projects/${project.id}`)}
 				class="group flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors
 					{currentProjectId === project.id
 					? 'bg-accent-500/10 text-accent-400'
@@ -45,7 +46,7 @@
 
 	<div class="border-t border-zinc-800 p-2">
 		<a
-			href="/settings"
+			href={resolve('/settings')}
 			class="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-zinc-500 transition-colors hover:bg-zinc-800/50 hover:text-zinc-300"
 		>
 			<svg

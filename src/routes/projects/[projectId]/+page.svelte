@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import type { SessionEntry } from '$lib/types.js';
 
 	let { data } = $props();
@@ -82,7 +83,7 @@
 					<tr class="border-b border-zinc-800/50 transition-colors hover:bg-zinc-900/50">
 						<td class="px-3 py-2.5">
 							<a
-								href="/session/{data.projectId}/{session.sessionId}"
+								href={resolve(`/session/${data.projectId}/${session.sessionId}`)}
 								class="block hover:text-accent-400 transition-colors"
 							>
 								{#if session.summary}

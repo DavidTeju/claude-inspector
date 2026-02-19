@@ -33,10 +33,8 @@ export default ts.config(
 			}
 		},
 		rules: {
-			// We render trusted markdown/search highlights - XSS not a concern for local-only tool
-			'svelte/no-at-html-tags': 'off',
-			// Our routes use simple string paths, not parameterized routes needing resolve()
-			'svelte/no-navigation-without-resolve': 'off'
+			// We render trusted markdown/search highlights — XSS not a concern for local-only tool
+			'svelte/no-at-html-tags': 'off'
 		}
 	},
 	{

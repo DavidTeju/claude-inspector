@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import type { Project } from '$lib/types.js';
 
 	let { project }: { project: Project } = $props();
@@ -21,7 +22,7 @@
 </script>
 
 <a
-	href="/projects/{project.id}"
+	href={resolve(`/projects/${project.id}`)}
 	class="group rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 transition-all hover:border-zinc-700 hover:bg-zinc-900"
 >
 	<div class="flex items-start justify-between">
