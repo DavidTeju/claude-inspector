@@ -87,10 +87,16 @@
 							>
 								{#if session.summary}
 									<div class="font-medium text-zinc-200">{session.summary}</div>
+									<div class="mt-0.5 text-zinc-500 line-clamp-1">
+										{session.firstPrompt || ''}
+									</div>
+								{:else if session.firstPrompt}
+									<div class="font-medium text-zinc-400 italic line-clamp-1">
+										{session.firstPrompt}
+									</div>
+								{:else}
+									<div class="text-zinc-600 italic">Empty session</div>
 								{/if}
-								<div class="mt-0.5 text-zinc-500 line-clamp-1">
-									{session.firstPrompt || 'No prompt'}
-								</div>
 							</a>
 						</td>
 						<td class="px-3 py-2.5 text-zinc-500">

@@ -1,6 +1,7 @@
 import { readdir, stat, readFile } from 'fs/promises';
 import path from 'path';
 import { getProjectsDir } from './paths.js';
+import { getReconciledSessions } from './reconciler.js';
 import type { Project, SessionIndex } from '$lib/types.js';
 
 /**
@@ -51,32 +52,40 @@ export async function listProjects(): Promise<Project[]> {
 		const s = await stat(fullPath).catch(() => null);
 		if (!s || !s.isDirectory()) continue;
 
-		// Count sessions and get last modified
+		// Use reconciled data if available, otherwise count files
 		let sessionCount = 0;
 		let lastModified = '';
 
-		// Try sessions-index.json first
-		try {
-			const indexPath = path.join(fullPath, 'sessions-index.json');
-			const indexData: SessionIndex = JSON.parse(await readFile(indexPath, 'utf-8'));
-			sessionCount = indexData.entries.length;
-			if (indexData.entries.length > 0) {
-				lastModified = indexData.entries
-					.map((e) => e.modified)
-					.sort()
-					.reverse()[0];
+		const reconciled = getReconciledSessions(entry);
+		if (reconciled) {
+			sessionCount = reconciled.length;
+			if (reconciled.length > 0) {
+				lastModified = reconciled[0].modified; // Already sorted newest first
 			}
-		} catch {
-			// Fallback: count .jsonl files
+		} else {
 			try {
 				const files = await readdir(fullPath);
 				const jsonlFiles = files.filter((f) => f.endsWith('.jsonl'));
 				sessionCount = jsonlFiles.length;
-				if (jsonlFiles.length > 0) {
+
+				try {
+					const indexPath = path.join(fullPath, 'sessions-index.json');
+					const indexData: SessionIndex = JSON.parse(await readFile(indexPath, 'utf-8'));
+					if (indexData.entries.length > 0) {
+						lastModified = indexData.entries
+							.map((e) => e.modified)
+							.sort()
+							.reverse()[0];
+					}
+				} catch {
+					// No index
+				}
+
+				if (!lastModified && jsonlFiles.length > 0) {
 					const stats = await Promise.all(
 						jsonlFiles.map(async (f) => {
-							const s = await stat(path.join(fullPath, f));
-							return s.mtime.toISOString();
+							const fileStat = await stat(path.join(fullPath, f));
+							return fileStat.mtime.toISOString();
 						})
 					);
 					lastModified = stats.sort().reverse()[0];

@@ -3,30 +3,44 @@ import { createReadStream } from 'fs';
 import { createInterface } from 'readline';
 import path from 'path';
 import { getProjectsDir } from './paths.js';
+import { getReconciledSessions } from './reconciler.js';
 import type { SessionEntry, SessionIndex } from '$lib/types.js';
 
 /**
  * Returns all sessions for a project, sorted by modified date (newest first).
- * Reads sessions-index.json if available, otherwise scans JSONL files directly.
+ * Uses the reconciler cache when available, otherwise falls back to
+ * merging sessions-index.json with unindexed JSONL files.
  */
 export async function getSessionsForProject(projectId: string): Promise<SessionEntry[]> {
-	const projectDir = path.join(getProjectsDir(), projectId);
+	// Use reconciled data if available
+	const reconciled = getReconciledSessions(projectId);
+	if (reconciled) return reconciled;
 
-	// Try sessions-index.json first
+	// Fallback: merge index + unindexed files
+	const projectDir = path.join(getProjectsDir(), projectId);
+	let indexEntries: SessionEntry[] = [];
+	const indexedIds = new Set<string>();
+
 	try {
 		const indexPath = path.join(projectDir, 'sessions-index.json');
 		const indexData: SessionIndex = JSON.parse(await readFile(indexPath, 'utf-8'));
-		return indexData.entries.sort(
-			(a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime()
-		);
+		indexEntries = indexData.entries;
+		for (const entry of indexEntries) {
+			indexedIds.add(entry.sessionId);
+		}
 	} catch {
-		// Fallback: scan JSONL files
+		// No index available
 	}
 
-	return scanJsonlFiles(projectDir);
+	const unindexedEntries = await scanJsonlFiles(projectDir, indexedIds);
+	const allEntries = [...indexEntries, ...unindexedEntries];
+	return allEntries.sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime());
 }
 
-async function scanJsonlFiles(projectDir: string): Promise<SessionEntry[]> {
+async function scanJsonlFiles(
+	projectDir: string,
+	skipIds: Set<string> = new Set()
+): Promise<SessionEntry[]> {
 	let files: string[];
 	try {
 		files = (await readdir(projectDir)).filter((f) => f.endsWith('.jsonl'));
@@ -39,6 +53,8 @@ async function scanJsonlFiles(projectDir: string): Promise<SessionEntry[]> {
 	for (const file of files) {
 		const fullPath = path.join(projectDir, file);
 		const sessionId = file.replace('.jsonl', '');
+
+		if (skipIds.has(sessionId)) continue;
 
 		try {
 			const fileStat = await stat(fullPath);
