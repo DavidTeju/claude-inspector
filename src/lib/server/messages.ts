@@ -141,11 +141,16 @@ export async function parseSessionMessages(filePath: string): Promise<ThreadMess
 				textParts.push(content);
 			}
 
+			const textContent = textParts.join('\n').trim();
+
+			// Skip empty assistant messages (whitespace-only text, no tool calls, no thinking)
+			if (!textContent && toolCalls.length === 0 && thinkingBlocks.length === 0) continue;
+
 			messages.push({
 				uuid: record.uuid,
 				role: 'assistant',
 				timestamp: record.timestamp,
-				textContent: textParts.join('\n'),
+				textContent,
 				toolCalls,
 				toolResults: new Map(),
 				thinkingBlocks,
