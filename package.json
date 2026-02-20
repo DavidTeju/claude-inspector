@@ -15,6 +15,7 @@
 	},
 	"dependencies": {
 		"@anthropic-ai/sdk": "^0.78.0",
+		"@vscode/ripgrep": "^1.17.0",
 		"marked": "^15.0.0",
 		"shiki": "^3.0.0"
 	},
