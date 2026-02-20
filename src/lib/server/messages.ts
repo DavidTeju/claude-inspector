@@ -72,6 +72,10 @@ export async function parseSessionMessages(filePath: string): Promise<ThreadMess
 		queue.push(...children);
 	}
 
+	// Sort by timestamp — BFS determines reachability (filters sidechains),
+	// but timestamp is the ground truth for display order
+	ordered.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+
 	// Collect tool results from user messages
 	const toolResultMap = new Map<string, { content: string | ContentBlock[]; isError: boolean }>();
 
