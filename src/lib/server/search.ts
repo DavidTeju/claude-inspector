@@ -6,10 +6,6 @@ import { getProjectsDir } from './paths.js';
 import { dirNameToDisplayName } from './projects.js';
 import type { SearchResult, SessionIndex } from '$lib/types.js';
 
-/**
- * Extract text content from a parsed JSONL session record.
- * Only returns text from user/assistant messages.
- */
 function extractTextContent(record: Record<string, unknown>): string | null {
 	const type = record.type as string;
 	if (type !== 'user' && type !== 'assistant') return null;
@@ -17,9 +13,7 @@ function extractTextContent(record: Record<string, unknown>): string | null {
 	const message = record.message as { content?: unknown } | undefined;
 	if (!message?.content) return null;
 
-	if (typeof message.content === 'string') {
-		return message.content;
-	}
+	if (typeof message.content === 'string') return message.content;
 
 	if (Array.isArray(message.content)) {
 		const texts: string[] = [];
@@ -57,7 +51,6 @@ function createSnippet(text: string, term: string): string {
 	return snippet;
 }
 
-// In-memory cache for session index data
 const indexCache = new Map<string, { data: SessionIndex; timestamp: number }>();
 const INDEX_CACHE_TTL = 5000;
 
@@ -108,19 +101,16 @@ export interface StreamingSearchCallbacks {
 	onError: (error: string) => void;
 }
 
-/** A match that passed sync filtering, pending async enrichment */
-interface PendingMatch {
-	projectId: string;
-	sessionId: string;
-	snippet: string;
-}
-
 /**
  * Spawns rg to search JSONL files with full-text post-filtering.
  *
- * All filtering and dedup is fully synchronous in the stdout handler.
- * After rg closes, async metadata enrichment runs on the deduplicated set,
- * results are sorted by relevance, and emitted via callbacks.
+ * Uses Buffer.concat to collect all rg output before parsing — this is
+ * necessary because rg's --json output produces multi-MB lines for large
+ * JSONL records, and Node's data events split these at arbitrary byte
+ * boundaries. Incremental parsing drops lines nondeterministically.
+ *
+ * After parsing, results are enriched with metadata in parallel and
+ * emitted immediately. Client sorts by relevance on the done event.
  */
 export function searchSessionsStreaming(
 	query: string,
@@ -164,69 +154,12 @@ export function searchSessionsStreaming(
 		return null;
 	}
 
-	const seenSessions = new Set<string>();
-	const pendingMatches: PendingMatch[] = [];
+	const chunks: Buffer[] = [];
 	let closed = false;
 
 	const timeout = setTimeout(() => {
 		rgProcess.kill();
 	}, 10000);
-
-	/**
-	 * Process a single rg JSON match line. All work is synchronous.
-	 * Returns a PendingMatch if it passes all filters, or null.
-	 */
-	function processSyncMatch(rgEvent: Record<string, unknown>): PendingMatch | null {
-		if (rgEvent.type !== 'match') return null;
-
-		const data = rgEvent.data as {
-			path?: { text?: string };
-			lines?: { text?: string };
-		};
-		const filePath = data?.path?.text;
-		const lineText = data?.lines?.text;
-		if (!filePath || !lineText) return null;
-
-		// Extract projectId and sessionId from path
-		const relPath = filePath.replace(projectsDir + '/', '');
-		const parts = relPath.split('/');
-		if (parts.length < 2) return null;
-		// Skip subagent files (projectId/sessionId/subagents/agent-xxx.jsonl)
-		if (parts.length > 2) return null;
-
-		const projectId = parts[0];
-		const sessionId = parts[1].replace('.jsonl', '');
-
-		// Dedup — skip if already have a passing match for this session
-		const key = `${projectId}/${sessionId}`;
-		if (seenSessions.has(key)) return null;
-
-		// Parse the JSONL record
-		let record: Record<string, unknown>;
-		try {
-			record = JSON.parse(lineText);
-		} catch {
-			return null;
-		}
-
-		// Extract text content (only user/assistant messages)
-		const textContent = extractTextContent(record);
-		if (!textContent) return null;
-
-		// Verify ALL terms appear in the text
-		const lowerText = textContent.toLowerCase();
-		if (!terms.every((t) => lowerText.includes(t))) return null;
-
-		// Passed all filters — claim this session
-		seenSessions.add(key);
-		return {
-			projectId,
-			sessionId,
-			snippet: createSnippet(textContent, terms[0])
-		};
-	}
-
-	const chunks: Buffer[] = [];
 
 	rgProcess.stdout?.on('data', (chunk: Buffer) => {
 		chunks.push(chunk);
@@ -239,13 +172,20 @@ export function searchSessionsStreaming(
 		closed = true;
 		clearTimeout(timeout);
 
-		// Parse all rg output at once — avoids buffer-split issues
+		// Parse all rg output at once for consistency
 		const fullOutput = Buffer.concat(chunks).toString('utf-8');
-		const lines = fullOutput.split('\n');
+		const rgLines = fullOutput.split('\n');
 
-		for (const line of lines) {
+		const seenSessions = new Set<string>();
+		const matches: Array<{
+			projectId: string;
+			sessionId: string;
+			snippet: string;
+		}> = [];
+
+		for (const line of rgLines) {
 			if (!line.trim()) continue;
-			if (pendingMatches.length >= 500) break;
+			if (matches.length >= 500) break;
 
 			let rgEvent;
 			try {
@@ -254,12 +194,87 @@ export function searchSessionsStreaming(
 				continue;
 			}
 
-			const match = processSyncMatch(rgEvent);
-			if (match) pendingMatches.push(match);
+			if (rgEvent.type !== 'match') continue;
+
+			const data = rgEvent.data as {
+				path?: { text?: string };
+				lines?: { text?: string };
+			};
+			const filePath = data?.path?.text;
+			const lineText = data?.lines?.text;
+			if (!filePath || !lineText) continue;
+
+			const relPath = filePath.replace(projectsDir + '/', '');
+			const parts = relPath.split('/');
+			if (parts.length < 2 || parts.length > 2) continue;
+
+			const projectId = parts[0];
+			const sessionId = parts[1].replace('.jsonl', '');
+
+			const key = `${projectId}/${sessionId}`;
+			if (seenSessions.has(key)) continue;
+
+			let record: Record<string, unknown>;
+			try {
+				record = JSON.parse(lineText);
+			} catch {
+				continue;
+			}
+
+			const textContent = extractTextContent(record);
+			if (!textContent) continue;
+
+			const lowerText = textContent.toLowerCase();
+			if (!terms.every((t) => lowerText.includes(t))) continue;
+
+			seenSessions.add(key);
+			matches.push({
+				projectId,
+				sessionId,
+				snippet: createSnippet(textContent, terms[0])
+			});
 		}
 
-		// Async: enrich with metadata, sort by relevance, emit
-		enrichAndEmit(pendingMatches, terms, callbacks);
+		// Enrich all matches with metadata in parallel, emit as they resolve
+		let emitted = 0;
+		const enrichPromises = matches.map(async (match) => {
+			const meta = await loadSessionMeta(match.projectId, match.sessionId);
+
+			let modified = meta?.modified || '';
+			if (!modified) {
+				try {
+					const fp = path.join(getProjectsDir(), match.projectId, match.sessionId + '.jsonl');
+					const fileStat = await stat(fp);
+					modified = fileStat.mtime.toISOString();
+				} catch {
+					modified = new Date().toISOString();
+				}
+			}
+
+			const summaryLower = (meta?.summary || '').toLowerCase();
+			const promptLower = (meta?.firstPrompt || '').toLowerCase();
+			let relevance = 0;
+			for (const t of terms) {
+				if (promptLower.includes(t)) relevance += 2;
+				if (summaryLower.includes(t)) relevance += 1;
+			}
+
+			callbacks.onResult({
+				projectId: match.projectId,
+				projectName: dirNameToDisplayName(match.projectId),
+				sessionId: match.sessionId,
+				sessionSummary: meta?.summary || '',
+				firstPrompt: meta?.firstPrompt || '',
+				snippets: [match.snippet],
+				modified,
+				relevance
+			});
+			emitted++;
+		});
+
+		Promise.all(enrichPromises).then(() => {
+			callbacks.onDone(emitted);
+		});
 	});
 
 	rgProcess.on('error', () => {
@@ -270,69 +285,6 @@ export function searchSessionsStreaming(
 	});
 
 	return rgProcess;
-}
-
-async function enrichAndEmit(
-	matches: PendingMatch[],
-	terms: string[],
-	callbacks: StreamingSearchCallbacks
-): Promise<void> {
-	const results: SearchResult[] = [];
-
-	await Promise.all(
-		matches.map(async (match) => {
-			const meta = await loadSessionMeta(match.projectId, match.sessionId);
-
-			let modified = meta?.modified || '';
-			if (!modified) {
-				try {
-					const filePath = path.join(
-						getProjectsDir(),
-						match.projectId,
-						match.sessionId + '.jsonl'
-					);
-					const fileStat = await stat(filePath);
-					modified = fileStat.mtime.toISOString();
-				} catch {
-					modified = new Date().toISOString();
-				}
-			}
-
-			// Relevance: terms in firstPrompt/summary rank higher
-			const summaryLower = (meta?.summary || '').toLowerCase();
-			const promptLower = (meta?.firstPrompt || '').toLowerCase();
-			let relevance = 0;
-			for (const t of terms) {
-				if (promptLower.includes(t)) relevance += 2;
-				if (summaryLower.includes(t)) relevance += 1;
-			}
-
-			results.push({
-				projectId: match.projectId,
-				projectName: dirNameToDisplayName(match.projectId),
-				sessionId: match.sessionId,
-				sessionSummary: meta?.summary || '',
-				firstPrompt: meta?.firstPrompt || '',
-				snippets: [match.snippet],
-				modified,
-				relevance
-			});
-		})
-	);
-
-	// Sort: highest relevance first, then newest first
-	results.sort((a, b) => {
-		const ra = a.relevance ?? 0;
-		const rb = b.relevance ?? 0;
-		if (rb !== ra) return rb - ra;
-		return new Date(b.modified).getTime() - new Date(a.modified).getTime();
-	});
-
-	for (const result of results) {
-		callbacks.onResult(result);
-	}
-
-	callbacks.onDone(results.length);
 }
 
 async function fallbackIndexSearch(
@@ -413,7 +365,15 @@ export async function searchSessions(
 			query,
 			{
 				onResult: (result) => results.push(result),
-				onDone: () => resolve(results),
+				onDone: () => {
+					results.sort((a, b) => {
+						const ra = a.relevance ?? 0;
+						const rb = b.relevance ?? 0;
+						if (rb !== ra) return rb - ra;
+						return new Date(b.modified).getTime() - new Date(a.modified).getTime();
+					});
+					resolve(results);
+				},
 				onError: () => resolve([])
 			},
 			projectFilter
