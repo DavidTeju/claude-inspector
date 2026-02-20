@@ -96,4 +96,5 @@ export interface SearchResult {
 	firstPrompt: string;
 	snippets: string[];
 	modified: string;
+	relevance?: number;
 }

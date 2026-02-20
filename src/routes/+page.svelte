@@ -123,6 +123,12 @@
 							results = [...results, parsed as SearchResult];
 						} else if (eventType === 'done') {
 							totalResults = parsed.totalSessions;
+							results = [...results].sort((a, b) => {
+								const ra = a.relevance ?? 0;
+								const rb = b.relevance ?? 0;
+								if (rb !== ra) return rb - ra;
+								return new Date(b.modified).getTime() - new Date(a.modified).getTime();
+							});
 							isSearching = false;
 						} else if (eventType === 'error') {
 							isSearching = false;

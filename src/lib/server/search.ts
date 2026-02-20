@@ -172,23 +172,35 @@ export function searchSessionsStreaming(
 	// data handler calls them sequentially, the has()+add() in processMatch is atomic.
 	const emittedSessions = new Set<string>();
 	let totalEmitted = 0;
-	let buffer = '';
 	let closed = false;
 
-	// Track all in-flight processMatch promises
 	const pendingPromises: Promise<void>[] = [];
+	// Collect all stdout chunks — rg --json produces multi-MB lines for large
+	// JSONL records, and Node's data events split these at arbitrary byte
+	// boundaries. Incremental line parsing silently drops split lines.
+	const stdoutChunks: Buffer[] = [];
 
 	const timeout = setTimeout(() => {
 		rgProcess.kill();
 	}, 10000);
 
 	rgProcess.stdout?.on('data', (chunk: Buffer) => {
-		buffer += chunk.toString();
-		const lines = buffer.split('\n');
-		buffer = lines.pop() || ''; // keep incomplete last line in buffer
+		stdoutChunks.push(chunk);
+	});
+
+	rgProcess.stderr?.on('data', () => {});
+
+	rgProcess.on('close', () => {
+		if (closed) return;
+		closed = true;
+		clearTimeout(timeout);
+
+		const fullOutput = Buffer.concat(stdoutChunks).toString('utf-8');
+		const lines = fullOutput.split('\n');
 
 		for (const line of lines) {
 			if (!line.trim()) continue;
+			if (emittedSessions.size >= 500) break;
 
 			try {
 				const rgEvent = JSON.parse(line);
@@ -197,9 +209,6 @@ export function searchSessionsStreaming(
 				const match = processRgMatch(rgEvent, projectsDir);
 				if (!match) continue;
 
-				// Early exit if we've hit the cap
-				if (emittedSessions.size >= 500) continue;
-
 				const promise = processMatch(match, terms, emittedSessions, callbacks).then(
 					(emitted) => {
 						if (emitted) totalEmitted++;
@@ -207,41 +216,10 @@ export function searchSessionsStreaming(
 				);
 				pendingPromises.push(promise);
 			} catch {
-				// Skip malformed rg output lines
-			}
-		}
-	});
-
-	rgProcess.stderr?.on('data', () => {
-		// rg writes warnings to stderr (e.g., permission denied) — ignore
-	});
-
-	rgProcess.on('close', () => {
-		if (closed) return;
-		closed = true;
-		clearTimeout(timeout);
-
-		// Process any remaining buffer
-		if (buffer.trim()) {
-			try {
-				const rgEvent = JSON.parse(buffer);
-				if (rgEvent.type === 'match') {
-					const match = processRgMatch(rgEvent, projectsDir);
-					if (match && emittedSessions.size < 500) {
-						const promise = processMatch(match, terms, emittedSessions, callbacks).then(
-							(emitted) => {
-								if (emitted) totalEmitted++;
-							}
-						);
-						pendingPromises.push(promise);
-					}
-				}
-			} catch {
-				// ignore
+				continue;
 			}
 		}
 
-		// Wait for ALL in-flight processMatch promises before signaling done
 		Promise.all(pendingPromises).then(() => {
 			callbacks.onDone(totalEmitted);
 		});
@@ -272,6 +250,8 @@ function processRgMatch(rgEvent: Record<string, unknown>, projectsDir: string): 
 	const relPath = filePath.replace(projectsDir + '/', '');
 	const parts = relPath.split('/');
 	if (parts.length < 2) return null;
+	// Skip subagent files (projectId/sessionId/subagents/agent-xxx.jsonl)
+	if (parts.length > 2) return null;
 
 	const projectId = parts[0];
 	const sessionId = parts[1].replace('.jsonl', '');
@@ -334,6 +314,15 @@ async function processMatch(
 		}
 	}
 
+	// Relevance: terms in firstPrompt/summary score higher than body-only matches
+	const promptLower = (meta?.firstPrompt || '').toLowerCase();
+	const summaryLower = (meta?.summary || '').toLowerCase();
+	let relevance = 0;
+	for (const t of terms) {
+		if (promptLower.includes(t)) relevance += 2;
+		if (summaryLower.includes(t)) relevance += 1;
+	}
+
 	const result: SearchResult = {
 		projectId: match.projectId,
 		projectName: dirNameToDisplayName(match.projectId),
@@ -341,7 +330,8 @@ async function processMatch(
 		sessionSummary: meta?.summary || '',
 		firstPrompt: meta?.firstPrompt || '',
 		snippets: [snippet],
-		modified
+		modified,
+		relevance
 	};
 
 	callbacks.onResult(result);
