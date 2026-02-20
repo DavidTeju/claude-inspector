@@ -1,24 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import type { Project } from '$lib/types.js';
+	import { formatRelativeDate } from '$lib/utils.js';
 
 	let { project }: { project: Project } = $props();
-
-	function formatDate(iso: string): string {
-		if (!iso) return 'Unknown';
-		const d = new Date(iso);
-		const now = new Date();
-		const diffMs = now.getTime() - d.getTime();
-		const diffMins = Math.floor(diffMs / 60000);
-		const diffHours = Math.floor(diffMs / 3600000);
-		const diffDays = Math.floor(diffMs / 86400000);
-
-		if (diffMins < 1) return 'Just now';
-		if (diffMins < 60) return `${diffMins}m ago`;
-		if (diffHours < 24) return `${diffHours}h ago`;
-		if (diffDays < 7) return `${diffDays}d ago`;
-		return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-	}
 </script>
 
 <a
@@ -43,6 +28,6 @@
 			{project.sessionCount} sessions
 		</span>
 		<span class="text-zinc-700">|</span>
-		<span>{formatDate(project.lastModified)}</span>
+		<span>{formatRelativeDate(project.lastModified)}</span>
 	</div>
 </a>
