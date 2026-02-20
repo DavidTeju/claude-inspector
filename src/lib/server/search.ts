@@ -6,15 +6,9 @@ import { getProjectsDir } from './paths.js';
 import { dirNameToDisplayName } from './projects.js';
 import type { SearchResult, SessionIndex } from '$lib/types.js';
 
-interface RgMatch {
-	projectId: string;
-	sessionId: string;
-	lineText: string;
-}
-
 /**
  * Extract text content from a parsed JSONL session record.
- * Only returns text from user/assistant messages, filtering out tool_use, tool_result, thinking, etc.
+ * Only returns text from user/assistant messages.
  */
 function extractTextContent(record: Record<string, unknown>): string | null {
 	const type = record.type as string;
@@ -47,9 +41,6 @@ function extractTextContent(record: Record<string, unknown>): string | null {
 	return null;
 }
 
-/**
- * Create a context snippet around the match position in the extracted text.
- */
 function createSnippet(text: string, term: string): string {
 	const lower = text.toLowerCase();
 	const termLower = term.toLowerCase();
@@ -66,9 +57,9 @@ function createSnippet(text: string, term: string): string {
 	return snippet;
 }
 
-// In-memory cache for session index data to avoid re-reading the same file
+// In-memory cache for session index data
 const indexCache = new Map<string, { data: SessionIndex; timestamp: number }>();
-const INDEX_CACHE_TTL = 5000; // 5 seconds
+const INDEX_CACHE_TTL = 5000;
 
 async function loadSessionIndex(projectId: string): Promise<SessionIndex | null> {
 	const now = Date.now();
@@ -87,9 +78,6 @@ async function loadSessionIndex(projectId: string): Promise<SessionIndex | null>
 	}
 }
 
-/**
- * Load session metadata from sessions-index.json for enrichment.
- */
 async function loadSessionMeta(
 	projectId: string,
 	sessionId: string
@@ -120,9 +108,19 @@ export interface StreamingSearchCallbacks {
 	onError: (error: string) => void;
 }
 
+/** A match that passed sync filtering, pending async enrichment */
+interface PendingMatch {
+	projectId: string;
+	sessionId: string;
+	snippet: string;
+}
+
 /**
- * Spawns rg to search JSONL files, post-filters to actual message text,
- * and streams results via callbacks. Returns the child process for abort control.
+ * Spawns rg to search JSONL files with full-text post-filtering.
+ *
+ * All filtering and dedup is fully synchronous in the stdout handler.
+ * After rg closes, async metadata enrichment runs on the deduplicated set,
+ * results are sorted by relevance, and emitted via callbacks.
  */
 export function searchSessionsStreaming(
 	query: string,
@@ -154,7 +152,7 @@ export function searchSessionsStreaming(
 		'5',
 		'--glob',
 		'*.jsonl',
-		terms[0], // search for first term via rg, post-filter remaining terms
+		terms[0],
 		searchPath
 	];
 
@@ -162,195 +160,181 @@ export function searchSessionsStreaming(
 	try {
 		rgProcess = spawn(rgPath, rgArgs);
 	} catch {
-		// rg binary missing — fall back to index-only search
 		fallbackIndexSearch(query, projectFilter, callbacks);
 		return null;
 	}
 
-	// Dedup set shared with processMatch — checked AFTER sync filtering, BEFORE async enrichment.
-	// Since async functions run synchronously until the first await, and the for loop in the
-	// data handler calls them sequentially, the has()+add() in processMatch is atomic.
-	const emittedSessions = new Set<string>();
-	let totalEmitted = 0;
-	let buffer = '';
+	const seenSessions = new Set<string>();
+	const pendingMatches: PendingMatch[] = [];
 	let closed = false;
-
-	// Track all in-flight processMatch promises
-	const pendingPromises: Promise<void>[] = [];
 
 	const timeout = setTimeout(() => {
 		rgProcess.kill();
 	}, 10000);
 
-	rgProcess.stdout?.on('data', (chunk: Buffer) => {
-		buffer += chunk.toString();
-		const lines = buffer.split('\n');
-		buffer = lines.pop() || ''; // keep incomplete last line in buffer
+	/**
+	 * Process a single rg JSON match line. All work is synchronous.
+	 * Returns a PendingMatch if it passes all filters, or null.
+	 */
+	function processSyncMatch(rgEvent: Record<string, unknown>): PendingMatch | null {
+		if (rgEvent.type !== 'match') return null;
 
-		for (const line of lines) {
-			if (!line.trim()) continue;
+		const data = rgEvent.data as {
+			path?: { text?: string };
+			lines?: { text?: string };
+		};
+		const filePath = data?.path?.text;
+		const lineText = data?.lines?.text;
+		if (!filePath || !lineText) return null;
 
-			try {
-				const rgEvent = JSON.parse(line);
-				if (rgEvent.type !== 'match') continue;
+		// Extract projectId and sessionId from path
+		const relPath = filePath.replace(projectsDir + '/', '');
+		const parts = relPath.split('/');
+		if (parts.length < 2) return null;
+		// Skip subagent files (projectId/sessionId/subagents/agent-xxx.jsonl)
+		if (parts.length > 2) return null;
 
-				const match = processRgMatch(rgEvent, projectsDir);
-				if (!match) continue;
+		const projectId = parts[0];
+		const sessionId = parts[1].replace('.jsonl', '');
 
-				// Early exit if we've hit the cap
-				if (emittedSessions.size >= 500) continue;
+		// Dedup — skip if already have a passing match for this session
+		const key = `${projectId}/${sessionId}`;
+		if (seenSessions.has(key)) return null;
 
-				const promise = processMatch(match, terms, emittedSessions, callbacks).then(
-					(emitted) => {
-						if (emitted) totalEmitted++;
-					}
-				);
-				pendingPromises.push(promise);
-			} catch {
-				// Skip malformed rg output lines
-			}
+		// Parse the JSONL record
+		let record: Record<string, unknown>;
+		try {
+			record = JSON.parse(lineText);
+		} catch {
+			return null;
 		}
+
+		// Extract text content (only user/assistant messages)
+		const textContent = extractTextContent(record);
+		if (!textContent) return null;
+
+		// Verify ALL terms appear in the text
+		const lowerText = textContent.toLowerCase();
+		if (!terms.every((t) => lowerText.includes(t))) return null;
+
+		// Passed all filters — claim this session
+		seenSessions.add(key);
+		return {
+			projectId,
+			sessionId,
+			snippet: createSnippet(textContent, terms[0])
+		};
+	}
+
+	const chunks: Buffer[] = [];
+
+	rgProcess.stdout?.on('data', (chunk: Buffer) => {
+		chunks.push(chunk);
 	});
 
-	rgProcess.stderr?.on('data', () => {
-		// rg writes warnings to stderr (e.g., permission denied) — ignore
-	});
+	rgProcess.stderr?.on('data', () => {});
 
 	rgProcess.on('close', () => {
 		if (closed) return;
 		closed = true;
 		clearTimeout(timeout);
 
-		// Process any remaining buffer
-		if (buffer.trim()) {
+		// Parse all rg output at once — avoids buffer-split issues
+		const fullOutput = Buffer.concat(chunks).toString('utf-8');
+		const lines = fullOutput.split('\n');
+
+		for (const line of lines) {
+			if (!line.trim()) continue;
+			if (pendingMatches.length >= 500) break;
+
+			let rgEvent;
 			try {
-				const rgEvent = JSON.parse(buffer);
-				if (rgEvent.type === 'match') {
-					const match = processRgMatch(rgEvent, projectsDir);
-					if (match && emittedSessions.size < 500) {
-						const promise = processMatch(match, terms, emittedSessions, callbacks).then(
-							(emitted) => {
-								if (emitted) totalEmitted++;
-							}
-						);
-						pendingPromises.push(promise);
-					}
-				}
+				rgEvent = JSON.parse(line);
 			} catch {
-				// ignore
+				continue;
 			}
+
+			const match = processSyncMatch(rgEvent);
+			if (match) pendingMatches.push(match);
 		}
 
-		// Wait for ALL in-flight processMatch promises before signaling done
-		Promise.all(pendingPromises).then(() => {
-			callbacks.onDone(totalEmitted);
-		});
+		// Async: enrich with metadata, sort by relevance, emit
+		enrichAndEmit(pendingMatches, terms, callbacks);
 	});
 
 	rgProcess.on('error', () => {
 		if (closed) return;
 		closed = true;
 		clearTimeout(timeout);
-		// rg binary not found or execution error — fall back
 		fallbackIndexSearch(query, projectFilter, callbacks);
 	});
 
 	return rgProcess;
 }
 
-function processRgMatch(rgEvent: Record<string, unknown>, projectsDir: string): RgMatch | null {
-	const data = rgEvent.data as {
-		path?: { text?: string };
-		lines?: { text?: string };
-	};
-
-	const filePath = data?.path?.text;
-	const lineText = data?.lines?.text;
-	if (!filePath || !lineText) return null;
-
-	// Extract projectId and sessionId from path
-	const relPath = filePath.replace(projectsDir + '/', '');
-	const parts = relPath.split('/');
-	if (parts.length < 2) return null;
-
-	const projectId = parts[0];
-	const sessionId = parts[1].replace('.jsonl', '');
-
-	return { projectId, sessionId, lineText };
-}
-
-/**
- * Process a single rg match: parse JSONL, extract text, verify match, create result.
- * Dedup happens AFTER synchronous filtering but BEFORE async metadata load.
- * Since async functions run synchronously until the first await, the dedup
- * has()+add() is atomic within the event loop — no race window.
- */
-async function processMatch(
-	match: RgMatch,
+async function enrichAndEmit(
+	matches: PendingMatch[],
 	terms: string[],
-	emittedSessions: Set<string>,
 	callbacks: StreamingSearchCallbacks
-): Promise<boolean> {
-	// --- All synchronous: parse, filter, dedup ---
+): Promise<void> {
+	const results: SearchResult[] = [];
 
-	// Parse the JSONL line
-	let record: Record<string, unknown>;
-	try {
-		record = JSON.parse(match.lineText);
-	} catch {
-		return false;
+	await Promise.all(
+		matches.map(async (match) => {
+			const meta = await loadSessionMeta(match.projectId, match.sessionId);
+
+			let modified = meta?.modified || '';
+			if (!modified) {
+				try {
+					const filePath = path.join(
+						getProjectsDir(),
+						match.projectId,
+						match.sessionId + '.jsonl'
+					);
+					const fileStat = await stat(filePath);
+					modified = fileStat.mtime.toISOString();
+				} catch {
+					modified = new Date().toISOString();
+				}
+			}
+
+			// Relevance: terms in firstPrompt/summary rank higher
+			const summaryLower = (meta?.summary || '').toLowerCase();
+			const promptLower = (meta?.firstPrompt || '').toLowerCase();
+			let relevance = 0;
+			for (const t of terms) {
+				if (promptLower.includes(t)) relevance += 2;
+				if (summaryLower.includes(t)) relevance += 1;
+			}
+
+			results.push({
+				projectId: match.projectId,
+				projectName: dirNameToDisplayName(match.projectId),
+				sessionId: match.sessionId,
+				sessionSummary: meta?.summary || '',
+				firstPrompt: meta?.firstPrompt || '',
+				snippets: [match.snippet],
+				modified,
+				relevance
+			});
+		})
+	);
+
+	// Sort: highest relevance first, then newest first
+	results.sort((a, b) => {
+		const ra = a.relevance ?? 0;
+		const rb = b.relevance ?? 0;
+		if (rb !== ra) return rb - ra;
+		return new Date(b.modified).getTime() - new Date(a.modified).getTime();
+	});
+
+	for (const result of results) {
+		callbacks.onResult(result);
 	}
 
-	// Extract actual text content (only user/assistant messages)
-	const textContent = extractTextContent(record);
-	if (!textContent) return false;
-
-	// Verify ALL terms appear in the actual text content
-	const lowerText = textContent.toLowerCase();
-	if (!terms.every((t) => lowerText.includes(t))) return false;
-
-	// Dedup: check AFTER filtering passes, BEFORE async work.
-	// This is atomic because no await has occurred yet.
-	const dedupeKey = `${match.projectId}/${match.sessionId}`;
-	if (emittedSessions.has(dedupeKey)) return false;
-	emittedSessions.add(dedupeKey);
-
-	// Create snippet from the actual text content
-	const snippet = createSnippet(textContent, terms[0]);
-
-	// --- Async: metadata enrichment (only the dedup winner reaches here) ---
-
-	const meta = await loadSessionMeta(match.projectId, match.sessionId);
-
-	let modified = meta?.modified || '';
-	if (!modified) {
-		// Fallback: use file mtime
-		try {
-			const filePath = path.join(getProjectsDir(), match.projectId, match.sessionId + '.jsonl');
-			const fileStat = await stat(filePath);
-			modified = fileStat.mtime.toISOString();
-		} catch {
-			modified = new Date().toISOString();
-		}
-	}
-
-	const result: SearchResult = {
-		projectId: match.projectId,
-		projectName: dirNameToDisplayName(match.projectId),
-		sessionId: match.sessionId,
-		sessionSummary: meta?.summary || '',
-		firstPrompt: meta?.firstPrompt || '',
-		snippets: [snippet],
-		modified
-	};
-
-	callbacks.onResult(result);
-	return true;
+	callbacks.onDone(results.length);
 }
 
-/**
- * Fallback: search using sessions-index.json when rg is unavailable.
- */
 async function fallbackIndexSearch(
 	query: string,
 	projectFilter: string | undefined,
@@ -418,9 +402,6 @@ async function fallbackIndexSearch(
 	callbacks.onDone(totalEmitted);
 }
 
-/**
- * Non-streaming search for backwards compatibility.
- */
 export async function searchSessions(
 	query: string,
 	projectFilter?: string
@@ -432,17 +413,12 @@ export async function searchSessions(
 			query,
 			{
 				onResult: (result) => results.push(result),
-				onDone: () => {
-					resolve(
-						results.sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime())
-					);
-				},
+				onDone: () => resolve(results),
 				onError: () => resolve([])
 			},
 			projectFilter
 		);
 
-		// If searchSessionsStreaming returned null, callbacks fire synchronously
 		if (!rgProcess) return;
 	});
 }

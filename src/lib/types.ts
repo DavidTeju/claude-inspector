@@ -96,4 +96,6 @@ export interface SearchResult {
 	firstPrompt: string;
 	snippets: string[];
 	modified: string;
+	/** Higher = more relevant. Terms in firstPrompt/summary score higher than body-only matches. */
+	relevance?: number;
 }
