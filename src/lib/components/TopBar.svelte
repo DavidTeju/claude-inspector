@@ -36,10 +36,6 @@
 			}
 		}
 
-		if (url.startsWith('/search')) {
-			parts.push({ label: 'Search', href: resolve('/search') });
-		}
-
 		return parts;
 	});
 
@@ -80,33 +76,22 @@
 			{#if i === breadcrumbs.length - 1}
 				<span class="text-zinc-300">{crumb.label}</span>
 			{:else}
-				<a href={resolve(crumb.href)} class="hover:text-zinc-300 transition-colors">{crumb.label}</a
-				>
+				<a href={crumb.href} class="hover:text-zinc-300 transition-colors">{crumb.label}</a>
 			{/if}
 		{/each}
 	</nav>
 
-	<form method="GET" action={resolve('/search')} class="ml-auto flex items-center">
-		<div class="relative">
-			<svg
-				class="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-600"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="2"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-				/>
-			</svg>
-			<input
-				name="q"
-				type="text"
-				placeholder="Search sessions..."
-				class="w-64 rounded-md border border-zinc-800 bg-zinc-900 py-1.5 pl-8 pr-3 text-xs text-zinc-300 placeholder-zinc-600 outline-none transition-colors focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600"
+	<a
+		href={resolve('/')}
+		class="ml-auto flex items-center text-zinc-500 hover:text-zinc-300 transition-colors"
+		aria-label="Search sessions"
+	>
+		<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+			<path
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
 			/>
-		</div>
-	</form>
+		</svg>
+	</a>
 </header>
