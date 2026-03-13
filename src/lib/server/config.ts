@@ -1,3 +1,4 @@
+import type { PermissionMode } from '$lib/shared/active-session-types.js';
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { homedir } from 'os';
@@ -7,10 +8,18 @@ const CONFIG_PATH = path.join(CONFIG_DIR, 'config.json');
 
 export interface AppConfig {
 	anthropicApiKey: string;
+	defaultPermissionMode: PermissionMode;
+	defaultModel: string;
+	permissionTimeoutMinutes: number;
+	sessionReapMinutes: number;
 }
 
 const DEFAULT_CONFIG: AppConfig = {
-	anthropicApiKey: ''
+	anthropicApiKey: '',
+	defaultPermissionMode: 'default',
+	defaultModel: '',
+	permissionTimeoutMinutes: 5,
+	sessionReapMinutes: 30
 };
 
 /** Reads the app config from ~/.claude-inspector/config.json */
