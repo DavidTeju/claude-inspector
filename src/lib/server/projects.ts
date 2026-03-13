@@ -1,15 +1,16 @@
-import { readdir, stat, readFile } from 'fs/promises';
+import { readdir, stat } from 'fs/promises';
 import path from 'path';
+import type { Project } from '../types.js';
+import { dirNameToDisplayName } from '../utils.js';
+import { listProjectSessionFilesInDir } from './session-discovery.js';
 import { getProjectsDir } from './paths.js';
 import { getReconciledSessions } from './reconciler.js';
-import { dirNameToDisplayName } from '$lib/utils.js';
-import type { Project, SessionIndex } from '$lib/types.js';
 
 export { dirNameToDisplayName };
 
 /**
  * Scans ~/.claude/projects/ and returns all projects sorted by last modified.
- * Uses sessions-index.json when available, falls back to counting .jsonl files.
+ * Uses the reconciler cache when available, otherwise falls back to file discovery.
  */
 export async function listProjects(): Promise<Project[]> {
 	const projectsDir = getProjectsDir();
@@ -25,49 +26,33 @@ export async function listProjects(): Promise<Project[]> {
 
 	for (const entry of entries) {
 		const fullPath = path.join(projectsDir, entry);
-		const s = await stat(fullPath).catch(() => null);
-		if (!s || !s.isDirectory()) continue;
+		const directoryStat = await stat(fullPath).catch(() => null);
+		if (!directoryStat?.isDirectory()) continue;
 
-		// Use reconciled data if available, otherwise count files
-		let sessionCount = 0;
+		let sessionCount: number;
 		let lastModified = '';
 
 		const reconciled = getReconciledSessions(entry);
 		if (reconciled) {
 			sessionCount = reconciled.length;
-			if (reconciled.length > 0) {
-				lastModified = reconciled[0].modified; // Already sorted newest first
-			}
+			lastModified = reconciled[0]?.modified || '';
 		} else {
 			try {
-				const files = await readdir(fullPath);
-				const jsonlFiles = files.filter((f) => f.endsWith('.jsonl'));
-				sessionCount = jsonlFiles.length;
+				const descriptors = await listProjectSessionFilesInDir(entry, fullPath);
+				sessionCount = descriptors.length;
 
-				try {
-					const indexPath = path.join(fullPath, 'sessions-index.json');
-					const indexData: SessionIndex = JSON.parse(await readFile(indexPath, 'utf-8'));
-					if (indexData.entries.length > 0) {
-						lastModified = indexData.entries.reduce(
-							(max, e) => (e.modified > max ? e.modified : max),
-							''
-						);
-					}
-				} catch {
-					// No index
-				}
-
-				if (!lastModified && jsonlFiles.length > 0) {
-					const stats = await Promise.all(
-						jsonlFiles.map(async (f) => {
-							const fileStat = await stat(path.join(fullPath, f));
+				if (descriptors.length > 0) {
+					const modifiedTimes = await Promise.all(
+						descriptors.map(async (descriptor) => {
+							const fileStat = await stat(descriptor.fullPath);
 							return fileStat.mtime.toISOString();
 						})
 					);
-					lastModified = stats.sort().reverse()[0];
+
+					lastModified = modifiedTimes.sort().reverse()[0] || '';
 				}
 			} catch {
-				// Skip this project
+				continue;
 			}
 		}
 

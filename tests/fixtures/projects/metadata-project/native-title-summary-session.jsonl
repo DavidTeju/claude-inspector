@@ -1,0 +1,6 @@
+{"type":"user","uuid":"u1","parentUuid":null,"sessionId":"native-title-summary-session","timestamp":"2026-03-02T00:00:00.000Z","cwd":"/workspace/metadata","gitBranch":"feat/metadata","message":{"role":"user","content":"Refactor the raw schema handling."}}
+{"type":"assistant","uuid":"a1","parentUuid":"u1","sessionId":"native-title-summary-session","timestamp":"2026-03-02T00:00:01.000Z","cwd":"/workspace/metadata","gitBranch":"feat/metadata","message":{"role":"assistant","model":"claude-sonnet-4.5","id":"msg_metadata_1","type":"message","content":[{"type":"text","text":"I'll keep the UI adapter intact."}],"stop_reason":"end_turn","usage":{"input_tokens":10,"output_tokens":18}}}
+{"type":"custom-title","sessionId":"native-title-summary-session","customTitle":"Native Titles Win"}
+{"type":"summary","sessionId":"native-title-summary-session","summary":"This session migrated the parser.\nIt kept the UI adapter intact.","leafUuid":"a1"}
+{"type":"last-prompt","sessionId":"native-title-summary-session","lastPrompt":"Refactor the raw schema handling."}
+{"type":"agent-name","sessionId":"native-title-summary-session","agentName":"claude-inspector"}

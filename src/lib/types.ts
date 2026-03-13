@@ -1,3 +1,6 @@
+/** Current on-disk version for sessions-index.json entries written by the app. */
+export const SESSION_INDEX_VERSION = 2;
+
 /** A Claude Code project directory with aggregated session metadata */
 export interface Project {
 	id: string;
@@ -9,8 +12,12 @@ export interface Project {
 
 /** A session entry as stored in sessions-index.json or derived from JSONL scanning */
 export interface SessionEntry {
+	/** Route-safe identifier used in links and keys. */
 	sessionId: string;
+	/** Raw JSONL filename without extension. Useful when sessionId is route-encoded. */
+	displaySessionId?: string;
 	fullPath: string;
+	relativePath?: string;
 	fileMtime: number;
 	firstPrompt: string;
 	summary: string;
@@ -20,6 +27,11 @@ export interface SessionEntry {
 	gitBranch: string;
 	projectPath: string;
 	isSidechain: boolean;
+	isSubagent?: boolean;
+	parentSessionId?: string;
+	customTitle?: string;
+	nativeSummary?: string;
+	lastPrompt?: string;
 }
 
 export interface SessionIndex {
@@ -38,32 +50,13 @@ export interface ContentBlock {
 	content?: string | ContentBlock[];
 	is_error?: boolean;
 	thinking?: string;
-}
-
-export interface Message {
-	role: 'user' | 'assistant';
-	content: string | ContentBlock[];
-	model?: string;
-}
-
-export interface SessionRecord {
-	type:
-		| 'user'
-		| 'assistant'
-		| 'summary'
-		| 'progress'
-		| 'system'
-		| 'file-history-snapshot'
-		| 'queue-operation';
-	uuid: string;
-	parentUuid: string | null;
-	sessionId: string;
-	timestamp: string;
-	message: Message;
-	isSidechain?: boolean;
-	cwd?: string;
-	version?: string;
-	gitBranch?: string;
+	signature?: string;
+	caller?: string;
+	source?: {
+		type?: string;
+		media_type?: string;
+		data?: string;
+	};
 }
 
 /** A paired tool_use call with its corresponding tool_result */

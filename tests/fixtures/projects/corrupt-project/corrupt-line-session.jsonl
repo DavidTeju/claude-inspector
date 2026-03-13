@@ -1,0 +1,3 @@
+{"type":"user","uuid":"u1","parentUuid":null,"sessionId":"corrupt-line-session","timestamp":"2026-03-07T00:00:00.000Z","cwd":"/workspace/corrupt","gitBranch":"feat/corrupt","message":{"role":"user","content":"Recover from a malformed line."}}
+{"type":"assistant","uuid":"broken"
+{"type":"assistant","uuid":"a1","parentUuid":"u1","sessionId":"corrupt-line-session","timestamp":"2026-03-07T00:00:01.000Z","cwd":"/workspace/corrupt","gitBranch":"feat/corrupt","message":{"role":"assistant","model":"claude-sonnet-4.5","id":"msg_corrupt_1","type":"message","content":[{"type":"text","text":"Recovered after the malformed line."}],"stop_reason":"end_turn"}}

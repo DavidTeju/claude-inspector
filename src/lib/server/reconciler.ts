@@ -1,10 +1,11 @@
-import { readdir, readFile, writeFile, stat } from 'fs/promises';
-import { createReadStream } from 'fs';
-import { createInterface } from 'readline';
+import { readdir, readFile, stat, writeFile } from 'fs/promises';
 import path from 'path';
-import { getProjectsDir } from './paths.js';
+import { SESSION_INDEX_VERSION, type SessionEntry, type SessionIndex } from '../types.js';
 import { getConfig } from './config.js';
-import type { SessionEntry, SessionIndex } from '$lib/types.js';
+import { listProjectSessionFilesInDir, type SessionFileDescriptor } from './session-discovery.js';
+import { extractSessionEntry } from './session-metadata.js';
+import { getProjectsDir } from './paths.js';
+import { parseSessionFile } from './session-parser.js';
 
 /** In-memory cache of reconciled sessions per project */
 const cache = new Map<string, SessionEntry[]>();
@@ -33,6 +34,14 @@ export function startReconciliation(): void {
 		});
 }
 
+export async function reconcileProjectNow(projectId: string): Promise<SessionEntry[]> {
+	const projectDir = path.join(getProjectsDir(), projectId);
+	const dirStat = await stat(projectDir).catch(() => null);
+	if (!dirStat?.isDirectory()) return [];
+
+	return reconcileProject(projectId, projectDir);
+}
+
 async function reconcileAllProjects(): Promise<void> {
 	const projectsDir = getProjectsDir();
 	let dirs: string[];
@@ -55,11 +64,10 @@ async function reconcileAllProjects(): Promise<void> {
 		}
 	}
 
-	// After all projects reconciled, generate missing summaries
 	const config = await getConfig();
 	if (config.anthropicApiKey) {
 		for (const [projectId, entries] of cache) {
-			const missing = entries.filter((e) => !e.summary);
+			const missing = entries.filter((entry) => !entry.summary);
 			if (missing.length > 0) {
 				await generateSummaries(projectId, missing, config.anthropicApiKey);
 			}
@@ -67,64 +75,44 @@ async function reconcileAllProjects(): Promise<void> {
 	}
 }
 
-async function reconcileProject(projectId: string, projectDir: string): Promise<void> {
-	// 1. Get all JSONL files on disk
-	const allFiles = await readdir(projectDir);
-	const jsonlFiles = allFiles.filter((f) => f.endsWith('.jsonl'));
-
-	if (jsonlFiles.length === 0) return;
-
-	// 2. Load existing index
-	const indexMap = new Map<string, SessionEntry>();
-	try {
-		const indexPath = path.join(projectDir, 'sessions-index.json');
-		const indexData: SessionIndex = JSON.parse(await readFile(indexPath, 'utf-8'));
-		for (const entry of indexData.entries) {
-			indexMap.set(entry.sessionId, entry);
-		}
-	} catch {
-		// No index or corrupt — we'll rebuild from scratch
+async function reconcileProject(projectId: string, projectDir: string): Promise<SessionEntry[]> {
+	const descriptors = await listProjectSessionFilesInDir(projectId, projectDir);
+	if (descriptors.length === 0) {
+		cache.set(projectId, []);
+		reconciledProjects.add(projectId);
+		return [];
 	}
 
-	// 3. Reconcile each JSONL file
+	const indexMap = await loadSessionIndex(projectDir);
 	const entries: SessionEntry[] = [];
 
-	for (const file of jsonlFiles) {
-		const sessionId = file.replace('.jsonl', '');
-		const fullPath = path.join(projectDir, file);
-
+	for (const descriptor of descriptors) {
 		try {
-			const fileStat = await stat(fullPath);
-			const existingEntry = indexMap.get(sessionId);
+			const fileStat = await stat(descriptor.fullPath);
+			const existingEntry = indexMap.get(descriptor.routeId);
 
-			// If index entry exists and mtime matches, reuse it
 			if (existingEntry && Math.abs(fileStat.mtimeMs - existingEntry.fileMtime) < 1000) {
-				entries.push(existingEntry);
+				entries.push(patchIndexedEntry(existingEntry, descriptor, fileStat.mtimeMs));
 				continue;
 			}
 
-			// Otherwise, scan the JSONL file
-			const scanned = await scanJsonlForMetadata(fullPath, fileStat);
-			if (!scanned) continue; // Empty session — skip
+			const records = await parseSessionFile(descriptor.fullPath);
+			const scanned = extractSessionEntry(descriptor, records, fileStat);
+			if (!scanned) continue;
 
-			// Preserve summary from existing index entry
-			if (existingEntry?.summary) {
+			if (!scanned.summary && existingEntry?.summary) {
 				scanned.summary = existingEntry.summary;
 			}
 
-			scanned.sessionId = sessionId;
-			scanned.fullPath = fullPath;
 			entries.push(scanned);
 		} catch {
 			continue;
 		}
 	}
 
-	// Sort by modified, newest first
 	entries.sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime());
 
-	// 4. Write back to sessions-index.json
-	const indexData: SessionIndex = { version: 1, entries };
+	const indexData: SessionIndex = { version: SESSION_INDEX_VERSION, entries };
 	const indexPath = path.join(projectDir, 'sessions-index.json');
 	try {
 		await writeFile(indexPath, JSON.stringify(indexData, null, '\t'), 'utf-8');
@@ -132,101 +120,41 @@ async function reconcileProject(projectId: string, projectDir: string): Promise<
 		console.error(`[reconciler] failed to write index for ${projectId}:`, err);
 	}
 
-	// 5. Store in cache
 	cache.set(projectId, entries);
 	reconciledProjects.add(projectId);
+	return entries;
 }
 
-/**
- * Stream-parses a JSONL file to extract session metadata.
- * Returns null if the session has no user messages (empty session).
- */
-async function scanJsonlForMetadata(
-	filePath: string,
-	fileStat: { mtimeMs: number; mtime: Date; birthtime: Date }
-): Promise<SessionEntry | null> {
-	const rl = createInterface({
-		input: createReadStream(filePath),
-		crlfDelay: Infinity
-	});
+async function loadSessionIndex(projectDir: string): Promise<Map<string, SessionEntry>> {
+	const indexPath = path.join(projectDir, 'sessions-index.json');
 
-	let firstPrompt = '';
-	let messageCount = 0;
-	let created = '';
-	let modified = '';
-	let gitBranch = '';
-	let hasUserMessage = false;
-
-	for await (const line of rl) {
-		try {
-			const record = JSON.parse(line);
-
-			if (!created && record.timestamp) {
-				created = record.timestamp;
-			}
-			if (record.timestamp) {
-				modified = record.timestamp;
-			}
-			if (!gitBranch && record.gitBranch) {
-				gitBranch = record.gitBranch;
-			}
-
-			if (record.type === 'user' || record.type === 'assistant') {
-				messageCount++;
-			}
-
-			// Extract first user prompt
-			if (record.type === 'user' && !firstPrompt && record.message?.content) {
-				const content = record.message.content;
-				if (typeof content === 'string') {
-					const trimmed = content.trim();
-					if (trimmed) {
-						firstPrompt = trimmed.slice(0, 200);
-						hasUserMessage = true;
-					}
-				} else if (Array.isArray(content)) {
-					const textBlock = content.find(
-						(b: { type: string; text?: string }) => b.type === 'text' && b.text?.trim()
-					);
-					if (textBlock?.text) {
-						firstPrompt = textBlock.text.trim().slice(0, 200);
-						hasUserMessage = true;
-					}
-				}
-			}
-
-			// Check for any user message with text (even if not the first)
-			if (!hasUserMessage && record.type === 'user' && record.message?.content) {
-				const content = record.message.content;
-				if (typeof content === 'string' && content.trim()) {
-					hasUserMessage = true;
-				} else if (Array.isArray(content)) {
-					const hasText = content.some(
-						(b: { type: string; text?: string }) => b.type === 'text' && b.text?.trim()
-					);
-					if (hasText) hasUserMessage = true;
-				}
-			}
-		} catch {
-			continue;
+	try {
+		const indexData: SessionIndex = JSON.parse(await readFile(indexPath, 'utf-8'));
+		if (indexData.version !== SESSION_INDEX_VERSION) {
+			return new Map();
 		}
+
+		return new Map(indexData.entries.map((entry) => [entry.sessionId, entry]));
+	} catch {
+		return new Map();
 	}
+}
 
-	// Filter: skip sessions with no user messages
-	if (!hasUserMessage) return null;
-
+function patchIndexedEntry(
+	entry: SessionEntry,
+	descriptor: SessionFileDescriptor,
+	fileMtime: number
+): SessionEntry {
 	return {
-		sessionId: '',
-		fullPath: '',
-		fileMtime: fileStat.mtimeMs,
-		firstPrompt,
-		summary: '',
-		messageCount,
-		created: created || fileStat.birthtime.toISOString(),
-		modified: modified || fileStat.mtime.toISOString(),
-		gitBranch,
-		projectPath: '',
-		isSidechain: false
+		...entry,
+		sessionId: descriptor.routeId,
+		displaySessionId: descriptor.sessionId,
+		fullPath: descriptor.fullPath,
+		relativePath: descriptor.relativePath,
+		fileMtime,
+		projectPath: descriptor.relativePath,
+		isSubagent: descriptor.isSubagent,
+		parentSessionId: descriptor.parentSessionId
 	};
 }
 
@@ -236,7 +164,6 @@ async function generateSummaries(
 	entries: SessionEntry[],
 	apiKey: string
 ): Promise<void> {
-	// Dynamic import to avoid bundling issues when no key is set
 	const { default: Anthropic } = await import('@anthropic-ai/sdk');
 	const client = new Anthropic({ apiKey });
 
@@ -262,20 +189,20 @@ async function generateSummaries(
 			}
 		} catch (err) {
 			console.error(`[reconciler] summary generation failed for ${entry.sessionId}:`, err);
-			break; // Stop on first error (likely rate limit or bad key)
+			break;
 		}
 	}
 
-	// Write updated summaries back to index
-	const entries_all = cache.get(projectId);
-	if (entries_all) {
-		const projectDir = path.join(getProjectsDir(), projectId);
-		const indexPath = path.join(projectDir, 'sessions-index.json');
-		const indexData: SessionIndex = { version: 1, entries: entries_all };
-		try {
-			await writeFile(indexPath, JSON.stringify(indexData, null, '\t'), 'utf-8');
-		} catch {
-			// Silent fail — cache is still updated
-		}
+	const entriesAll = cache.get(projectId);
+	if (!entriesAll) return;
+
+	const projectDir = path.join(getProjectsDir(), projectId);
+	const indexPath = path.join(projectDir, 'sessions-index.json');
+	const indexData: SessionIndex = { version: SESSION_INDEX_VERSION, entries: entriesAll };
+
+	try {
+		await writeFile(indexPath, JSON.stringify(indexData, null, '\t'), 'utf-8');
+	} catch {
+		// Cache is still updated in-memory.
 	}
 }
