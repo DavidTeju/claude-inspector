@@ -2,6 +2,7 @@
 	import ToolUseBlock from './ToolUseBlock.svelte';
 	import ThinkingBlock from './ThinkingBlock.svelte';
 	import MarkdownContent from './MarkdownContent.svelte';
+	import { formatTime } from '$lib/utils.js';
 
 	let {
 		message
@@ -21,13 +22,6 @@
 			model?: string;
 		};
 	} = $props();
-
-	function formatTime(iso: string): string {
-		return new Date(iso).toLocaleTimeString('en-US', {
-			hour: '2-digit',
-			minute: '2-digit'
-		});
-	}
 </script>
 
 <div class="max-w-[95%]">

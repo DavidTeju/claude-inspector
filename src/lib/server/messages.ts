@@ -114,8 +114,7 @@ export async function parseSessionMessages(filePath: string): Promise<ThreadMess
 				timestamp: record.timestamp,
 				textContent,
 				toolCalls: [],
-				toolResults: new Map(),
-				thinkingBlocks: [],
+					thinkingBlocks: [],
 				rawContent: content,
 				model: undefined
 			});
@@ -156,8 +155,7 @@ export async function parseSessionMessages(filePath: string): Promise<ThreadMess
 				timestamp: record.timestamp,
 				textContent,
 				toolCalls,
-				toolResults: new Map(),
-				thinkingBlocks,
+					thinkingBlocks,
 				rawContent: content,
 				model
 			});

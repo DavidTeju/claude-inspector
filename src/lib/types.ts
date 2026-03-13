@@ -82,7 +82,6 @@ export interface ThreadMessage {
 	timestamp: string;
 	textContent: string;
 	toolCalls: ToolCall[];
-	toolResults: Map<string, { content: string | ContentBlock[]; isError: boolean }>;
 	thinkingBlocks: string[];
 	rawContent: string | ContentBlock[];
 	model?: string;
@@ -96,5 +95,5 @@ export interface SearchResult {
 	firstPrompt: string;
 	snippets: string[];
 	modified: string;
-	relevance?: number;
+	relevance: number;
 }

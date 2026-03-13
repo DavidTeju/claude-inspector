@@ -3,7 +3,7 @@ import { readdir, readFile, stat } from 'fs/promises';
 import path from 'path';
 import { rgPath } from '@vscode/ripgrep';
 import { getProjectsDir } from './paths.js';
-import { dirNameToDisplayName } from './projects.js';
+import { dirNameToDisplayName, parseSearchTerms } from '$lib/utils.js';
 import type { SearchResult, SessionIndex } from '$lib/types.js';
 
 interface RgMatch {
@@ -134,10 +134,7 @@ export function searchSessionsStreaming(
 		return null;
 	}
 
-	const terms = query
-		.toLowerCase()
-		.split(/\s+/)
-		.filter((t) => t.length > 1);
+	const terms = parseSearchTerms(query);
 	if (terms.length === 0) {
 		callbacks.onDone(0);
 		return null;
@@ -346,10 +343,7 @@ async function fallbackIndexSearch(
 	projectFilter: string | undefined,
 	callbacks: StreamingSearchCallbacks
 ): Promise<void> {
-	const terms = query
-		.toLowerCase()
-		.split(/\s+/)
-		.filter((t) => t.length > 1);
+	const terms = parseSearchTerms(query);
 	if (terms.length === 0) {
 		callbacks.onDone(0);
 		return;
@@ -392,7 +386,8 @@ async function fallbackIndexSearch(
 					sessionSummary: entry.summary,
 					firstPrompt: entry.firstPrompt,
 					snippets,
-					modified: entry.modified
+					modified: entry.modified,
+					relevance: 0
 				});
 				totalEmitted++;
 

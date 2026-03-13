@@ -10,16 +10,10 @@ export const load: PageServerLoad = async ({ params }) => {
 	try {
 		const messages = await parseSessionMessages(filePath);
 
-		// Serialize ThreadMessages (Maps don't serialize well)
-		const serializedMessages = messages.map((m) => ({
-			...m,
-			toolResults: Object.fromEntries(m.toolResults)
-		}));
-
 		return {
 			projectId: params.projectId,
 			sessionId: params.sessionId,
-			messages: serializedMessages
+			messages
 		};
 	} catch {
 		throw error(404, `Session not found: ${params.sessionId}`);

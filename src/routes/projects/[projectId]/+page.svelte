@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
+	import { formatDate } from '$lib/utils.js';
 	import type { SessionEntry } from '$lib/types.js';
 
 	let { data } = $props();
@@ -27,16 +28,6 @@
 			sortField = field;
 			sortDir = 'desc';
 		}
-	}
-
-	function formatDate(iso: string): string {
-		if (!iso) return '-';
-		return new Date(iso).toLocaleDateString('en-US', {
-			month: 'short',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit'
-		});
 	}
 
 	function sortIndicator(field: typeof sortField): string {

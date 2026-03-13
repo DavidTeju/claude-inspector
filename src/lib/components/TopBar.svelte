@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { dirNameToDisplayName } from '$lib/utils.js';
 
 	let { sidebarOpen, onToggleSidebar }: { sidebarOpen: boolean; onToggleSidebar: () => void } =
 		$props();
@@ -13,7 +14,7 @@
 			const projectId = page.params?.projectId;
 			if (projectId) {
 				parts.push({
-					label: decodeProjectName(projectId),
+					label: dirNameToDisplayName(projectId),
 					href: resolve(`/projects/${projectId}`)
 				});
 			}
@@ -24,7 +25,7 @@
 			const sessionId = page.params?.sessionId;
 			if (projectId) {
 				parts.push({
-					label: decodeProjectName(projectId),
+					label: dirNameToDisplayName(projectId),
 					href: resolve(`/projects/${projectId}`)
 				});
 			}
@@ -38,19 +39,6 @@
 
 		return parts;
 	});
-
-	function decodeProjectName(id: string): string {
-		const name = id.startsWith('-') ? id.slice(1) : id;
-		const parts = name.split('-');
-		const projectsIdx = parts.indexOf('projects');
-		if (projectsIdx !== -1 && projectsIdx < parts.length - 1) {
-			return parts.slice(projectsIdx + 1).join('-');
-		}
-		if (parts[0] === 'Users' && parts.length > 2) {
-			return parts.slice(2).join('/');
-		}
-		return name;
-	}
 </script>
 
 <header

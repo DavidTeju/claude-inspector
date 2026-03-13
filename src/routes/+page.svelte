@@ -120,13 +120,12 @@
 						const parsed = JSON.parse(eventData);
 
 						if (eventType === 'result') {
-							results = [...results, parsed as SearchResult];
+							results.push(parsed as SearchResult);
+							results = results;
 						} else if (eventType === 'done') {
 							totalResults = parsed.totalSessions;
 							results = [...results].sort((a, b) => {
-								const ra = a.relevance ?? 0;
-								const rb = b.relevance ?? 0;
-								if (rb !== ra) return rb - ra;
+								if (b.relevance !== a.relevance) return b.relevance - a.relevance;
 								return new Date(b.modified).getTime() - new Date(a.modified).getTime();
 							});
 							isSearching = false;

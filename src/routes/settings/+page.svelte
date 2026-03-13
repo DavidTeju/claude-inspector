@@ -60,17 +60,18 @@
 				>
 					Save Key
 				</button>
-				{#if data.hasApiKey}
-					<form method="POST" action="?/clear" use:enhance>
-						<button
-							type="submit"
-							class="rounded-md border border-zinc-700 px-4 py-1.5 text-xs text-zinc-400 transition-colors hover:border-zinc-600 hover:text-zinc-300"
-						>
-							Clear Key
-						</button>
-					</form>
-				{/if}
 			</div>
 		</form>
+
+		{#if data.hasApiKey}
+			<form method="POST" action="?/clear" use:enhance class="mt-3">
+				<button
+					type="submit"
+					class="rounded-md border border-zinc-700 px-4 py-1.5 text-xs text-zinc-400 transition-colors hover:border-zinc-600 hover:text-zinc-300"
+				>
+					Clear Key
+				</button>
+			</form>
+		{/if}
 	</div>
 </div>

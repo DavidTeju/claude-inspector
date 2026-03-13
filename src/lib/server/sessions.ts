@@ -58,10 +58,6 @@ async function scanJsonlFiles(
 
 		try {
 			const fileStat = await stat(fullPath);
-			const firstLine = await readFirstLine(fullPath);
-
-			if (!firstLine) continue;
-
 			let firstPrompt = '';
 			let created = fileStat.birthtime.toISOString();
 
@@ -113,16 +109,3 @@ async function scanJsonlFiles(
 	return entries.sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime());
 }
 
-async function readFirstLine(filePath: string): Promise<string | null> {
-	const rl = createInterface({
-		input: createReadStream(filePath),
-		crlfDelay: Infinity
-	});
-
-	for await (const line of rl) {
-		rl.close();
-		return line;
-	}
-
-	return null;
-}

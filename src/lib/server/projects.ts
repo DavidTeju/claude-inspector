@@ -2,34 +2,10 @@ import { readdir, stat, readFile } from 'fs/promises';
 import path from 'path';
 import { getProjectsDir } from './paths.js';
 import { getReconciledSessions } from './reconciler.js';
+import { dirNameToDisplayName } from '$lib/utils.js';
 import type { Project, SessionIndex } from '$lib/types.js';
 
-/**
- * Converts a Claude project directory name to a human-readable display name.
- * Strips the path-encoded prefix (e.g. "-Users-david-projects-myapp" -> "myapp")
- */
-export function dirNameToDisplayName(dirName: string): string {
-	// Strip leading dash, replace dashes with /
-	// e.g. "-Users-david-projects-myapp" -> "Users/david/projects/myapp"
-	const name = dirName.startsWith('-') ? dirName.slice(1) : dirName;
-
-	// Try to extract just the meaningful project path
-	// Pattern: Users/<username>/projects/<name> or Users/<username>/<name>
-	const parts = name.split('-');
-
-	// Find "projects" or similar marker to get meaningful name
-	const projectsIdx = parts.indexOf('projects');
-	if (projectsIdx !== -1 && projectsIdx < parts.length - 1) {
-		return parts.slice(projectsIdx + 1).join('-');
-	}
-
-	// Otherwise strip "Users-<username>-" prefix
-	if (parts[0] === 'Users' && parts.length > 2) {
-		return parts.slice(2).join('/');
-	}
-
-	return name.replace(/-/g, '/');
-}
+export { dirNameToDisplayName };
 
 /**
  * Scans ~/.claude/projects/ and returns all projects sorted by last modified.
@@ -72,10 +48,10 @@ export async function listProjects(): Promise<Project[]> {
 					const indexPath = path.join(fullPath, 'sessions-index.json');
 					const indexData: SessionIndex = JSON.parse(await readFile(indexPath, 'utf-8'));
 					if (indexData.entries.length > 0) {
-						lastModified = indexData.entries
-							.map((e) => e.modified)
-							.sort()
-							.reverse()[0];
+						lastModified = indexData.entries.reduce(
+							(max, e) => (e.modified > max ? e.modified : max),
+							''
+						);
 					}
 				} catch {
 					// No index

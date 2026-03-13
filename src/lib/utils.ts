@@ -1,12 +1,46 @@
 /**
+ * Converts a Claude project directory name to a human-readable display name.
+ * Strips the path-encoded prefix (e.g. "-Users-david-projects-myapp" -> "myapp")
+ */
+export function dirNameToDisplayName(dirName: string): string {
+  const name = dirName.startsWith("-") ? dirName.slice(1) : dirName;
+  const parts = name.split("-");
+  const projectsIdx = parts.indexOf("projects");
+  if (projectsIdx !== -1 && projectsIdx < parts.length - 1) {
+    return parts.slice(projectsIdx + 1).join("-");
+  }
+  if (parts[0] === "Users" && parts.length > 2) {
+    return parts.slice(2).join("/");
+  }
+  return name.replace(/-/g, "/");
+}
+
+/**
+ * Splits a search query into lowercase terms, filtering out single-character terms.
+ */
+export function parseSearchTerms(query: string): string[] {
+  return query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((t) => t.length > 1);
+}
+
+/**
+ * Formats an ISO timestamp as "HH:MM AM/PM".
+ */
+export function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/**
  * Highlights search terms in text by wrapping matches in <mark> tags.
  */
 export function highlightTerms(text: string, query: string): string {
   if (!query || !text) return text;
-  const terms = query
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((t) => t.length > 1);
+  const terms = parseSearchTerms(query);
   let result = text;
   for (const term of terms) {
     const regex = new RegExp(
