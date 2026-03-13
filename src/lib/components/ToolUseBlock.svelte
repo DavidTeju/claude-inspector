@@ -1,33 +1,49 @@
 <script lang="ts">
-	let {
-		tool
-	}: {
-		tool: {
-			id: string;
-			name: string;
-			input: Record<string, unknown>;
-			result?: string | Array<{ type: string; text?: string }>;
-			isError?: boolean;
-		};
-	} = $props();
+	import { slide } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
+	import { diffLines } from 'diff';
+	import type { ToolCall } from '$lib/types.js';
+
+	let { tool }: { tool: ToolCall } = $props();
 
 	let expanded = $state(false);
+	let showRaw = $state(false);
 
-	function getToolSummary(): string {
+	type ViewMode = 'read' | 'edit' | 'bash' | 'write' | 'glob' | 'grep' | 'generic';
+
+	let viewMode = $derived.by((): ViewMode => {
+		const name = tool.name.toLowerCase();
+		if (name === 'read') return 'read';
+		if (name === 'edit') return 'edit';
+		if (name === 'bash') return 'bash';
+		if (name === 'write') return 'write';
+		if (name === 'glob') return 'glob';
+		if (name === 'grep') return 'grep';
+		return 'generic';
+	});
+
+	let summary = $derived.by(() => {
 		const input = tool.input;
-		if (tool.name === 'Read' && input.file_path) return String(input.file_path);
-		if (tool.name === 'Write' && input.file_path) return String(input.file_path);
-		if (tool.name === 'Edit' && input.file_path) return String(input.file_path);
-		if (tool.name === 'Bash' && input.command) return String(input.command).slice(0, 80);
-		if (tool.name === 'Glob' && input.pattern) return String(input.pattern);
-		if (tool.name === 'Grep' && input.pattern) return String(input.pattern);
-		if (tool.name === 'Task' && input.description) return String(input.description);
-		if (tool.name === 'WebFetch' && input.url) return String(input.url).slice(0, 60);
-		if (tool.name === 'WebSearch' && input.query) return String(input.query);
-		return '';
-	}
+		switch (viewMode) {
+			case 'read':
+			case 'write':
+			case 'edit':
+				return input.file_path ? String(input.file_path) : '';
+			case 'bash':
+				return input.command ? String(input.command).slice(0, 80) : '';
+			case 'glob':
+			case 'grep':
+				return input.pattern ? String(input.pattern) : '';
+			default: {
+				if (input.description) return String(input.description);
+				if (input.url) return String(input.url).slice(0, 60);
+				if (input.query) return String(input.query);
+				return '';
+			}
+		}
+	});
 
-	function getResultText(): string {
+	let resultText = $derived.by(() => {
 		if (!tool.result) return '(no result)';
 		if (typeof tool.result === 'string') return tool.result;
 		if (Array.isArray(tool.result)) {
@@ -37,18 +53,26 @@
 				.join('\n');
 		}
 		return JSON.stringify(tool.result, null, 2);
-	}
+	});
 
-	let summary = $derived(getToolSummary());
+	let editDiff = $derived.by(() => {
+		if (viewMode !== 'edit') return [];
+		const oldStr = tool.input.old_string;
+		const newStr = tool.input.new_string;
+		if (typeof oldStr !== 'string' || typeof newStr !== 'string') return [];
+		return diffLines(oldStr, newStr);
+	});
 </script>
 
-<div class="rounded-md border border-zinc-800/50 bg-zinc-950/50">
+<div class="border-l-accent-300/50 bg-surface-850/80 rounded-md border-l-2">
 	<button
 		onclick={() => (expanded = !expanded)}
-		class="flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors hover:bg-zinc-800/30"
+		class="hover:bg-surface-800/30 flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors"
 	>
 		<svg
-			class="h-3 w-3 flex-shrink-0 text-zinc-600 transition-transform {expanded ? 'rotate-90' : ''}"
+			class="text-text-500 h-3 w-3 flex-shrink-0 transition-transform duration-200 {expanded
+				? 'rotate-90'
+				: ''}"
 			fill="none"
 			viewBox="0 0 24 24"
 			stroke="currentColor"
@@ -62,44 +86,155 @@
 		</span>
 
 		{#if summary}
-			<span class="truncate font-mono text-[11px] text-zinc-500">{summary}</span>
+			<span class="text-text-500 truncate font-mono text-[11px]">{summary}</span>
 		{/if}
 
 		{#if tool.isError}
-			<span class="text-error-500 ml-auto text-[10px]">error</span>
+			<span class="text-error-400 bg-error-500/10 ml-auto rounded-full px-2 py-0.5 text-[10px]"
+				>error</span
+			>
 		{/if}
 	</button>
 
 	{#if expanded}
-		<div class="space-y-2 border-t border-zinc-800/50 px-3 py-2">
-			<!-- Input -->
-			<div>
-				<div class="mb-1 text-[10px] font-semibold tracking-wider text-zinc-600 uppercase">
-					Input
-				</div>
-				<pre
-					class="max-h-64 overflow-auto rounded bg-zinc-950 p-2 font-mono text-[11px] leading-relaxed text-zinc-400">{JSON.stringify(
-						tool.input,
-						null,
-						2
-					)}</pre>
+		<div
+			transition:slide={{ duration: 250, easing: cubicOut }}
+			class="border-surface-800/50 space-y-2 border-t px-3 py-2"
+		>
+			<!-- Badges + Raw toggle -->
+			<div class="flex items-center gap-2">
+				{#if viewMode !== 'generic'}
+					<button
+						onclick={() => (showRaw = !showRaw)}
+						class="text-text-500 hover:text-text-300 text-[10px] transition-colors"
+					>
+						{showRaw ? 'View formatted' : 'View raw'}
+					</button>
+				{/if}
+				{#if viewMode === 'edit' && tool.input.replace_all}
+					<span
+						class="bg-accent-500/10 text-accent-300 rounded px-1.5 py-0.5 text-[9px] font-medium"
+						>replace_all</span
+					>
+				{/if}
 			</div>
 
-			<!-- Result -->
-			{#if tool.result !== undefined}
+			{#if showRaw || viewMode === 'generic'}
+				<!-- Raw JSON view -->
 				<div>
-					<div
-						class="mb-1 text-[10px] font-semibold tracking-wider uppercase {tool.isError
-							? 'text-error-500'
-							: 'text-zinc-600'}"
-					>
-						{tool.isError ? 'Error' : 'Result'}
+					<div class="text-text-500 mb-1 text-[10px] font-semibold tracking-wider uppercase">
+						Input
 					</div>
 					<pre
-						class="max-h-96 overflow-auto rounded bg-zinc-950 p-2 text-[11px] {tool.isError
-							? 'text-red-400'
-							: 'text-zinc-400'} font-mono leading-relaxed break-words whitespace-pre-wrap">{getResultText()}</pre>
+						class="bg-surface-950 text-text-300 max-h-64 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed">{JSON.stringify(
+							tool.input,
+							null,
+							2
+						)}</pre>
 				</div>
+
+				{#if tool.result !== undefined}
+					<div>
+						<div
+							class="mb-1 text-[10px] font-semibold tracking-wider uppercase {tool.isError
+								? 'text-error-500'
+								: 'text-text-500'}"
+						>
+							{tool.isError ? 'Error' : 'Result'}
+						</div>
+						<pre
+							class="bg-surface-950 max-h-96 overflow-auto rounded-md p-2 text-[11px] {tool.isError
+								? 'text-error-400'
+								: 'text-text-300'} font-mono leading-relaxed break-words whitespace-pre-wrap">{resultText}</pre>
+					</div>
+				{/if}
+			{:else if viewMode === 'read'}
+				<!-- Read: show file content from result -->
+				<pre
+					class="bg-surface-950 text-text-300 max-h-96 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed">{resultText}</pre>
+			{:else if viewMode === 'edit'}
+				<!-- Edit: show diff -->
+				{#if editDiff.length > 0}
+					<div class="bg-surface-950 max-h-96 overflow-auto rounded-md font-mono text-[11px]">
+						{#each editDiff as change, ci (ci)}
+							{@const lines = change.value.replace(/\n$/, '').split('\n')}
+							{#each lines as line, li (li)}
+								{#if change.removed}
+									<div class="bg-error-500/10 text-error-400 flex">
+										<span class="text-error-400/50 w-6 flex-shrink-0 pr-1 text-right select-none"
+											>&minus;</span
+										>
+										<span class="pl-1 break-words whitespace-pre-wrap">{line}</span>
+									</div>
+								{:else if change.added}
+									<div class="bg-success-500/10 text-success-500 flex">
+										<span class="text-success-500/50 w-6 flex-shrink-0 pr-1 text-right select-none"
+											>+</span
+										>
+										<span class="pl-1 break-words whitespace-pre-wrap">{line}</span>
+									</div>
+								{:else}
+									<div class="text-text-500 flex">
+										<span class="text-text-700 w-6 flex-shrink-0 pr-1 text-right select-none"
+											>&nbsp;</span
+										>
+										<span class="pl-1 break-words whitespace-pre-wrap">{line}</span>
+									</div>
+								{/if}
+							{/each}
+						{/each}
+					</div>
+				{:else}
+					<pre
+						class="bg-surface-950 text-text-300 max-h-64 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed">{JSON.stringify(
+							tool.input,
+							null,
+							2
+						)}</pre>
+				{/if}
+
+				{#if tool.isError && tool.result !== undefined}
+					<pre class="text-error-400 mt-1 text-[11px]">{resultText}</pre>
+				{/if}
+			{:else if viewMode === 'write'}
+				<!-- Write: show file content preview -->
+				{#if typeof tool.input.content === 'string'}
+					<pre
+						class="bg-surface-950 text-text-300 max-h-96 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed">{tool
+							.input.content}</pre>
+				{/if}
+				{#if tool.isError && tool.result !== undefined}
+					<pre class="text-error-400 mt-1 text-[11px]">{resultText}</pre>
+				{/if}
+			{:else if viewMode === 'bash'}
+				<!-- Bash: show command + output -->
+				{#if typeof tool.input.command === 'string'}
+					<pre
+						class="bg-accent-500/5 border-accent-500/20 text-accent-300 max-h-32 overflow-auto rounded-md border p-2 font-mono text-[11px] leading-relaxed">{tool
+							.input.command}</pre>
+				{/if}
+				{#if tool.result !== undefined}
+					<pre
+						class="bg-surface-950 max-h-96 overflow-auto rounded-md p-2 text-[11px] {tool.isError
+							? 'text-error-400'
+							: 'text-text-300'} font-mono leading-relaxed break-words whitespace-pre-wrap">{resultText}</pre>
+				{/if}
+			{:else if viewMode === 'glob' || viewMode === 'grep'}
+				<!-- Glob/Grep: show pattern + matches -->
+				<div class="flex items-center gap-2">
+					{#if typeof tool.input.pattern === 'string'}
+						<pre
+							class="bg-accent-500/5 border-accent-500/20 text-accent-300 inline-block rounded border px-2 py-1 font-mono text-[11px]">{tool
+								.input.pattern}</pre>
+					{/if}
+					{#if tool.input.path}
+						<span class="text-text-500 font-mono text-[10px]">in {tool.input.path}</span>
+					{/if}
+				</div>
+				{#if tool.result !== undefined}
+					<pre
+						class="bg-surface-950 text-text-300 max-h-96 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">{resultText}</pre>
+				{/if}
 			{/if}
 		</div>
 	{/if}

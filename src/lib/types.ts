@@ -80,6 +80,13 @@ export interface ThreadMessage {
 	model?: string;
 }
 
+/** Content segments used to group consecutive assistant messages */
+export interface ContentSegment {
+	thinkingBlocks: string[];
+	textContent: string;
+	toolCalls: ToolCall[];
+}
+
 export interface SearchResult {
 	projectId: string;
 	projectName: string;
