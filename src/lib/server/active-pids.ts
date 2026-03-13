@@ -114,17 +114,42 @@ export async function removeActiveSessionProcess(sessionId: string): Promise<voi
 	});
 }
 
+export async function renameActiveSessionProcess(
+	previousSessionId: string,
+	nextSessionId: string
+): Promise<void> {
+	if (previousSessionId === nextSessionId) return;
+
+	await withPidFileLock(async () => {
+		const entries = await readEntriesUnlocked();
+		const currentEntry = entries.find((entry) => entry.sessionId === previousSessionId);
+		const nextEntries = entries.filter(
+			(entry) => entry.sessionId !== previousSessionId && entry.sessionId !== nextSessionId
+		);
+
+		if (currentEntry) {
+			nextEntries.push({
+				...currentEntry,
+				sessionId: nextSessionId
+			});
+		}
+
+		await writeEntriesUnlocked(nextEntries);
+	});
+}
+
 export async function cleanupOrphanedProcesses(): Promise<number> {
 	return withPidFileLock(async () => {
 		const entries = await readEntriesUnlocked();
 		if (entries.length === 0) return 0;
 
-		let killed = 0;
+		let removed = 0;
 		const retainedEntries: ActivePidEntry[] = [];
 
 		for (const entry of entries) {
 			const details = await describeProcess(entry.pid);
 			if (!details) {
+				removed += 1;
 				continue;
 			}
 
@@ -132,19 +157,15 @@ export async function cleanupOrphanedProcesses(): Promise<number> {
 				details.startTime === entry.startTime &&
 				details.commandSignature === entry.commandSignature
 			) {
-				try {
-					process.kill(entry.pid, 'SIGTERM');
-					killed += 1;
-				} catch {
-					retainedEntries.push(entry);
-				}
+				retainedEntries.push(entry);
 				continue;
 			}
 
 			// PID was reused by a different process. Drop the stale record.
+			removed += 1;
 		}
 
 		await writeEntriesUnlocked(retainedEntries);
-		return killed;
+		return removed;
 	});
 }

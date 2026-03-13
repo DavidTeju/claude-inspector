@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { marked } from 'marked';
+	import { escapeHtml } from '$lib/utils.js';
 	import CodeBlock from './CodeBlock.svelte';
 
 	let { content }: { content: string } = $props();
@@ -27,7 +28,7 @@
 				if (textBefore.trim()) {
 					result.push({
 						type: 'html',
-						content: marked.parse(textBefore, { async: false }) as string
+						content: marked.parse(escapeHtml(textBefore), { async: false }) as string
 					});
 				}
 			}
@@ -48,7 +49,7 @@
 			if (remaining.trim()) {
 				result.push({
 					type: 'html',
-					content: marked.parse(remaining, { async: false }) as string
+					content: marked.parse(escapeHtml(remaining), { async: false }) as string
 				});
 			}
 		}

@@ -5,6 +5,7 @@ import { rgPath } from '@vscode/ripgrep';
 import type { SearchResult } from '$lib/types.js';
 import { dirNameToDisplayName, parseSearchTerms } from '$lib/utils.js';
 import { getProjectsDir } from './paths.js';
+import { normalizeProjectId } from './project-id.js';
 import { reconcileProjectNow } from './reconciler.js';
 import {
 	getIndexedSessionMeta,
@@ -495,6 +496,14 @@ export function searchSessionsStreaming(
 	callbacks: StreamingSearchCallbacks,
 	projectFilter?: string
 ): SearchHandle | null {
+	const safeProjectFilter = projectFilter
+		? (normalizeProjectId(projectFilter) ?? undefined)
+		: undefined;
+	if (projectFilter && !safeProjectFilter) {
+		callbacks.onError('Invalid project filter');
+		return null;
+	}
+
 	const parsedQuery = parseStructuredQuery(query);
 	if (!hasSearchIntent(parsedQuery)) {
 		callbacks.onDone(0);
@@ -506,11 +515,11 @@ export function searchSessionsStreaming(
 		parsedQuery.textTerms.length > 0 &&
 		!hasStructuredFilters(parsedQuery)
 	) {
-		return searchSessionsRawStreaming(parsedQuery.textTerms, callbacks, projectFilter);
+		return searchSessionsRawStreaming(parsedQuery.textTerms, callbacks, safeProjectFilter);
 	}
 
 	const cancelled = { value: false };
-	void emitIndexedMatches(parsedQuery, projectFilter, new Set<string>(), callbacks, cancelled)
+	void emitIndexedMatches(parsedQuery, safeProjectFilter, new Set<string>(), callbacks, cancelled)
 		.then((emitted) => {
 			if (!cancelled.value) {
 				callbacks.onDone(emitted);

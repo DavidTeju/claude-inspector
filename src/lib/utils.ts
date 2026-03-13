@@ -25,6 +25,15 @@ export function parseSearchTerms(query: string): string[] {
 		.filter((t) => t.length > 1);
 }
 
+export function escapeHtml(text: string): string {
+	return text
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+}
+
 /**
  * Formats an ISO timestamp as "HH:MM AM/PM".
  */
@@ -39,9 +48,11 @@ export function formatTime(iso: string): string {
  * Highlights search terms in text by wrapping matches in <mark> tags.
  */
 export function highlightTerms(text: string, query: string): string {
-	if (!query || !text) return text;
-	const terms = parseSearchTerms(query);
-	let result = text;
+	const escapedText = escapeHtml(text);
+	if (!query || !text) return escapedText;
+
+	const terms = parseSearchTerms(query).map((term) => escapeHtml(term));
+	let result = escapedText;
 	for (const term of terms) {
 		const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
 		result = result.replace(regex, '<mark class="search-highlight">$1</mark>');

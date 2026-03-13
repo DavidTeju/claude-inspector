@@ -8,6 +8,18 @@ function encodeEvent(event: ClientEvent): Uint8Array {
 	return encoder.encode(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
 }
 
+function enqueueEvent(
+	controller: ReadableStreamDefaultController<Uint8Array>,
+	event: ClientEvent
+): boolean {
+	try {
+		controller.enqueue(encodeEvent(event));
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 export const GET: RequestHandler = async ({ params }) => {
 	const sessionId = params.sessionId;
 	if (!sessionId) {
@@ -23,53 +35,68 @@ export const GET: RequestHandler = async ({ params }) => {
 
 	const stream = new ReadableStream({
 		start(controller) {
-			controller.enqueue(
-				encodeEvent({
-					type: 'init',
-					sessionId: session.sessionId,
-					state: session.state,
-					model: session.model,
-					permissionMode: session.permissionMode
-				})
-			);
+			const subscription = subscribe(session.sessionId, controller);
+			unsubscribe = subscription.unsubscribe;
 
-			for (const message of session.messageBuffer) {
-				controller.enqueue(
-					encodeEvent({
+			if (
+				!enqueueEvent(controller, {
+					type: 'init',
+					sessionId: subscription.snapshot.sessionId,
+					state: subscription.snapshot.state,
+					model: subscription.snapshot.model,
+					permissionMode: subscription.snapshot.permissionMode
+				})
+			) {
+				unsubscribe();
+				return;
+			}
+
+			for (const message of subscription.snapshot.messages) {
+				if (
+					!enqueueEvent(controller, {
 						type: 'replay_message',
 						message
 					})
-				);
+				) {
+					unsubscribe();
+					return;
+				}
 			}
 
-			if (session.inProgressTurn) {
-				controller.enqueue(
-					encodeEvent({
-						type: 'replay_in_progress',
-						snapshot: session.inProgressTurn
-					})
-				);
+			if (
+				subscription.snapshot.inProgress &&
+				!enqueueEvent(controller, {
+					type: 'replay_in_progress',
+					snapshot: subscription.snapshot.inProgress
+				})
+			) {
+				unsubscribe();
+				return;
 			}
 
-			if (session.pendingPermission) {
-				controller.enqueue(
-					encodeEvent({
-						type: 'permission_request',
-						request: session.pendingPermission.request
-					})
-				);
+			if (
+				subscription.snapshot.pendingPermission &&
+				!enqueueEvent(controller, {
+					type: 'permission_request',
+					request: subscription.snapshot.pendingPermission
+				})
+			) {
+				unsubscribe();
+				return;
 			}
 
-			if (session.pendingQuestion) {
-				controller.enqueue(
-					encodeEvent({
-						type: 'ask_user_question',
-						request: session.pendingQuestion.request
-					})
-				);
+			if (
+				subscription.snapshot.pendingQuestion &&
+				!enqueueEvent(controller, {
+					type: 'ask_user_question',
+					request: subscription.snapshot.pendingQuestion
+				})
+			) {
+				unsubscribe();
+				return;
 			}
 
-			unsubscribe = subscribe(session.sessionId, controller);
+			subscription.completeReplay();
 		},
 		cancel() {
 			unsubscribe?.();

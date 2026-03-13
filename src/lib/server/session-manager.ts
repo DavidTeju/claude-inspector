@@ -27,12 +27,19 @@ import path from 'node:path';
 import { getConfig } from './config.js';
 import {
 	cleanupOrphanedProcesses as cleanupTrackedProcesses,
+	renameActiveSessionProcess,
 	recordActiveSessionProcess,
 	removeActiveSessionProcess
 } from './active-pids.js';
 import { getProjectsDir } from './paths.js';
+import { normalizeProjectId } from './project-id.js';
 
 type SessionController = ReadableStreamDefaultController<Uint8Array>;
+type SessionSubscriber = {
+	controller: SessionController;
+	pendingEvents: ClientEvent[];
+	replaying: boolean;
+};
 
 interface AsyncQueue<T> {
 	enqueue: (item: T) => void;
@@ -50,6 +57,7 @@ interface PendingQuestion {
 	request: AskUserQuestionRequest;
 	rawInput: Record<string, unknown>;
 	resolve: (result: PermissionResult) => void;
+	timeout: NodeJS.Timeout;
 }
 
 type SDKSystemSessionMessage = Extract<SDKMessage, { type: 'system' }>;
@@ -68,8 +76,7 @@ export interface ActiveSession {
 	model: string;
 	messageBuffer: ThreadMessage[];
 	inProgressTurn: InProgressTurnSnapshot | null;
-	rawSdkMessages: SDKMessage[];
-	subscribers: Set<SessionController>;
+	subscribers: Set<SessionSubscriber>;
 	pendingPermission: PendingPermission | null;
 	pendingQuestion: PendingQuestion | null;
 	cost: SessionCost;
@@ -111,6 +118,23 @@ export class SessionManagerError extends Error {
 		this.status = status;
 		this.name = 'SessionManagerError';
 	}
+}
+
+interface SessionReplaySnapshot {
+	sessionId: string;
+	state: ActiveSessionState;
+	model: string;
+	permissionMode: PermissionMode;
+	messages: ThreadMessage[];
+	inProgress: InProgressTurnSnapshot | null;
+	pendingPermission: PermissionRequest | null;
+	pendingQuestion: AskUserQuestionRequest | null;
+}
+
+interface SessionSubscription {
+	snapshot: SessionReplaySnapshot;
+	unsubscribe: () => void;
+	completeReplay: () => void;
 }
 
 function createEmptyCost(): SessionCost {
@@ -202,20 +226,17 @@ function asString(value: unknown): string | undefined {
 	return typeof value === 'string' ? value : undefined;
 }
 
-function sanitizeProjectId(projectId: string): string {
-	if (
-		projectId.includes(path.sep) ||
-		projectId.includes(path.posix.sep) ||
-		projectId.includes('..')
-	) {
+function requireProjectId(projectId: string): string {
+	const normalizedProjectId = normalizeProjectId(projectId);
+	if (!normalizedProjectId) {
 		throw new SessionManagerError(400, 'Invalid projectId');
 	}
 
-	return projectId;
+	return normalizedProjectId;
 }
 
 async function resolveProjectPath(projectId: string): Promise<string> {
-	const safeProjectId = sanitizeProjectId(projectId);
+	const safeProjectId = requireProjectId(projectId);
 	const projectPath = path.join(getProjectsDir(), safeProjectId);
 	const projectStat = await stat(projectPath).catch(() => null);
 
@@ -247,14 +268,56 @@ function sendEvent(controller: SessionController, event: ClientEvent): void {
 	controller.enqueue(encoder.encode(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`));
 }
 
+function sendEventToSubscriber(subscriber: SessionSubscriber, event: ClientEvent): boolean {
+	try {
+		sendEvent(subscriber.controller, event);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+function buildReplaySnapshot(session: ActiveSession): SessionReplaySnapshot {
+	return {
+		sessionId: session.sessionId,
+		state: session.state,
+		model: session.model,
+		permissionMode: session.permissionMode,
+		messages: structuredClone(session.messageBuffer),
+		inProgress: session.inProgressTurn ? structuredClone(session.inProgressTurn) : null,
+		pendingPermission: session.pendingPermission
+			? structuredClone(session.pendingPermission.request)
+			: null,
+		pendingQuestion: session.pendingQuestion
+			? structuredClone(session.pendingQuestion.request)
+			: null
+	};
+}
+
+function completeReplay(session: ActiveSession, subscriber: SessionSubscriber): void {
+	if (!session.subscribers.has(subscriber)) return;
+
+	subscriber.replaying = false;
+	const pendingEvents = subscriber.pendingEvents.splice(0);
+	for (const event of pendingEvents) {
+		if (!sendEventToSubscriber(subscriber, event)) {
+			session.subscribers.delete(subscriber);
+			return;
+		}
+	}
+}
+
 function broadcast(session: ActiveSession, event: ClientEvent): void {
 	if (session.subscribers.size === 0) return;
 
-	for (const controller of session.subscribers) {
-		try {
-			sendEvent(controller, event);
-		} catch {
-			session.subscribers.delete(controller);
+	for (const subscriber of session.subscribers) {
+		if (subscriber.replaying) {
+			subscriber.pendingEvents.push(event);
+			continue;
+		}
+
+		if (!sendEventToSubscriber(subscriber, event)) {
+			session.subscribers.delete(subscriber);
 		}
 	}
 }
@@ -288,7 +351,7 @@ function updateToolResultInBuffer(
 	toolId: string,
 	result: string | ContentBlock[],
 	isError: boolean
-): void {
+): boolean {
 	for (let index = session.messageBuffer.length - 1; index >= 0; index -= 1) {
 		const message = session.messageBuffer[index];
 		if (message.role !== 'assistant') continue;
@@ -298,7 +361,7 @@ function updateToolResultInBuffer(
 
 		toolCall.result = result;
 		toolCall.isError = isError;
-		return;
+		return true;
 	}
 
 	if (session.inProgressTurn) {
@@ -306,8 +369,11 @@ function updateToolResultInBuffer(
 		if (toolCall) {
 			toolCall.result = result;
 			toolCall.isError = isError;
+			return true;
 		}
 	}
+
+	return false;
 }
 
 function extractTextParts(content: unknown): string[] {
@@ -449,6 +515,9 @@ function toThreadMessageFromAssistantMessage(
 					result: priorResult?.content,
 					isError: priorResult?.isError
 				});
+				if (priorResult) {
+					session.toolResults.delete(toolId);
+				}
 				continue;
 			}
 
@@ -612,7 +681,6 @@ function createSession(
 		model,
 		messageBuffer: [],
 		inProgressTurn: null,
-		rawSdkMessages: [],
 		subscribers: new Set(),
 		pendingPermission: null,
 		pendingQuestion: null,
@@ -697,13 +765,19 @@ async function handlePermissionRequest(
 	}
 ): Promise<PermissionResult> {
 	if (session.pendingPermission) {
+		const supersededRequest = session.pendingPermission.request;
 		clearTimeout(session.pendingPermission.timeout);
 		session.pendingPermission.resolve({
 			behavior: 'deny',
 			message: 'Permission request was superseded by a newer tool request',
-			toolUseID: session.pendingPermission.request.id
+			toolUseID: supersededRequest.id
 		});
 		session.pendingPermission = null;
+		broadcast(session, {
+			type: 'permission_resolved',
+			toolUseId: supersededRequest.id,
+			behavior: 'deny'
+		});
 	}
 
 	const request: PermissionRequest = {
@@ -753,12 +827,13 @@ async function handlePermissionRequest(
 	});
 }
 
-function handleAskUserQuestion(
+async function handleAskUserQuestion(
 	session: ActiveSession,
 	input: Record<string, unknown>,
 	toolUseId: string
 ): Promise<PermissionResult> {
 	if (session.pendingQuestion) {
+		clearTimeout(session.pendingQuestion.timeout);
 		session.pendingQuestion.resolve({
 			behavior: 'deny',
 			message: 'Question was superseded by a newer AskUserQuestion request',
@@ -772,12 +847,34 @@ function handleAskUserQuestion(
 		questions: asAskUserQuestionItems(input),
 		timestamp: nowIso()
 	};
+	const config = await getConfig();
+	const timeoutMs = config.permissionTimeoutMinutes * 60 * 1000;
 
 	return new Promise((resolve) => {
+		const timeout = setTimeout(() => {
+			if (session.pendingQuestion?.request.id !== request.id) {
+				return;
+			}
+
+			session.pendingQuestion = null;
+			resolve({
+				behavior: 'deny',
+				message: 'Auto-denied: no active UI session',
+				toolUseID: request.id
+			});
+			broadcast(session, {
+				type: 'error',
+				message: 'AskUserQuestion timed out waiting for UI input',
+				recoverable: true
+			});
+			setSessionState(session, 'running', 'question_timeout');
+		}, timeoutMs);
+
 		session.pendingQuestion = {
 			request,
 			rawInput: input,
-			resolve
+			resolve,
+			timeout
 		};
 
 		setSessionState(session, 'awaiting_input');
@@ -791,9 +888,11 @@ function handleAskUserQuestion(
 function handleSystemMessage(session: ActiveSession, message: SDKSystemSessionMessage): void {
 	if (message.subtype === 'init') {
 		if (message.session_id !== session.sessionId) {
-			managerState.activeSessions.delete(session.sessionId);
+			const previousSessionId = session.sessionId;
 			session.sessionId = message.session_id;
 			managerState.activeSessions.set(session.sessionId, session);
+			managerState.activeSessions.delete(previousSessionId);
+			void renameActiveSessionProcess(previousSessionId, session.sessionId);
 		}
 
 		session.model = message.model;
@@ -958,8 +1057,12 @@ function handleUserSdkMessage(
 
 			const result = toSharedToolResultContent(candidate.content);
 			const isError = candidate.is_error === true;
-			session.toolResults.set(toolId, { content: result, isError });
-			updateToolResultInBuffer(session, toolId, result, isError);
+			const attachedToTurn = updateToolResultInBuffer(session, toolId, result, isError);
+			if (!attachedToTurn) {
+				session.toolResults.set(toolId, { content: result, isError });
+			} else {
+				session.toolResults.delete(toolId);
+			}
 			broadcast(session, {
 				type: 'tool_result',
 				toolId,
@@ -1061,7 +1164,6 @@ async function consumeQuery(session: ActiveSession, queryObject: Query): Promise
 		for await (const message of queryObject) {
 			const receivedAt = nowIso();
 			touchSession(session);
-			session.rawSdkMessages.push(message);
 
 			switch (message.type) {
 				case 'system':
@@ -1093,11 +1195,21 @@ async function consumeQuery(session: ActiveSession, queryObject: Query): Promise
 			}
 		}
 
-		if (session.state !== 'closed') {
-			session.queryObject = null;
+		session.queryObject = null;
+
+		if (
+			session.state === 'running' ||
+			session.state === 'awaiting_permission' ||
+			session.state === 'awaiting_input' ||
+			session.state === 'compacting'
+		) {
 			setSessionState(session, 'error', 'query_ended');
 		}
 	} catch (error) {
+		if (session.state === 'closed') {
+			return;
+		}
+
 		flushInProgressTurn(session, nowIso());
 		session.queryObject = null;
 		setSessionState(session, 'error', 'query_failed');
@@ -1138,14 +1250,16 @@ function ensureMaintenanceLoops(): void {
 async function reapInactiveSessions(): Promise<void> {
 	const config = await getConfig();
 	const cutoff = Date.now() - config.sessionReapMinutes * 60_000;
+	const sessionIdsToReap: string[] = [];
 
 	for (const session of managerState.activeSessions.values()) {
-		if (session.state !== 'idle') continue;
 		if (session.subscribers.size > 0) continue;
 		if (Date.parse(session.lastActivity) >= cutoff) continue;
 
-		await closeSession(session.sessionId);
+		sessionIdsToReap.push(session.sessionId);
 	}
+
+	await Promise.all(sessionIdsToReap.map((sessionId) => closeSession(sessionId)));
 }
 
 ensureMaintenanceLoops();
@@ -1157,11 +1271,12 @@ export async function startNewSession(options: {
 	model: string;
 }): Promise<ActiveSession> {
 	const prompt = ensureString(options.prompt, 'prompt is required');
-	const projectPath = await resolveProjectPath(options.projectId);
+	const projectId = requireProjectId(options.projectId);
+	const projectPath = await resolveProjectPath(projectId);
 	const sessionId = randomUUID();
 
 	const session = createSession(
-		options.projectId,
+		projectId,
 		projectPath,
 		sessionId,
 		options.permissionMode,
@@ -1189,17 +1304,31 @@ export async function resumeSession(options: {
 	permissionMode: PermissionMode;
 	model: string;
 }): Promise<ActiveSession> {
-	const existing = managerState.activeSessions.get(options.sessionId);
+	const prompt = ensureString(options.prompt, 'prompt is required');
+	const projectId = requireProjectId(options.projectId);
+	const sessionId = ensureString(options.sessionId, 'sessionId is required');
+	const existing = managerState.activeSessions.get(sessionId);
 	if (existing) {
+		if (existing.projectId !== projectId) {
+			throw new SessionManagerError(409, 'Active session belongs to a different project');
+		}
+
+		if (existing.permissionMode !== options.permissionMode) {
+			await setPermissionMode(existing.sessionId, options.permissionMode);
+		}
+
+		if (existing.model !== options.model) {
+			await setModel(existing.sessionId, options.model);
+		}
+
+		await sendMessage(existing.sessionId, prompt);
 		return existing;
 	}
 
-	const prompt = ensureString(options.prompt, 'prompt is required');
-	const sessionId = ensureString(options.sessionId, 'sessionId is required');
-	const projectPath = await resolveProjectPath(options.projectId);
+	const projectPath = await resolveProjectPath(projectId);
 
 	const session = createSession(
-		options.projectId,
+		projectId,
 		projectPath,
 		sessionId,
 		options.permissionMode,
@@ -1242,13 +1371,24 @@ export function getActiveSessionSummaries(): ActiveSessionSummary[] {
 	}));
 }
 
-export function subscribe(sessionId: string, controller: SessionController): () => void {
+export function subscribe(sessionId: string, controller: SessionController): SessionSubscription {
 	const session = requireSession(sessionId);
-	session.subscribers.add(controller);
+	const subscriber: SessionSubscriber = {
+		controller,
+		pendingEvents: [],
+		replaying: true
+	};
+
+	session.subscribers.add(subscriber);
+	const snapshot = buildReplaySnapshot(session);
 	touchSession(session);
 
-	return () => {
-		session.subscribers.delete(controller);
+	return {
+		snapshot,
+		completeReplay: () => completeReplay(session, subscriber),
+		unsubscribe: () => {
+			session.subscribers.delete(subscriber);
+		}
 	};
 }
 
@@ -1332,6 +1472,7 @@ export async function respondToQuestion(sessionId: string, answers: unknown): Pr
 	}
 
 	session.pendingQuestion = null;
+	clearTimeout(pendingQuestion.timeout);
 	pendingQuestion.resolve({
 		behavior: 'allow',
 		updatedInput: {
@@ -1366,7 +1507,10 @@ export async function closeSession(sessionId: string): Promise<void> {
 		session.pendingPermission = null;
 	}
 
-	session.pendingQuestion = null;
+	if (session.pendingQuestion) {
+		clearTimeout(session.pendingQuestion.timeout);
+		session.pendingQuestion = null;
+	}
 	session.inputQueue.close();
 	session.queryObject?.close();
 	session.queryObject = null;
@@ -1376,9 +1520,9 @@ export async function closeSession(sessionId: string): Promise<void> {
 		state: 'closed'
 	});
 
-	for (const controller of session.subscribers) {
+	for (const subscriber of session.subscribers) {
 		try {
-			controller.close();
+			subscriber.controller.close();
 		} catch {
 			// Ignore closed controllers.
 		}
