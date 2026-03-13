@@ -10,7 +10,10 @@
 	href={resolve(`/projects/${project.id}`)}
 	class="group rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 transition-all hover:border-zinc-700 hover:bg-zinc-900"
 >
-	<h3 class="truncate text-sm font-semibold text-zinc-200 group-hover:text-accent-400 transition-colors" title={project.displayName}>
+	<h3
+		class="group-hover:text-accent-400 truncate text-sm font-semibold text-zinc-200 transition-colors"
+		title={project.displayName}
+	>
 		{project.displayName}
 	</h3>
 

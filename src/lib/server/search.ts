@@ -206,11 +206,9 @@ export function searchSessionsStreaming(
 				const match = processRgMatch(rgEvent, projectsDir);
 				if (!match) continue;
 
-				const promise = processMatch(match, terms, emittedSessions, callbacks).then(
-					(emitted) => {
-						if (emitted) totalEmitted++;
-					}
-				);
+				const promise = processMatch(match, terms, emittedSessions, callbacks).then((emitted) => {
+					if (emitted) totalEmitted++;
+				});
 				pendingPromises.push(promise);
 			} catch {
 				continue;

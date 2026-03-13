@@ -10,7 +10,7 @@ export interface Project {
 	lastModified: string;
 }
 
-/** A session entry as stored in sessions-index.json or derived from JSONL scanning */
+/** A session entry as stored in the local index or derived directly from JSONL scanning */
 export interface SessionEntry {
 	/** Route-safe identifier used in links and keys. */
 	sessionId: string;

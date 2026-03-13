@@ -75,15 +75,15 @@
 						<td class="px-3 py-2.5">
 							<a
 								href={resolve(`/session/${data.projectId}/${session.sessionId}`)}
-								class="block hover:text-accent-400 transition-colors"
+								class="hover:text-accent-400 block transition-colors"
 							>
 								{#if session.summary}
 									<div class="font-medium text-zinc-200">{session.summary}</div>
-									<div class="mt-0.5 text-zinc-500 line-clamp-1">
+									<div class="mt-0.5 line-clamp-1 text-zinc-500">
 										{session.firstPrompt || ''}
 									</div>
 								{:else if session.firstPrompt}
-									<div class="font-medium text-zinc-400 italic line-clamp-1">
+									<div class="line-clamp-1 font-medium text-zinc-400 italic">
 										{session.firstPrompt}
 									</div>
 								{:else}
@@ -103,10 +103,10 @@
 								<span class="text-zinc-700">-</span>
 							{/if}
 						</td>
-						<td class="px-3 py-2.5 text-zinc-500 whitespace-nowrap">
+						<td class="px-3 py-2.5 whitespace-nowrap text-zinc-500">
 							{formatDate(session.created)}
 						</td>
-						<td class="px-3 py-2.5 text-zinc-500 whitespace-nowrap">
+						<td class="px-3 py-2.5 whitespace-nowrap text-zinc-500">
 							{formatDate(session.modified)}
 						</td>
 					</tr>

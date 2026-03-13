@@ -15,8 +15,8 @@
 	</div>
 
 	<div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
-		<h2 class="text-sm font-semibold text-zinc-200 mb-1">Anthropic API Key</h2>
-		<p class="text-xs text-zinc-500 mb-4">
+		<h2 class="mb-1 text-sm font-semibold text-zinc-200">Anthropic API Key</h2>
+		<p class="mb-4 text-xs text-zinc-500">
 			Used to generate session summaries via Haiku for sessions that don't have one. Optional —
 			without it, the first prompt is shown as the title instead.
 		</p>
@@ -42,7 +42,7 @@
 		{#if data.hasApiKey}
 			<div class="mb-4 flex items-center gap-2">
 				<span class="text-xs text-zinc-400">Current key:</span>
-				<code class="text-xs text-zinc-500 font-mono">{data.maskedKey}</code>
+				<code class="font-mono text-xs text-zinc-500">{data.maskedKey}</code>
 			</div>
 		{/if}
 
@@ -51,12 +51,12 @@
 				name="apiKey"
 				type="password"
 				placeholder="sk-ant-api03-..."
-				class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-zinc-300 font-mono placeholder-zinc-700 outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600"
+				class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-300 placeholder-zinc-700 outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600"
 			/>
 			<div class="flex gap-2">
 				<button
 					type="submit"
-					class="rounded-md bg-accent-500 px-4 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-400"
+					class="bg-accent-500 hover:bg-accent-400 rounded-md px-4 py-1.5 text-xs font-medium text-white transition-colors"
 				>
 					Save Key
 				</button>

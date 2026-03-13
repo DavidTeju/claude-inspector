@@ -1,11 +1,21 @@
-import { readdir, readFile, stat, writeFile } from 'fs/promises';
+import { readdir, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { SESSION_INDEX_VERSION, type SessionEntry, type SessionIndex } from '../types.js';
 import { getConfig } from './config.js';
-import { listProjectSessionFilesInDir, type SessionFileDescriptor } from './session-discovery.js';
-import { extractSessionEntry } from './session-metadata.js';
+import { listProjectSessionFilesInDir } from './session-discovery.js';
 import { getProjectsDir } from './paths.js';
 import { parseSessionFile } from './session-parser.js';
+import {
+	buildIndexedSessionData,
+	deleteIndexedProjects,
+	getIndexedProjectIds,
+	getIndexedSessions,
+	getIndexedSessionsByPath,
+	getReconcileStateByPath,
+	persistProjectIndex,
+	updateIndexedSessionSummary,
+	type IndexedSessionData
+} from './session-index-sqlite.js';
 
 /** In-memory cache of reconciled sessions per project */
 const cache = new Map<string, SessionEntry[]>();
@@ -14,7 +24,17 @@ let reconciling = false;
 
 /** Returns cached reconciled sessions, or null if not yet reconciled */
 export function getReconciledSessions(projectId: string): SessionEntry[] | null {
-	return cache.get(projectId) ?? null;
+	const cached = cache.get(projectId);
+	if (cached) return cached;
+
+	const indexed = getIndexedSessions(projectId);
+	if (indexed.length > 0) {
+		cache.set(projectId, indexed);
+		reconciledProjects.add(projectId);
+		return indexed;
+	}
+
+	return null;
 }
 
 /** Whether a project has been reconciled */
@@ -37,7 +57,12 @@ export function startReconciliation(): void {
 export async function reconcileProjectNow(projectId: string): Promise<SessionEntry[]> {
 	const projectDir = path.join(getProjectsDir(), projectId);
 	const dirStat = await stat(projectDir).catch(() => null);
-	if (!dirStat?.isDirectory()) return [];
+	if (!dirStat?.isDirectory()) {
+		deleteIndexedProjects([projectId]);
+		cache.delete(projectId);
+		reconciledProjects.delete(projectId);
+		return [];
+	}
 
 	return reconcileProject(projectId, projectDir);
 }
@@ -52,15 +77,29 @@ async function reconcileAllProjects(): Promise<void> {
 		return;
 	}
 
+	const projectIdsOnDisk: string[] = [];
+
 	for (const dir of dirs) {
 		const fullDir = path.join(projectsDir, dir);
 		const dirStat = await stat(fullDir).catch(() => null);
 		if (!dirStat?.isDirectory()) continue;
+		projectIdsOnDisk.push(dir);
 
 		try {
 			await reconcileProject(dir, fullDir);
 		} catch (err) {
 			console.error(`[reconciler] error reconciling ${dir}:`, err);
+		}
+	}
+
+	const staleProjectIds = getIndexedProjectIds().filter(
+		(projectId) => !projectIdsOnDisk.includes(projectId)
+	);
+	if (staleProjectIds.length > 0) {
+		deleteIndexedProjects(staleProjectIds);
+		for (const projectId of staleProjectIds) {
+			cache.delete(projectId);
+			reconciledProjects.delete(projectId);
 		}
 	}
 
@@ -77,85 +116,74 @@ async function reconcileAllProjects(): Promise<void> {
 
 async function reconcileProject(projectId: string, projectDir: string): Promise<SessionEntry[]> {
 	const descriptors = await listProjectSessionFilesInDir(projectId, projectDir);
-	if (descriptors.length === 0) {
-		cache.set(projectId, []);
-		reconciledProjects.add(projectId);
-		return [];
-	}
-
-	const indexMap = await loadSessionIndex(projectDir);
+	const indexedSessionsByPath = getIndexedSessionsByPath(projectId);
+	const reconcileStateByPath = getReconcileStateByPath(projectId);
 	const entries: SessionEntry[] = [];
+	const changedSessions: IndexedSessionData[] = [];
+	const retainedPaths = new Set<string>();
 
 	for (const descriptor of descriptors) {
 		try {
 			const fileStat = await stat(descriptor.fullPath);
-			const existingEntry = indexMap.get(descriptor.routeId);
+			const existingSession = indexedSessionsByPath.get(descriptor.fullPath);
+			const reconcileState = reconcileStateByPath.get(descriptor.fullPath);
 
-			if (existingEntry && Math.abs(fileStat.mtimeMs - existingEntry.fileMtime) < 1000) {
-				entries.push(patchIndexedEntry(existingEntry, descriptor, fileStat.mtimeMs));
+			if (
+				existingSession &&
+				reconcileState &&
+				reconcileState.mtime_ms === fileStat.mtimeMs &&
+				reconcileState.size_bytes === fileStat.size
+			) {
+				entries.push(existingSession.entry);
+				retainedPaths.add(descriptor.fullPath);
 				continue;
 			}
 
 			const records = await parseSessionFile(descriptor.fullPath);
-			const scanned = extractSessionEntry(descriptor, records, fileStat);
-			if (!scanned) continue;
+			const indexedSession = buildIndexedSessionData(descriptor, records, fileStat);
+			if (!indexedSession) continue;
 
-			if (!scanned.summary && existingEntry?.summary) {
-				scanned.summary = existingEntry.summary;
+			if (!indexedSession.entry.summary && existingSession?.entry.summary) {
+				indexedSession.entry.summary = existingSession.entry.summary;
 			}
 
-			entries.push(scanned);
+			entries.push(indexedSession.entry);
+			changedSessions.push(indexedSession);
+			retainedPaths.add(descriptor.fullPath);
 		} catch {
 			continue;
 		}
 	}
 
 	entries.sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime());
+	const removedPaths = [...indexedSessionsByPath.keys()].filter(
+		(fullPath) => !retainedPaths.has(fullPath)
+	);
+	persistProjectIndex(projectId, projectDir, changedSessions, removedPaths, entries);
+	await writeSessionIndex(projectId, projectDir, entries);
 
+	if (entries.length > 0) {
+		cache.set(projectId, entries);
+	} else {
+		cache.delete(projectId);
+	}
+	reconciledProjects.add(projectId);
+	return entries;
+}
+
+async function writeSessionIndex(
+	projectId: string,
+	projectDir: string,
+	entries: SessionEntry[]
+): Promise<void> {
 	const indexData: SessionIndex = { version: SESSION_INDEX_VERSION, entries };
 	const indexPath = path.join(projectDir, 'sessions-index.json');
+
 	try {
 		await writeFile(indexPath, JSON.stringify(indexData, null, '\t'), 'utf-8');
 	} catch (err) {
 		console.error(`[reconciler] failed to write index for ${projectId}:`, err);
 	}
-
-	cache.set(projectId, entries);
-	reconciledProjects.add(projectId);
-	return entries;
-}
-
-async function loadSessionIndex(projectDir: string): Promise<Map<string, SessionEntry>> {
-	const indexPath = path.join(projectDir, 'sessions-index.json');
-
-	try {
-		const indexData: SessionIndex = JSON.parse(await readFile(indexPath, 'utf-8'));
-		if (indexData.version !== SESSION_INDEX_VERSION) {
-			return new Map();
-		}
-
-		return new Map(indexData.entries.map((entry) => [entry.sessionId, entry]));
-	} catch {
-		return new Map();
-	}
-}
-
-function patchIndexedEntry(
-	entry: SessionEntry,
-	descriptor: SessionFileDescriptor,
-	fileMtime: number
-): SessionEntry {
-	return {
-		...entry,
-		sessionId: descriptor.routeId,
-		displaySessionId: descriptor.sessionId,
-		fullPath: descriptor.fullPath,
-		relativePath: descriptor.relativePath,
-		fileMtime,
-		projectPath: descriptor.relativePath,
-		isSubagent: descriptor.isSubagent,
-		parentSessionId: descriptor.parentSessionId
-	};
 }
 
 /** Generate summaries for sessions that don't have one, using Haiku */
@@ -186,6 +214,7 @@ async function generateSummaries(
 			const text = response.content[0];
 			if (text.type === 'text' && text.text) {
 				entry.summary = text.text.trim();
+				updateIndexedSessionSummary(projectId, entry.sessionId, entry.summary);
 			}
 		} catch (err) {
 			console.error(`[reconciler] summary generation failed for ${entry.sessionId}:`, err);
@@ -197,12 +226,5 @@ async function generateSummaries(
 	if (!entriesAll) return;
 
 	const projectDir = path.join(getProjectsDir(), projectId);
-	const indexPath = path.join(projectDir, 'sessions-index.json');
-	const indexData: SessionIndex = { version: SESSION_INDEX_VERSION, entries: entriesAll };
-
-	try {
-		await writeFile(indexPath, JSON.stringify(indexData, null, '\t'), 'utf-8');
-	} catch {
-		// Cache is still updated in-memory.
-	}
+	await writeSessionIndex(projectId, projectDir, entriesAll);
 }

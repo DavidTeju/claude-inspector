@@ -11,7 +11,6 @@
 	let searchQuery = $state('');
 	let results: SearchResult[] = $state([]);
 	let isSearching = $state(false);
-	let totalResults = $state(0);
 	let abortController: AbortController | null = $state(null);
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let searchInput: HTMLInputElement;
@@ -52,7 +51,6 @@
 			abortController = null;
 		}
 		results = [];
-		totalResults = 0;
 		isSearching = false;
 	}
 
@@ -71,7 +69,6 @@
 		const controller = new AbortController();
 		abortController = controller;
 		results = [];
-		totalResults = 0;
 		displayCount = RESULTS_PER_PAGE;
 		isSearching = true;
 
@@ -123,7 +120,6 @@
 							results.push(parsed as SearchResult);
 							results = results;
 						} else if (eventType === 'done') {
-							totalResults = parsed.totalSessions;
 							results = [...results].sort((a, b) => {
 								if (b.relevance !== a.relevance) return b.relevance - a.relevance;
 								return new Date(b.modified).getTime() - new Date(a.modified).getTime();
@@ -162,7 +158,7 @@
 	<div class="mb-6">
 		<div class="relative">
 			<svg
-				class="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-600"
+				class="absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-zinc-600"
 				fill="none"
 				viewBox="0 0 24 24"
 				stroke="currentColor"
@@ -181,12 +177,12 @@
 				onkeydown={handleKeydown}
 				type="text"
 				placeholder="Search sessions..."
-				class="w-full rounded-lg border border-zinc-800 bg-zinc-900 py-3 pl-12 pr-10 text-sm text-zinc-200 placeholder-zinc-600 outline-none transition-colors focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600"
+				class="w-full rounded-lg border border-zinc-800 bg-zinc-900 py-3 pr-10 pl-12 text-sm text-zinc-200 placeholder-zinc-600 transition-colors outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600"
 			/>
 			{#if searchQuery}
 				<button
 					onclick={clearSearch}
-					class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-400"
+					class="absolute top-1/2 right-3 -translate-y-1/2 text-zinc-600 hover:text-zinc-400"
 					aria-label="Clear search"
 				>
 					<svg
@@ -208,7 +204,7 @@
 		<div>
 			<div class="mb-4 flex items-center gap-2 text-xs text-zinc-500">
 				{#if isSearching}
-					<svg class="h-3 w-3 animate-spin text-accent-400" viewBox="0 0 24 24" fill="none">
+					<svg class="text-accent-400 h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none">
 						<circle
 							class="opacity-25"
 							cx="12"

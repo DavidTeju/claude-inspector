@@ -6,16 +6,18 @@
 	let { sidebarOpen, onToggleSidebar }: { sidebarOpen: boolean; onToggleSidebar: () => void } =
 		$props();
 
+	type BreadcrumbPath = '/' | `/projects/${string}` | `/session/${string}/${string}`;
+
 	let breadcrumbs = $derived.by(() => {
 		const url = page.url?.pathname || '/';
-		const parts: Array<{ label: string; href: string }> = [{ label: 'Home', href: resolve('/') }];
+		const parts: Array<{ label: string; path: BreadcrumbPath }> = [{ label: 'Home', path: '/' }];
 
 		if (url.startsWith('/projects/')) {
 			const projectId = page.params?.projectId;
 			if (projectId) {
 				parts.push({
 					label: dirNameToDisplayName(projectId),
-					href: resolve(`/projects/${projectId}`)
+					path: `/projects/${projectId}`
 				});
 			}
 		}
@@ -26,13 +28,13 @@
 			if (projectId) {
 				parts.push({
 					label: dirNameToDisplayName(projectId),
-					href: resolve(`/projects/${projectId}`)
+					path: `/projects/${projectId}`
 				});
 			}
 			if (sessionId) {
 				parts.push({
 					label: sessionId.slice(0, 8) + '...',
-					href: resolve(`/session/${projectId}/${sessionId}`)
+					path: `/session/${projectId}/${sessionId}`
 				});
 			}
 		}
@@ -64,14 +66,16 @@
 			{#if i === breadcrumbs.length - 1}
 				<span class="text-zinc-300">{crumb.label}</span>
 			{:else}
-				<a href={crumb.href} class="hover:text-zinc-300 transition-colors">{crumb.label}</a>
+				<a href={resolve(crumb.path)} class="transition-colors hover:text-zinc-300">
+					{crumb.label}
+				</a>
 			{/if}
 		{/each}
 	</nav>
 
 	<a
 		href={resolve('/')}
-		class="ml-auto flex items-center text-zinc-500 hover:text-zinc-300 transition-colors"
+		class="ml-auto flex items-center text-zinc-500 transition-colors hover:text-zinc-300"
 		aria-label="Search sessions"
 	>
 		<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

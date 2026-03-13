@@ -27,7 +27,7 @@
 	</div>
 
 	<nav class="flex-1 overflow-y-auto p-2">
-		<div class="mb-2 px-2 text-[10px] font-semibold uppercase tracking-widest text-zinc-600">
+		<div class="mb-2 px-2 text-[10px] font-semibold tracking-widest text-zinc-600 uppercase">
 			Projects
 		</div>
 		{#each projects as project (project.id)}

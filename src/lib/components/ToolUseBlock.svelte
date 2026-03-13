@@ -62,23 +62,23 @@
 		</span>
 
 		{#if summary}
-			<span class="truncate text-zinc-500 font-mono text-[11px]">{summary}</span>
+			<span class="truncate font-mono text-[11px] text-zinc-500">{summary}</span>
 		{/if}
 
 		{#if tool.isError}
-			<span class="ml-auto text-[10px] text-error-500">error</span>
+			<span class="text-error-500 ml-auto text-[10px]">error</span>
 		{/if}
 	</button>
 
 	{#if expanded}
-		<div class="border-t border-zinc-800/50 px-3 py-2 space-y-2">
+		<div class="space-y-2 border-t border-zinc-800/50 px-3 py-2">
 			<!-- Input -->
 			<div>
-				<div class="mb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
+				<div class="mb-1 text-[10px] font-semibold tracking-wider text-zinc-600 uppercase">
 					Input
 				</div>
 				<pre
-					class="max-h-64 overflow-auto rounded bg-zinc-950 p-2 text-[11px] text-zinc-400 font-mono leading-relaxed">{JSON.stringify(
+					class="max-h-64 overflow-auto rounded bg-zinc-950 p-2 font-mono text-[11px] leading-relaxed text-zinc-400">{JSON.stringify(
 						tool.input,
 						null,
 						2
@@ -89,7 +89,7 @@
 			{#if tool.result !== undefined}
 				<div>
 					<div
-						class="mb-1 text-[10px] font-semibold uppercase tracking-wider {tool.isError
+						class="mb-1 text-[10px] font-semibold tracking-wider uppercase {tool.isError
 							? 'text-error-500'
 							: 'text-zinc-600'}"
 					>
@@ -98,7 +98,7 @@
 					<pre
 						class="max-h-96 overflow-auto rounded bg-zinc-950 p-2 text-[11px] {tool.isError
 							? 'text-red-400'
-							: 'text-zinc-400'} font-mono leading-relaxed whitespace-pre-wrap break-words">{getResultText()}</pre>
+							: 'text-zinc-400'} font-mono leading-relaxed break-words whitespace-pre-wrap">{getResultText()}</pre>
 				</div>
 			{/if}
 		</div>

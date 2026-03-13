@@ -49,7 +49,7 @@
 </script>
 
 <div
-	class="code-block group relative my-2 rounded-md border border-zinc-800 bg-[#0d1117] overflow-hidden"
+	class="code-block group relative my-2 overflow-hidden rounded-md border border-zinc-800 bg-[#0d1117]"
 >
 	<div class="flex items-center justify-between border-b border-zinc-800/50 px-3 py-1">
 		<span class="text-[10px] text-zinc-600">{language}</span>
@@ -57,11 +57,11 @@
 
 	<div class="overflow-x-auto p-3 text-[12px] leading-relaxed">
 		{#if isLoading}
-			<pre class="text-zinc-400 font-mono"><code>{code}</code></pre>
+			<pre class="font-mono text-zinc-400"><code>{code}</code></pre>
 		{:else if highlightedHtml}
 			{@html highlightedHtml}
 		{:else}
-			<pre class="text-zinc-400 font-mono"><code>{code}</code></pre>
+			<pre class="font-mono text-zinc-400"><code>{code}</code></pre>
 		{/if}
 	</div>
 </div>

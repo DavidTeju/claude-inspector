@@ -28,7 +28,7 @@
 	<div class="rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-3">
 		<div class="mb-2 flex items-center justify-between gap-4">
 			<div class="flex items-center gap-2">
-				<span class="text-[10px] font-semibold uppercase tracking-wider text-accent-400/70"
+				<span class="text-accent-400/70 text-[10px] font-semibold tracking-wider uppercase"
 					>Claude</span
 				>
 				{#if message.model}

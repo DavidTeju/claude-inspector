@@ -11,7 +11,7 @@
 	class="block rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 transition-all hover:border-zinc-700 hover:bg-zinc-900"
 >
 	<div class="mb-2 flex items-center gap-2">
-		<span class="text-[10px] uppercase tracking-wider text-zinc-600">{result.projectName}</span>
+		<span class="text-[10px] tracking-wider text-zinc-600 uppercase">{result.projectName}</span>
 		<span class="text-zinc-800">|</span>
 		<span class="text-[10px] text-zinc-600">{formatDate(result.modified)}</span>
 	</div>

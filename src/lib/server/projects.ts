@@ -4,15 +4,20 @@ import type { Project } from '../types.js';
 import { dirNameToDisplayName } from '../utils.js';
 import { listProjectSessionFilesInDir } from './session-discovery.js';
 import { getProjectsDir } from './paths.js';
-import { getReconciledSessions } from './reconciler.js';
+import { getIndexedProjects } from './session-index-sqlite.js';
 
 export { dirNameToDisplayName };
 
 /**
  * Scans ~/.claude/projects/ and returns all projects sorted by last modified.
- * Uses the reconciler cache when available, otherwise falls back to file discovery.
+ * Uses the SQLite-derived index when available, otherwise falls back to file discovery.
  */
 export async function listProjects(): Promise<Project[]> {
+	const indexedProjects = getIndexedProjects();
+	if (indexedProjects.length > 0) {
+		return indexedProjects;
+	}
+
 	const projectsDir = getProjectsDir();
 	let entries: string[];
 
@@ -32,28 +37,22 @@ export async function listProjects(): Promise<Project[]> {
 		let sessionCount: number;
 		let lastModified = '';
 
-		const reconciled = getReconciledSessions(entry);
-		if (reconciled) {
-			sessionCount = reconciled.length;
-			lastModified = reconciled[0]?.modified || '';
-		} else {
-			try {
-				const descriptors = await listProjectSessionFilesInDir(entry, fullPath);
-				sessionCount = descriptors.length;
+		try {
+			const descriptors = await listProjectSessionFilesInDir(entry, fullPath);
+			sessionCount = descriptors.length;
 
-				if (descriptors.length > 0) {
-					const modifiedTimes = await Promise.all(
-						descriptors.map(async (descriptor) => {
-							const fileStat = await stat(descriptor.fullPath);
-							return fileStat.mtime.toISOString();
-						})
-					);
+			if (descriptors.length > 0) {
+				const modifiedTimes = await Promise.all(
+					descriptors.map(async (descriptor) => {
+						const fileStat = await stat(descriptor.fullPath);
+						return fileStat.mtime.toISOString();
+					})
+				);
 
-					lastModified = modifiedTimes.sort().reverse()[0] || '';
-				}
-			} catch {
-				continue;
+				lastModified = modifiedTimes.sort().reverse()[0] || '';
 			}
+		} catch {
+			continue;
 		}
 
 		if (sessionCount === 0) continue;

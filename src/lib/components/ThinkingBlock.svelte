@@ -26,7 +26,7 @@
 	{#if expanded}
 		<div class="border-t border-zinc-800/30 px-3 py-2">
 			<pre
-				class="max-h-96 overflow-auto text-xs text-zinc-500 leading-relaxed whitespace-pre-wrap">{content}</pre>
+				class="max-h-96 overflow-auto text-xs leading-relaxed whitespace-pre-wrap text-zinc-500">{content}</pre>
 		</div>
 	{/if}
 </div>

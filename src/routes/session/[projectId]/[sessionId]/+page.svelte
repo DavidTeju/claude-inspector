@@ -13,7 +13,7 @@
 	<div class="mb-6 flex items-center gap-4 rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
 		<div class="flex-1">
 			<h1 class="text-sm font-bold text-zinc-200">Session {data.sessionId.slice(0, 8)}...</h1>
-			<p class="mt-1 text-[11px] text-zinc-500 font-mono">{data.sessionId}</p>
+			<p class="mt-1 font-mono text-[11px] text-zinc-500">{data.sessionId}</p>
 		</div>
 		<div class="flex items-center gap-4 text-[11px] text-zinc-500">
 			<span>{data.messages.length} messages</span>
