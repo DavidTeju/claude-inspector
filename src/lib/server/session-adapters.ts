@@ -10,14 +10,18 @@ import {
 	type UserRecord
 } from './session-schema.js';
 
-export function toThreadMessages(records: ParsedSessionRecord[]): ThreadMessage[] {
+export function toThreadMessages(
+	records: ParsedSessionRecord[],
+	{ includeSidechain = false }: { includeSidechain?: boolean } = {}
+): ThreadMessage[] {
 	type TranscriptRecord = UserRecord | AssistantRecord;
 
 	const transcriptRecords: TranscriptRecord[] = records
 		.map(({ record }) => record)
 		.filter(
 			(record): record is TranscriptRecord =>
-				(isUserRecord(record) || isAssistantRecord(record)) && record.isSidechain !== true
+				(isUserRecord(record) || isAssistantRecord(record)) &&
+				(includeSidechain || record.isSidechain !== true)
 		);
 
 	const byUuid = new Map(transcriptRecords.map((record) => [record.uuid, record]));

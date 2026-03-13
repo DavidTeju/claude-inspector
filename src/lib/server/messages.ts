@@ -5,7 +5,10 @@ import { parseSessionFile } from './session-parser.js';
 /**
  * Parses a session JSONL file into the compatibility transcript model used by the current UI.
  */
-export async function parseSessionMessages(filePath: string): Promise<ThreadMessage[]> {
+export async function parseSessionMessages(
+	filePath: string,
+	options?: { includeSidechain?: boolean }
+): Promise<ThreadMessage[]> {
 	const records = await parseSessionFile(filePath);
-	return toThreadMessages(records);
+	return toThreadMessages(records, options);
 }
