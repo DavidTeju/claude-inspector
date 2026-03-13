@@ -1,16 +1,46 @@
 import { spawn, type ChildProcess } from 'child_process';
-import { readdir, readFile, stat } from 'fs/promises';
+import { readdir, stat } from 'fs/promises';
 import path from 'path';
 import { rgPath } from '@vscode/ripgrep';
-import { getProjectsDir } from './paths.js';
+import type { SearchResult } from '$lib/types.js';
 import { dirNameToDisplayName, parseSearchTerms } from '$lib/utils.js';
-import type { SearchResult, SessionIndex } from '$lib/types.js';
+import { getProjectsDir } from './paths.js';
+import { reconcileProjectNow } from './reconciler.js';
+import {
+	getIndexedSessionMeta,
+	searchIndexedSessions,
+	type IndexedSearchQuery,
+	type IndexedSearchSession
+} from './session-index-sqlite.js';
 
 interface RgMatch {
 	projectId: string;
 	sessionId: string;
+	filePath: string;
 	lineText: string;
 }
+
+interface ParsedSearchQuery {
+	textTerms: string[];
+	toolNames: string[];
+	branchTerms: string[];
+	isErrorOnly: boolean;
+	isSubagentOnly: boolean;
+	hasTokensOnly: boolean;
+	rawMode: boolean;
+}
+
+export interface SearchHandle {
+	kill(): void;
+}
+
+export interface StreamingSearchCallbacks {
+	onResult: (result: SearchResult) => void;
+	onDone: (totalSessions: number) => void;
+	onError: (error: string) => void;
+}
+
+const indexingPromises = new Map<string, Promise<void>>();
 
 /**
  * Extract text content from a parsed JSONL session record.
@@ -47,102 +77,320 @@ function extractTextContent(record: Record<string, unknown>): string | null {
 	return null;
 }
 
-/**
- * Create a context snippet around the match position in the extracted text.
- */
+function parseStructuredQuery(query: string): ParsedSearchQuery {
+	const textParts: string[] = [];
+	const toolNames: string[] = [];
+	const branchTerms: string[] = [];
+	let isErrorOnly = false;
+	let isSubagentOnly = false;
+	let hasTokensOnly = false;
+	let rawMode = false;
+
+	for (const token of query.trim().split(/\s+/).filter(Boolean)) {
+		const lowerToken = token.toLowerCase();
+
+		if (lowerToken.startsWith('tool:') && token.length > 'tool:'.length) {
+			toolNames.push(token.slice('tool:'.length));
+			continue;
+		}
+
+		if (lowerToken.startsWith('branch:') && token.length > 'branch:'.length) {
+			branchTerms.push(token.slice('branch:'.length));
+			continue;
+		}
+
+		if (lowerToken === 'is:error') {
+			isErrorOnly = true;
+			continue;
+		}
+
+		if (lowerToken === 'is:subagent') {
+			isSubagentOnly = true;
+			continue;
+		}
+
+		if (lowerToken === 'has:tokens' || lowerToken === 'has:cost') {
+			hasTokensOnly = true;
+			continue;
+		}
+
+		if (lowerToken === 'debug:raw' || lowerToken === 'mode:raw' || lowerToken === 'source:raw') {
+			rawMode = true;
+			continue;
+		}
+
+		textParts.push(token);
+	}
+
+	return {
+		textTerms: parseSearchTerms(textParts.join(' ')),
+		toolNames,
+		branchTerms,
+		isErrorOnly,
+		isSubagentOnly,
+		hasTokensOnly,
+		rawMode
+	};
+}
+
+function hasStructuredFilters(query: ParsedSearchQuery): boolean {
+	return (
+		query.toolNames.length > 0 ||
+		query.branchTerms.length > 0 ||
+		query.isErrorOnly ||
+		query.isSubagentOnly ||
+		query.hasTokensOnly
+	);
+}
+
+function hasSearchIntent(query: ParsedSearchQuery): boolean {
+	return query.textTerms.length > 0 || hasStructuredFilters(query);
+}
+
+function toIndexedSearchQuery(
+	query: ParsedSearchQuery,
+	projectFilter?: string
+): IndexedSearchQuery {
+	return {
+		textTerms: query.textTerms,
+		projectFilter,
+		toolNames: query.toolNames,
+		branchTerms: query.branchTerms,
+		isErrorOnly: query.isErrorOnly,
+		isSubagentOnly: query.isSubagentOnly,
+		hasTokensOnly: query.hasTokensOnly
+	};
+}
+
 function createSnippet(text: string, term: string): string {
-	const lower = text.toLowerCase();
+	const normalized = text.replace(/\n/g, ' ').trim();
+	if (!normalized) return '';
+
+	const lower = normalized.toLowerCase();
 	const termLower = term.toLowerCase();
 	const idx = lower.indexOf(termLower);
-	if (idx === -1) return text.slice(0, 150).replace(/\n/g, ' ');
+	if (idx === -1) return normalized.slice(0, 150);
 
 	const start = Math.max(0, idx - 60);
-	const end = Math.min(text.length, idx + term.length + 90);
+	const end = Math.min(normalized.length, idx + term.length + 90);
 
-	let snippet = text.slice(start, end).replace(/\n/g, ' ');
+	let snippet = normalized.slice(start, end);
 	if (start > 0) snippet = '...' + snippet;
-	if (end < text.length) snippet = snippet + '...';
+	if (end < normalized.length) snippet += '...';
 
 	return snippet;
 }
 
-// In-memory cache for session index data to avoid re-reading the same file
-const indexCache = new Map<string, { data: SessionIndex; timestamp: number }>();
-const INDEX_CACHE_TTL = 5000; // 5 seconds
+function createSnippets(searchText: string, terms: string[]): string[] {
+	if (!searchText.trim()) return [];
 
-async function loadSessionIndex(projectId: string): Promise<SessionIndex | null> {
-	const now = Date.now();
-	const cached = indexCache.get(projectId);
-	if (cached && now - cached.timestamp < INDEX_CACHE_TTL) {
-		return cached.data;
+	if (terms.length === 0) {
+		const fallback = searchText.replace(/\n/g, ' ').trim().slice(0, 150);
+		return fallback ? [fallback] : [];
 	}
 
-	try {
-		const indexPath = path.join(getProjectsDir(), projectId, 'sessions-index.json');
-		const indexData: SessionIndex = JSON.parse(await readFile(indexPath, 'utf-8'));
-		indexCache.set(projectId, { data: indexData, timestamp: now });
-		return indexData;
-	} catch {
-		return null;
+	const snippets: string[] = [];
+	for (const term of terms.slice(0, 2)) {
+		const snippet = createSnippet(searchText, term);
+		if (snippet && !snippets.includes(snippet)) {
+			snippets.push(snippet);
+		}
 	}
+
+	return snippets;
 }
 
-/**
- * Load session metadata from sessions-index.json for enrichment.
- */
-async function loadSessionMeta(
-	projectId: string,
-	sessionId: string
-): Promise<{
-	summary: string;
-	firstPrompt: string;
-	messageCount: number;
-	modified: string;
-} | null> {
-	const indexData = await loadSessionIndex(projectId);
-	if (!indexData) return null;
+async function ensureProjectIndexed(projectId: string): Promise<void> {
+	const pending = indexingPromises.get(projectId);
+	if (pending) {
+		await pending;
+		return;
+	}
 
-	const entry = indexData.entries.find((e) => e.sessionId === sessionId);
-	if (entry) {
+	const indexing = reconcileProjectNow(projectId)
+		.then(() => undefined)
+		.finally(() => {
+			indexingPromises.delete(projectId);
+		});
+
+	indexingPromises.set(projectId, indexing);
+	await indexing;
+}
+
+async function ensureSearchProjectsIndexed(projectFilter?: string): Promise<void> {
+	const projectsDir = getProjectsDir();
+	let projectIds: string[];
+
+	try {
+		projectIds = projectFilter ? [projectFilter] : await readdir(projectsDir);
+	} catch {
+		return;
+	}
+
+	await Promise.all(projectIds.map((projectId) => ensureProjectIndexed(projectId)));
+}
+
+async function loadSessionMeta(projectId: string, sessionId: string) {
+	let meta = getIndexedSessionMeta(projectId, sessionId);
+	if (meta) return meta;
+
+	await ensureProjectIndexed(projectId);
+	meta = getIndexedSessionMeta(projectId, sessionId);
+	return meta;
+}
+
+function toSearchResult(result: IndexedSearchSession, terms: string[]): SearchResult {
+	return {
+		projectId: result.projectId,
+		projectName: dirNameToDisplayName(result.projectId),
+		sessionId: result.sessionId,
+		sessionSummary: result.summary,
+		firstPrompt: result.firstPrompt,
+		snippets: createSnippets(result.searchText, terms),
+		modified: result.modified,
+		relevance: result.relevance
+	};
+}
+
+async function emitIndexedMatches(
+	query: ParsedSearchQuery,
+	projectFilter: string | undefined,
+	emittedSessions: Set<string>,
+	callbacks: StreamingSearchCallbacks,
+	cancelled: { value: boolean }
+): Promise<number> {
+	await ensureSearchProjectsIndexed(projectFilter);
+	if (cancelled.value) return 0;
+
+	const results = searchIndexedSessions(toIndexedSearchQuery(query, projectFilter), 500);
+	let emitted = 0;
+
+	for (const result of results) {
+		if (cancelled.value) break;
+
+		const dedupeKey = `${result.projectId}/${result.sessionId}`;
+		if (emittedSessions.has(dedupeKey)) continue;
+		emittedSessions.add(dedupeKey);
+
+		callbacks.onResult(toSearchResult(result, query.textTerms));
+		emitted += 1;
+
+		if (emitted % 25 === 0) {
+			await new Promise((resolve) => setTimeout(resolve, 0));
+		}
+	}
+
+	return emitted;
+}
+
+function processRgMatch(rgEvent: Record<string, unknown>, projectsDir: string): RgMatch | null {
+	const data = rgEvent.data as {
+		path?: { text?: string };
+		lines?: { text?: string };
+	};
+
+	const filePath = data?.path?.text;
+	const lineText = data?.lines?.text;
+	if (!filePath || !lineText) return null;
+
+	const relPath = filePath.replace(projectsDir + '/', '');
+	const parts = relPath.split('/');
+	if (parts.length < 2) return null;
+
+	const projectId = parts[0];
+	if (!projectId) return null;
+
+	if (parts.length === 2) {
+		const sessionId = parts[1]?.replace('.jsonl', '');
+		if (!sessionId) return null;
+		return { projectId, sessionId, filePath, lineText };
+	}
+
+	if (parts.length === 4 && parts[2] === 'subagents') {
+		const parentSessionId = parts[1];
+		const childSessionId = parts[3]?.replace('.jsonl', '');
+		if (!parentSessionId || !childSessionId) return null;
+
 		return {
-			summary: entry.summary,
-			firstPrompt: entry.firstPrompt,
-			messageCount: entry.messageCount,
-			modified: entry.modified
+			projectId,
+			sessionId: `${parentSessionId}~subagent~${childSessionId}`,
+			filePath,
+			lineText
 		};
 	}
+
 	return null;
 }
 
-export interface StreamingSearchCallbacks {
-	onResult: (result: SearchResult) => void;
-	onDone: (totalSessions: number) => void;
-	onError: (error: string) => void;
-}
-
-/**
- * Spawns rg to search JSONL files, post-filters to actual message text,
- * and streams results via callbacks. Returns the child process for abort control.
- */
-export function searchSessionsStreaming(
-	query: string,
-	callbacks: StreamingSearchCallbacks,
-	projectFilter?: string
-): ChildProcess | null {
-	if (!query || query.trim().length < 2) {
-		callbacks.onDone(0);
-		return null;
+async function processRawMatch(
+	match: RgMatch,
+	terms: string[],
+	emittedSessions: Set<string>,
+	callbacks: StreamingSearchCallbacks
+): Promise<boolean> {
+	let record: Record<string, unknown>;
+	try {
+		record = JSON.parse(match.lineText);
+	} catch {
+		return false;
 	}
 
-	const terms = parseSearchTerms(query);
-	if (terms.length === 0) {
+	const textContent = extractTextContent(record);
+	if (!textContent) return false;
+
+	const lowerText = textContent.toLowerCase();
+	if (!terms.every((term) => lowerText.includes(term))) return false;
+
+	const dedupeKey = `${match.projectId}/${match.sessionId}`;
+	if (emittedSessions.has(dedupeKey)) return false;
+	emittedSessions.add(dedupeKey);
+
+	const meta = await loadSessionMeta(match.projectId, match.sessionId);
+
+	let modified = meta?.modified || '';
+	if (!modified) {
+		try {
+			const fileStat = await stat(match.filePath);
+			modified = fileStat.mtime.toISOString();
+		} catch {
+			modified = new Date().toISOString();
+		}
+	}
+
+	const promptLower = (meta?.firstPrompt || '').toLowerCase();
+	const summaryLower = (meta?.summary || '').toLowerCase();
+	let relevance = 0;
+	for (const term of terms) {
+		if (promptLower.includes(term)) relevance += 2;
+		if (summaryLower.includes(term)) relevance += 1;
+	}
+
+	callbacks.onResult({
+		projectId: match.projectId,
+		projectName: dirNameToDisplayName(match.projectId),
+		sessionId: match.sessionId,
+		sessionSummary: meta?.summary || '',
+		firstPrompt: meta?.firstPrompt || '',
+		snippets: createSnippets(textContent, terms),
+		modified,
+		relevance
+	});
+
+	return true;
+}
+
+function searchSessionsRawStreaming(
+	textTerms: string[],
+	callbacks: StreamingSearchCallbacks,
+	projectFilter?: string
+): SearchHandle | null {
+	if (textTerms.length === 0) {
 		callbacks.onDone(0);
 		return null;
 	}
 
 	const projectsDir = getProjectsDir();
 	const searchPath = projectFilter ? path.join(projectsDir, projectFilter) : projectsDir;
-
 	const rgArgs = [
 		'--json',
 		'--fixed-strings',
@@ -151,7 +399,7 @@ export function searchSessionsStreaming(
 		'5',
 		'--glob',
 		'*.jsonl',
-		terms[0], // search for first term via rg, post-filter remaining terms
+		textTerms[0],
 		searchPath
 	];
 
@@ -159,24 +407,32 @@ export function searchSessionsStreaming(
 	try {
 		rgProcess = spawn(rgPath, rgArgs);
 	} catch {
-		// rg binary missing — fall back to index-only search
-		fallbackIndexSearch(query, projectFilter, callbacks);
+		void (async () => {
+			const emitted = await emitIndexedMatches(
+				{
+					textTerms,
+					toolNames: [],
+					branchTerms: [],
+					isErrorOnly: false,
+					isSubagentOnly: false,
+					hasTokensOnly: false,
+					rawMode: true
+				},
+				projectFilter,
+				new Set<string>(),
+				callbacks,
+				{ value: false }
+			);
+			callbacks.onDone(emitted);
+		})();
 		return null;
 	}
 
-	// Dedup set shared with processMatch — checked AFTER sync filtering, BEFORE async enrichment.
-	// Since async functions run synchronously until the first await, and the for loop in the
-	// data handler calls them sequentially, the has()+add() in processMatch is atomic.
 	const emittedSessions = new Set<string>();
 	let totalEmitted = 0;
 	let closed = false;
-
 	const pendingPromises: Promise<void>[] = [];
-	// Collect all stdout chunks — rg --json produces multi-MB lines for large
-	// JSONL records, and Node's data events split these at arbitrary byte
-	// boundaries. Incremental line parsing silently drops split lines.
 	const stdoutChunks: Buffer[] = [];
-
 	const timeout = setTimeout(() => {
 		rgProcess.kill();
 	}, 10000);
@@ -193,9 +449,7 @@ export function searchSessionsStreaming(
 		clearTimeout(timeout);
 
 		const fullOutput = Buffer.concat(stdoutChunks).toString('utf-8');
-		const lines = fullOutput.split('\n');
-
-		for (const line of lines) {
+		for (const line of fullOutput.split('\n')) {
 			if (!line.trim()) continue;
 			if (emittedSessions.size >= 500) break;
 
@@ -206,9 +460,11 @@ export function searchSessionsStreaming(
 				const match = processRgMatch(rgEvent, projectsDir);
 				if (!match) continue;
 
-				const promise = processMatch(match, terms, emittedSessions, callbacks).then((emitted) => {
-					if (emitted) totalEmitted++;
-				});
+				const promise = processRawMatch(match, textTerms, emittedSessions, callbacks).then(
+					(emitted) => {
+						if (emitted) totalEmitted++;
+					}
+				);
 				pendingPromises.push(promise);
 			} catch {
 				continue;
@@ -224,186 +480,55 @@ export function searchSessionsStreaming(
 		if (closed) return;
 		closed = true;
 		clearTimeout(timeout);
-		// rg binary not found or execution error — fall back
-		fallbackIndexSearch(query, projectFilter, callbacks);
+		callbacks.onDone(totalEmitted);
 	});
 
 	return rgProcess;
 }
 
-function processRgMatch(rgEvent: Record<string, unknown>, projectsDir: string): RgMatch | null {
-	const data = rgEvent.data as {
-		path?: { text?: string };
-		lines?: { text?: string };
-	};
-
-	const filePath = data?.path?.text;
-	const lineText = data?.lines?.text;
-	if (!filePath || !lineText) return null;
-
-	// Extract projectId and sessionId from path
-	const relPath = filePath.replace(projectsDir + '/', '');
-	const parts = relPath.split('/');
-	if (parts.length < 2) return null;
-	// Skip subagent files (projectId/sessionId/subagents/agent-xxx.jsonl)
-	if (parts.length > 2) return null;
-
-	const projectId = parts[0];
-	const sessionId = parts[1].replace('.jsonl', '');
-
-	return { projectId, sessionId, lineText };
-}
-
 /**
- * Process a single rg match: parse JSONL, extract text, verify match, create result.
- * Dedup happens AFTER synchronous filtering but BEFORE async metadata load.
- * Since async functions run synchronously until the first await, the dedup
- * has()+add() is atomic within the event loop — no race window.
+ * SQLite-first streaming search. Use `debug:raw`, `mode:raw`, or `source:raw`
+ * in the query as an escape hatch to force the legacy ripgrep path.
  */
-async function processMatch(
-	match: RgMatch,
-	terms: string[],
-	emittedSessions: Set<string>,
-	callbacks: StreamingSearchCallbacks
-): Promise<boolean> {
-	// --- All synchronous: parse, filter, dedup ---
-
-	// Parse the JSONL line
-	let record: Record<string, unknown>;
-	try {
-		record = JSON.parse(match.lineText);
-	} catch {
-		return false;
-	}
-
-	// Extract actual text content (only user/assistant messages)
-	const textContent = extractTextContent(record);
-	if (!textContent) return false;
-
-	// Verify ALL terms appear in the actual text content
-	const lowerText = textContent.toLowerCase();
-	if (!terms.every((t) => lowerText.includes(t))) return false;
-
-	// Dedup: check AFTER filtering passes, BEFORE async work.
-	// This is atomic because no await has occurred yet.
-	const dedupeKey = `${match.projectId}/${match.sessionId}`;
-	if (emittedSessions.has(dedupeKey)) return false;
-	emittedSessions.add(dedupeKey);
-
-	// Create snippet from the actual text content
-	const snippet = createSnippet(textContent, terms[0]);
-
-	// --- Async: metadata enrichment (only the dedup winner reaches here) ---
-
-	const meta = await loadSessionMeta(match.projectId, match.sessionId);
-
-	let modified = meta?.modified || '';
-	if (!modified) {
-		// Fallback: use file mtime
-		try {
-			const filePath = path.join(getProjectsDir(), match.projectId, match.sessionId + '.jsonl');
-			const fileStat = await stat(filePath);
-			modified = fileStat.mtime.toISOString();
-		} catch {
-			modified = new Date().toISOString();
-		}
-	}
-
-	// Relevance: terms in firstPrompt/summary score higher than body-only matches
-	const promptLower = (meta?.firstPrompt || '').toLowerCase();
-	const summaryLower = (meta?.summary || '').toLowerCase();
-	let relevance = 0;
-	for (const t of terms) {
-		if (promptLower.includes(t)) relevance += 2;
-		if (summaryLower.includes(t)) relevance += 1;
-	}
-
-	const result: SearchResult = {
-		projectId: match.projectId,
-		projectName: dirNameToDisplayName(match.projectId),
-		sessionId: match.sessionId,
-		sessionSummary: meta?.summary || '',
-		firstPrompt: meta?.firstPrompt || '',
-		snippets: [snippet],
-		modified,
-		relevance
-	};
-
-	callbacks.onResult(result);
-	return true;
-}
-
-/**
- * Fallback: search using sessions-index.json when rg is unavailable.
- */
-async function fallbackIndexSearch(
+export function searchSessionsStreaming(
 	query: string,
-	projectFilter: string | undefined,
-	callbacks: StreamingSearchCallbacks
-): Promise<void> {
-	const terms = parseSearchTerms(query);
-	if (terms.length === 0) {
+	callbacks: StreamingSearchCallbacks,
+	projectFilter?: string
+): SearchHandle | null {
+	const parsedQuery = parseStructuredQuery(query);
+	if (!hasSearchIntent(parsedQuery)) {
 		callbacks.onDone(0);
-		return;
+		return null;
 	}
 
-	const projectsDir = getProjectsDir();
-	let projectDirs: string[];
-	try {
-		projectDirs = await readdir(projectsDir);
-	} catch {
-		callbacks.onDone(0);
-		return;
+	if (
+		parsedQuery.rawMode &&
+		parsedQuery.textTerms.length > 0 &&
+		!hasStructuredFilters(parsedQuery)
+	) {
+		return searchSessionsRawStreaming(parsedQuery.textTerms, callbacks, projectFilter);
 	}
 
-	if (projectFilter) {
-		projectDirs = projectDirs.filter((d) => d === projectFilter);
-	}
-
-	let totalEmitted = 0;
-
-	for (const projectDir of projectDirs) {
-		try {
-			const indexPath = path.join(projectsDir, projectDir, 'sessions-index.json');
-			const indexData: SessionIndex = JSON.parse(await readFile(indexPath, 'utf-8'));
-
-			for (const entry of indexData.entries) {
-				const searchText = `${entry.firstPrompt} ${entry.summary}`.toLowerCase();
-				if (!terms.every((t) => searchText.includes(t))) continue;
-
-				const snippets: string[] = [];
-				for (const term of terms.slice(0, 2)) {
-					const s = createSnippet(searchText, term);
-					if (s && !snippets.includes(s)) snippets.push(s);
-				}
-
-				callbacks.onResult({
-					projectId: projectDir,
-					projectName: dirNameToDisplayName(projectDir),
-					sessionId: entry.sessionId,
-					sessionSummary: entry.summary,
-					firstPrompt: entry.firstPrompt,
-					snippets,
-					modified: entry.modified,
-					relevance: 0
-				});
-				totalEmitted++;
-
-				if (totalEmitted >= 500) break;
+	const cancelled = { value: false };
+	void emitIndexedMatches(parsedQuery, projectFilter, new Set<string>(), callbacks, cancelled)
+		.then((emitted) => {
+			if (!cancelled.value) {
+				callbacks.onDone(emitted);
 			}
-		} catch {
-			continue;
+		})
+		.catch((error) => {
+			if (!cancelled.value) {
+				callbacks.onError(error instanceof Error ? error.message : 'Search failed');
+			}
+		});
+
+	return {
+		kill() {
+			cancelled.value = true;
 		}
-
-		if (totalEmitted >= 500) break;
-	}
-
-	callbacks.onDone(totalEmitted);
+	};
 }
 
-/**
- * Non-streaming search for backwards compatibility.
- */
 export async function searchSessions(
 	query: string,
 	projectFilter?: string
@@ -411,21 +536,22 @@ export async function searchSessions(
 	return new Promise((resolve) => {
 		const results: SearchResult[] = [];
 
-		const rgProcess = searchSessionsStreaming(
+		searchSessionsStreaming(
 			query,
 			{
 				onResult: (result) => results.push(result),
 				onDone: () => {
 					resolve(
-						results.sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime())
+						results.sort(
+							(a, b) =>
+								b.relevance - a.relevance ||
+								new Date(b.modified).getTime() - new Date(a.modified).getTime()
+						)
 					);
 				},
 				onError: () => resolve([])
 			},
 			projectFilter
 		);
-
-		// If searchSessionsStreaming returned null, callbacks fire synchronously
-		if (!rgProcess) return;
 	});
 }

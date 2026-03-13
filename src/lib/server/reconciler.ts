@@ -159,7 +159,10 @@ async function reconcileProject(projectId: string, projectDir: string): Promise<
 	const removedPaths = [...indexedSessionsByPath.keys()].filter(
 		(fullPath) => !retainedPaths.has(fullPath)
 	);
-	persistProjectIndex(projectId, projectDir, changedSessions, removedPaths, entries);
+	const removedSessionIds = removedPaths
+		.map((fullPath) => indexedSessionsByPath.get(fullPath)?.entry.sessionId)
+		.filter((sessionId): sessionId is string => Boolean(sessionId));
+	persistProjectIndex(projectId, projectDir, changedSessions, removedSessionIds, entries);
 	await writeSessionIndex(projectId, projectDir, entries);
 
 	if (entries.length > 0) {

@@ -6,6 +6,7 @@ import { dirNameToDisplayName } from '../utils.js';
 import type { SessionFileDescriptor } from './session-discovery.js';
 import { extractSessionEntry } from './session-metadata.js';
 import {
+	extractTextFromMessageContent,
 	isAssistantRecord,
 	isUserRecord,
 	type ClaudeContentBlock,
@@ -13,7 +14,7 @@ import {
 } from './session-schema.js';
 import { getInspectorDataDir, getSessionIndexDbPath } from './paths.js';
 
-const SESSION_INDEX_DB_VERSION = 1;
+const SESSION_INDEX_DB_VERSION = 2;
 
 interface ProjectRow {
 	id: string;
@@ -59,6 +60,17 @@ interface ReconcileStateRow {
 	mtime_ms: number;
 }
 
+interface IndexedSearchRow {
+	project_id: string;
+	session_id: string;
+	summary: string;
+	first_prompt: string;
+	message_count: number;
+	modified: string;
+	search_text: string;
+	relevance: number;
+}
+
 interface ToolResultFact {
 	resultText?: string;
 	isError: boolean;
@@ -89,6 +101,15 @@ interface IndexedFileFact {
 	kind: string;
 }
 
+interface IndexedSearchDocument {
+	titleText: string;
+	promptText: string;
+	bodyText: string;
+	toolText: string;
+	branchText: string;
+	systemText: string;
+}
+
 export interface IndexedSessionData {
 	entry: SessionEntry;
 	sizeBytes: number;
@@ -101,11 +122,36 @@ export interface IndexedSessionData {
 	tools: IndexedToolFact[];
 	progressEvents: IndexedProgressFact[];
 	fileFacts: IndexedFileFact[];
+	searchDocument: IndexedSearchDocument;
 }
 
 export interface StoredIndexedSession {
 	entry: SessionEntry;
 	sizeBytes: number;
+}
+
+export interface IndexedSessionMeta {
+	summary: string;
+	firstPrompt: string;
+	messageCount: number;
+	modified: string;
+}
+
+export interface IndexedSearchSession extends IndexedSessionMeta {
+	projectId: string;
+	sessionId: string;
+	searchText: string;
+	relevance: number;
+}
+
+export interface IndexedSearchQuery {
+	textTerms: string[];
+	projectFilter?: string;
+	toolNames: string[];
+	branchTerms: string[];
+	isErrorOnly: boolean;
+	isSubagentOnly: boolean;
+	hasTokensOnly: boolean;
 }
 
 type SqlRow = Record<string, unknown>;
@@ -124,6 +170,9 @@ export function buildIndexedSessionData(
 	const tools = new Map<string, IndexedToolFact>();
 	const progressEvents: IndexedProgressFact[] = [];
 	const fileFacts: IndexedFileFact[] = [];
+	const bodyTextParts: string[] = [];
+	const toolTextParts = new Set<string>();
+	const systemTextParts: string[] = [];
 	const latestAssistantRecords = new Map<
 		string,
 		{ record: Extract<ParsedSessionRecord['record'], { type: 'assistant' }>; recordIndex: number }
@@ -138,6 +187,18 @@ export function buildIndexedSessionData(
 		if (record.type === 'queue-operation' && record.operation?.toLowerCase().includes('compact')) {
 			hasCompaction = true;
 		}
+		if (record.type === 'queue-operation') {
+			const queueText = [
+				record.operation,
+				typeof record.content === 'string' ? record.content : undefined
+			]
+				.filter(Boolean)
+				.join(' ')
+				.trim();
+			if (queueText) {
+				systemTextParts.push(queueText);
+			}
+		}
 
 		if (record.type === 'file-history-snapshot' && record.snapshot) {
 			for (const filePath of Object.keys(record.snapshot)) {
@@ -146,6 +207,7 @@ export function buildIndexedSessionData(
 					path: filePath,
 					kind: record.isSnapshotUpdate ? 'file-history-update' : 'file-history-snapshot'
 				});
+				systemTextParts.push(filePath);
 			}
 		}
 
@@ -158,6 +220,17 @@ export function buildIndexedSessionData(
 				label: asString(record.data?.label) || asString(record.data?.output),
 				payloadJson: toJson(record.data)
 			});
+			const progressText = [
+				asString(record.data?.type),
+				asString(record.data?.label),
+				asString(record.data?.output)
+			]
+				.filter(Boolean)
+				.join(' ')
+				.trim();
+			if (progressText) {
+				systemTextParts.push(progressText);
+			}
 			continue;
 		}
 
@@ -168,12 +241,21 @@ export function buildIndexedSessionData(
 			if (record.compactMetadata) {
 				hasCompaction = true;
 			}
+			const systemText = [record.subtype, record.content].filter(Boolean).join(' ').trim();
+			if (systemText) {
+				systemTextParts.push(systemText);
+			}
 			continue;
 		}
 
 		if (isUserRecord(record)) {
 			if (record.isCompactSummary) {
 				hasCompaction = true;
+			}
+
+			const userText = extractTextFromMessageContent(record.message.content).trim();
+			if (userText) {
+				bodyTextParts.push(userText);
 			}
 
 			if (!Array.isArray(record.message.content)) continue;
@@ -202,6 +284,11 @@ export function buildIndexedSessionData(
 			hasApiError = true;
 		}
 
+		const assistantText = extractTextFromMessageContent(record.message.content).trim();
+		if (assistantText) {
+			bodyTextParts.push(assistantText);
+		}
+
 		if (!Array.isArray(record.message.content)) continue;
 
 		for (const block of record.message.content) {
@@ -217,6 +304,12 @@ export function buildIndexedSessionData(
 				resultText: toolResult?.resultText,
 				isError: toolResult?.isError ?? false
 			});
+			if (block.name) {
+				toolTextParts.add(block.name);
+			}
+			if (block.caller) {
+				toolTextParts.add(block.caller);
+			}
 		}
 	}
 
@@ -251,7 +344,15 @@ export function buildIndexedSessionData(
 		hasCompaction,
 		tools: [...tools.values()],
 		progressEvents,
-		fileFacts
+		fileFacts,
+		searchDocument: {
+			titleText: [entry.summary, entry.customTitle, entry.nativeSummary].filter(Boolean).join('\n'),
+			promptText: [entry.firstPrompt, entry.lastPrompt].filter(Boolean).join('\n'),
+			bodyText: bodyTextParts.join('\n'),
+			toolText: [...toolTextParts].join('\n'),
+			branchText: entry.gitBranch,
+			systemText: systemTextParts.join('\n')
+		}
 	};
 }
 
@@ -340,11 +441,141 @@ export function getReconcileStateByPath(projectId: string): Map<string, Reconcil
 	);
 }
 
+export function getIndexedSessionMeta(
+	projectId: string,
+	sessionId: string
+): IndexedSessionMeta | null {
+	const database = getDatabase();
+	const row = database
+		.prepare<[string, string], SessionRow>(
+			`SELECT *
+			 FROM sessions
+			 WHERE project_id = ? AND session_id = ?
+			 LIMIT 1`
+		)
+		.get(projectId, sessionId);
+
+	if (!row) return null;
+
+	return {
+		summary: row.summary,
+		firstPrompt: row.first_prompt,
+		messageCount: row.message_count,
+		modified: row.modified
+	};
+}
+
+export function searchIndexedSessions(
+	query: IndexedSearchQuery,
+	limit = 500
+): IndexedSearchSession[] {
+	const database = getDatabase();
+	const whereClauses: string[] = [];
+	const params: Array<string | number> = [];
+	const searchTextExpression =
+		`TRIM(` +
+		`COALESCE(ss.title_text, '') || ' ' || ` +
+		`COALESCE(ss.prompt_text, '') || ' ' || ` +
+		`COALESCE(ss.body_text, '') || ' ' || ` +
+		`COALESCE(ss.tool_text, '') || ' ' || ` +
+		`COALESCE(ss.branch_text, '') || ' ' || ` +
+		`COALESCE(ss.system_text, '')` +
+		`)`;
+
+	if (query.projectFilter) {
+		whereClauses.push('s.project_id = ?');
+		params.push(query.projectFilter);
+	}
+
+	for (const toolName of query.toolNames) {
+		whereClauses.push(
+			`EXISTS (
+				SELECT 1
+				FROM session_tools st
+				WHERE st.project_id = s.project_id
+				  AND st.session_id = s.session_id
+				  AND LOWER(st.tool_name) LIKE ?
+			)`
+		);
+		params.push(`%${toolName.toLowerCase()}%`);
+	}
+
+	for (const branchTerm of query.branchTerms) {
+		whereClauses.push('LOWER(s.git_branch) LIKE ?');
+		params.push(`%${branchTerm.toLowerCase()}%`);
+	}
+
+	if (query.isErrorOnly) {
+		whereClauses.push('s.has_api_error = 1');
+	}
+
+	if (query.isSubagentOnly) {
+		whereClauses.push('s.is_subagent = 1');
+	}
+
+	if (query.hasTokensOnly) {
+		whereClauses.push(
+			'(s.token_input > 0 OR s.token_output > 0 OR s.token_cache_read > 0 OR s.token_cache_write > 0)'
+		);
+	}
+
+	const baseWhere = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+
+	if (query.textTerms.length > 0) {
+		const ftsQuery = query.textTerms.map(toFtsTerm).join(' AND ');
+		const rows = database
+			.prepare(
+				`SELECT
+					s.project_id,
+					s.session_id,
+					s.summary,
+					s.first_prompt,
+					s.message_count,
+					s.modified,
+					${searchTextExpression} AS search_text,
+					-bm25(session_search, 0.0, 0.0, 8.0, 6.0, 1.0, 3.0, 2.0, 2.0) AS relevance
+				 FROM session_search ss
+				 JOIN sessions s
+				   ON s.project_id = ss.project_id
+				  AND s.session_id = ss.session_id
+				 ${baseWhere ? `${baseWhere} AND` : 'WHERE'} session_search MATCH ?
+				 ORDER BY relevance DESC, s.modified DESC
+				 LIMIT ?`
+			)
+			.all(...params, ftsQuery, limit);
+
+		return toSqlRows(rows).map((row) => toIndexedSearchSession(row));
+	}
+
+	const rows = database
+		.prepare(
+			`SELECT
+				s.project_id,
+				s.session_id,
+				s.summary,
+				s.first_prompt,
+				s.message_count,
+				s.modified,
+				${searchTextExpression} AS search_text,
+				0 AS relevance
+			 FROM sessions s
+			 LEFT JOIN session_search ss
+			   ON ss.project_id = s.project_id
+			  AND ss.session_id = s.session_id
+			 ${baseWhere}
+			 ORDER BY s.modified DESC
+			 LIMIT ?`
+		)
+		.all(...params, limit);
+
+	return toSqlRows(rows).map((row) => toIndexedSearchSession(row));
+}
+
 export function persistProjectIndex(
 	projectId: string,
 	projectPath: string,
 	changedSessions: IndexedSessionData[],
-	removedPaths: string[],
+	removedSessionIds: string[],
 	allEntries: SessionEntry[]
 ): void {
 	const database = getDatabase();
@@ -355,6 +586,7 @@ export function persistProjectIndex(
 
 	try {
 		if (allEntries.length === 0) {
+			database.prepare(`DELETE FROM session_search WHERE project_id = ?`).run(projectId);
 			database.prepare(`DELETE FROM projects WHERE id = ?`).run(projectId);
 			database.exec('COMMIT');
 			return;
@@ -381,10 +613,14 @@ export function persistProjectIndex(
 			);
 
 		const deleteSessionStatement = database.prepare(
-			`DELETE FROM sessions WHERE project_id = ? AND full_path = ?`
+			`DELETE FROM sessions WHERE project_id = ? AND session_id = ?`
 		);
-		for (const removedPath of removedPaths) {
-			deleteSessionStatement.run(projectId, removedPath);
+		const deleteSearchStatement = database.prepare(
+			`DELETE FROM session_search WHERE project_id = ? AND session_id = ?`
+		);
+		for (const removedSessionId of removedSessionIds) {
+			deleteSearchStatement.run(projectId, removedSessionId);
+			deleteSessionStatement.run(projectId, removedSessionId);
 		}
 
 		const upsertSessionStatement = database.prepare(
@@ -496,6 +732,18 @@ export function persistProjectIndex(
 				kind
 			) VALUES (?, ?, ?, ?, ?)`
 		);
+		const insertSearchStatement = database.prepare(
+			`INSERT INTO session_search (
+				project_id,
+				session_id,
+				title_text,
+				prompt_text,
+				body_text,
+				tool_text,
+				branch_text,
+				system_text
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		);
 
 		for (const session of changedSessions) {
 			upsertSessionStatement.run(
@@ -530,6 +778,7 @@ export function persistProjectIndex(
 			deleteToolsStatement.run(projectId, session.entry.sessionId);
 			deleteProgressStatement.run(projectId, session.entry.sessionId);
 			deleteFilesStatement.run(projectId, session.entry.sessionId);
+			deleteSearchStatement.run(projectId, session.entry.sessionId);
 
 			upsertReconcileStateStatement.run(
 				session.entry.fullPath,
@@ -576,6 +825,17 @@ export function persistProjectIndex(
 					fileFact.kind
 				);
 			}
+
+			insertSearchStatement.run(
+				projectId,
+				session.entry.sessionId,
+				session.searchDocument.titleText,
+				session.searchDocument.promptText,
+				session.searchDocument.bodyText,
+				session.searchDocument.toolText,
+				session.searchDocument.branchText,
+				session.searchDocument.systemText
+			);
 		}
 
 		database.exec('COMMIT');
@@ -594,6 +854,7 @@ export function deleteIndexedProjects(projectIds: string[]): void {
 	database.exec('BEGIN IMMEDIATE');
 	try {
 		for (const projectId of projectIds) {
+			database.prepare(`DELETE FROM session_search WHERE project_id = ?`).run(projectId);
 			deleteProjectStatement.run(projectId);
 		}
 		database.exec('COMMIT');
@@ -609,9 +870,35 @@ export function updateIndexedSessionSummary(
 	summary: string
 ): void {
 	const database = getDatabase();
-	database
-		.prepare(`UPDATE sessions SET summary = ? WHERE project_id = ? AND session_id = ?`)
-		.run(summary, projectId, sessionId);
+	database.exec('BEGIN IMMEDIATE');
+	try {
+		database
+			.prepare(`UPDATE sessions SET summary = ? WHERE project_id = ? AND session_id = ?`)
+			.run(summary, projectId, sessionId);
+
+		const row = database
+			.prepare<[string, string], { custom_title: string | null; native_summary: string | null }>(
+				`SELECT custom_title, native_summary
+				 FROM sessions
+				 WHERE project_id = ? AND session_id = ?
+				 LIMIT 1`
+			)
+			.get(projectId, sessionId);
+
+		const titleText = [summary, row?.custom_title, row?.native_summary].filter(Boolean).join('\n');
+		database
+			.prepare(
+				`UPDATE session_search
+				 SET title_text = ?
+				 WHERE project_id = ? AND session_id = ?`
+			)
+			.run(titleText, projectId, sessionId);
+
+		database.exec('COMMIT');
+	} catch (error) {
+		database.exec('ROLLBACK');
+		throw error;
+	}
 }
 
 function getDatabase(): Database.Database {
@@ -634,6 +921,7 @@ function ensureSchema(database: Database.Database): void {
 		DROP TABLE IF EXISTS session_progress;
 		DROP TABLE IF EXISTS session_tools;
 		DROP TABLE IF EXISTS reconcile_state;
+		DROP TABLE IF EXISTS session_search;
 		DROP TABLE IF EXISTS sessions;
 		DROP TABLE IF EXISTS projects;
 
@@ -737,6 +1025,18 @@ function ensureSchema(database: Database.Database): void {
 				REFERENCES sessions(project_id, session_id)
 				ON DELETE CASCADE
 		);
+
+		CREATE VIRTUAL TABLE session_search USING fts5(
+			project_id UNINDEXED,
+			session_id UNINDEXED,
+			title_text,
+			prompt_text,
+			body_text,
+			tool_text,
+			branch_text,
+			system_text,
+			tokenize = 'unicode61'
+		);
 	`);
 
 	database.pragma(`user_version = ${SESSION_INDEX_DB_VERSION}`);
@@ -820,6 +1120,33 @@ function toReconcileStateRow(row: SqlRow): ReconcileStateRow {
 	};
 }
 
+function toIndexedSearchRow(row: SqlRow): IndexedSearchRow {
+	return {
+		project_id: requireString(row, 'project_id'),
+		session_id: requireString(row, 'session_id'),
+		summary: requireString(row, 'summary'),
+		first_prompt: requireString(row, 'first_prompt'),
+		message_count: requireNumber(row, 'message_count'),
+		modified: requireString(row, 'modified'),
+		search_text: requireString(row, 'search_text'),
+		relevance: requireNumber(row, 'relevance')
+	};
+}
+
+function toIndexedSearchSession(row: SqlRow): IndexedSearchSession {
+	const searchRow = toIndexedSearchRow(row);
+	return {
+		projectId: searchRow.project_id,
+		sessionId: searchRow.session_id,
+		summary: searchRow.summary,
+		firstPrompt: searchRow.first_prompt,
+		messageCount: searchRow.message_count,
+		modified: searchRow.modified,
+		searchText: searchRow.search_text,
+		relevance: searchRow.relevance
+	};
+}
+
 function flattenContent(content: string | ClaudeContentBlock[] | undefined): string | undefined {
 	if (typeof content === 'string') {
 		const trimmed = content.trim();
@@ -879,6 +1206,10 @@ function toJson(value: unknown): string | undefined {
 
 function toSqlBoolean(value: boolean): number {
 	return value ? 1 : 0;
+}
+
+function toFtsTerm(term: string): string {
+	return `"${term.replace(/"/g, '""')}"`;
 }
 
 function requireString(row: SqlRow, key: string): string {
