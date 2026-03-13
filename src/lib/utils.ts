@@ -50,14 +50,16 @@ export function highlightTerms(text: string, query: string): string {
 }
 
 /**
- * Formats an ISO date string as "Mon DD, HH:MM AM/PM".
+ * Formats an ISO date string as "Mon DD, HH:MM AM/PM" (or "Mon DD, YYYY, HH:MM AM/PM" for previous years).
  */
 export function formatDate(iso: string): string {
 	if (!iso) return '';
 	const d = new Date(iso);
+	const includeYear = d.getFullYear() !== new Date().getFullYear();
 	return d.toLocaleDateString('en-US', {
 		month: 'short',
 		day: 'numeric',
+		...(includeYear && { year: 'numeric' }),
 		hour: '2-digit',
 		minute: '2-digit'
 	});
@@ -79,5 +81,10 @@ export function formatRelativeDate(iso: string): string {
 	if (diffMins < 60) return `${diffMins}m ago`;
 	if (diffHours < 24) return `${diffHours}h ago`;
 	if (diffDays < 7) return `${diffDays}d ago`;
-	return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+	const includeYear = d.getFullYear() !== now.getFullYear();
+	return d.toLocaleDateString('en-US', {
+		month: 'short',
+		day: 'numeric',
+		...(includeYear && { year: 'numeric' })
+	});
 }
