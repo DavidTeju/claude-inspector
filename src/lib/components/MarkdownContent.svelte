@@ -70,17 +70,17 @@
 <style>
 	.markdown-body :global(p) {
 		margin-bottom: 0.5em;
-		color: var(--color-zinc-300, #d4d4d8);
+		color: var(--color-text-300, #b8b5ae);
 	}
 	.markdown-body :global(p:last-child) {
 		margin-bottom: 0;
 	}
 	.markdown-body :global(code) {
-		background: var(--color-surface-800, #27272a);
+		background: var(--color-surface-800, #23252f);
 		padding: 0.125em 0.375em;
 		border-radius: 0.25rem;
 		font-size: 0.85em;
-		color: var(--color-accent-300, #a5b4fc);
+		color: var(--color-accent-300, #f0c050);
 	}
 	.markdown-body :global(pre code) {
 		background: none;
@@ -100,7 +100,7 @@
 		font-weight: 700;
 		margin-top: 1em;
 		margin-bottom: 0.5em;
-		color: var(--color-zinc-100, #f4f4f5);
+		color: var(--color-text-100, #f0eee9);
 	}
 	.markdown-body :global(h1) {
 		font-size: 1.25em;
@@ -112,17 +112,17 @@
 		font-size: 1em;
 	}
 	.markdown-body :global(a) {
-		color: var(--color-accent-400, #818cf8);
+		color: var(--color-accent-400, #e2a336);
 		text-decoration: underline;
 	}
 	.markdown-body :global(blockquote) {
-		border-left: 2px solid var(--color-surface-700, #3f3f46);
+		border-left: 2px solid var(--color-surface-700, #363845);
 		padding-left: 0.75em;
-		color: var(--color-zinc-400, #a1a1aa);
+		color: var(--color-text-300, #b8b5ae);
 		margin-bottom: 0.5em;
 	}
 	.markdown-body :global(strong) {
-		color: var(--color-zinc-100, #f4f4f5);
+		color: var(--color-text-100, #f0eee9);
 		font-weight: 600;
 	}
 </style>

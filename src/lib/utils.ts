@@ -44,10 +44,7 @@ export function highlightTerms(text: string, query: string): string {
 	let result = text;
 	for (const term of terms) {
 		const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-		result = result.replace(
-			regex,
-			'<mark class="bg-accent-500/30 text-accent-300 rounded px-0.5">$1</mark>'
-		);
+		result = result.replace(regex, '<mark class="search-highlight">$1</mark>');
 	}
 	return result;
 }

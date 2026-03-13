@@ -1,24 +1,43 @@
 @import 'tailwindcss';
 
 @theme {
-	--color-surface-950: #09090b;
-	--color-surface-900: #18181b;
-	--color-surface-800: #27272a;
-	--color-surface-700: #3f3f46;
-	--color-surface-600: #52525b;
+	/* Surfaces (blue-steel grays) */
+	--color-surface-950: #0B0C10;
+	--color-surface-900: #13141A;
+	--color-surface-850: #1A1B23;
+	--color-surface-800: #23252F;
+	--color-surface-700: #363845;
+	--color-surface-600: #4A4D5E;
 
-	--color-accent-500: #6366f1;
-	--color-accent-400: #818cf8;
-	--color-accent-300: #a5b4fc;
+	/* Accent (amber/gold) */
+	--color-accent-500: #D4972E;
+	--color-accent-400: #E2A336;
+	--color-accent-300: #F0C050;
+	--color-accent-200: #FBE3A0;
 
-	--color-user-700: #1e3a5f;
-	--color-user-600: #1e40af;
+	/* User (teal) */
+	--color-user-700: #0F3D36;
+	--color-user-500: #14B8A6;
+	--color-user-400: #2DD4BF;
 
-	--color-success-500: #22c55e;
-	--color-warning-500: #eab308;
-	--color-error-500: #ef4444;
+	/* Text (warm whites) */
+	--color-text-100: #F0EEE9;
+	--color-text-300: #B8B5AE;
+	--color-text-500: #6B6860;
+	--color-text-700: #3A3833;
 
+	/* Semantic */
+	--color-success-500: #34D399;
+	--color-warning-500: #FBBF24;
+	--color-error-500: #F87171;
+	--color-error-400: #FCA5A5;
+
+	/* Fonts */
+	--font-sans: 'Geist', 'Outfit', ui-sans-serif, system-ui, sans-serif;
 	--font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+
+	/* Animation */
+	--ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 html {
@@ -26,7 +45,8 @@ html {
 }
 
 body {
-	font-family: var(--font-mono), ui-monospace, monospace;
+	font-family: var(--font-sans);
+	letter-spacing: -0.011em;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 }
@@ -48,4 +68,41 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
 	background: var(--color-surface-600);
+}
+
+/* Keyframes */
+@keyframes fade-in-up {
+	from {
+		opacity: 0;
+		transform: translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+/* Utilities */
+.animate-fade-in-up {
+	animation: fade-in-up 400ms var(--ease-spring) both;
+}
+
+.input-glow:focus {
+	box-shadow: 0 0 0 1px oklch(from var(--color-accent-500) l c h / 0.4), 0 0 12px -2px oklch(from var(--color-accent-500) l c h / 0.15);
+}
+
+.search-highlight {
+	background: oklch(from var(--color-accent-500) l c h / 0.2);
+	color: var(--color-accent-200);
+	border-radius: 2px;
+	padding: 0 2px;
+}
+
+.card-hover {
+	transition: transform 150ms var(--ease-spring), box-shadow 250ms var(--ease-spring);
+}
+
+.card-hover:hover {
+	transform: translateY(-1px);
+	box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.3);
 }

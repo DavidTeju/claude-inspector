@@ -14,12 +14,14 @@
 </script>
 
 <div class="flex justify-end">
-	<div class="border-user-700/50 bg-user-700/30 max-w-[85%] rounded-lg border px-4 py-3">
+	<div
+		class="border-l-user-400/40 bg-user-700/40 max-w-[85%] rounded-xl rounded-br-md border-l-2 px-4 py-3"
+	>
 		<div class="mb-1.5 flex items-center justify-between gap-4">
-			<span class="text-[10px] font-semibold tracking-wider text-blue-400/70 uppercase">You</span>
-			<span class="text-[10px] text-zinc-600">{formatTime(message.timestamp)}</span>
+			<span class="text-user-400 text-[10px] font-semibold tracking-wider uppercase">You</span>
+			<span class="text-text-500 text-[10px]">{formatTime(message.timestamp)}</span>
 		</div>
-		<div class="text-sm leading-relaxed break-words whitespace-pre-wrap text-zinc-200">
+		<div class="text-text-100 font-mono text-sm leading-relaxed break-words whitespace-pre-wrap">
 			{message.textContent}
 		</div>
 	</div>

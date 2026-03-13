@@ -10,20 +10,20 @@
 
 <div class="mx-auto max-w-xl">
 	<div class="mb-6">
-		<h1 class="text-lg font-bold text-zinc-100">Settings</h1>
-		<p class="mt-1 text-xs text-zinc-500">Configure Claude Inspector</p>
+		<h1 class="text-text-100 text-lg font-bold">Settings</h1>
+		<p class="text-text-500 mt-1 text-xs">Configure Claude Inspector</p>
 	</div>
 
-	<div class="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
-		<h2 class="mb-1 text-sm font-semibold text-zinc-200">Anthropic API Key</h2>
-		<p class="mb-4 text-xs text-zinc-500">
+	<div class="border-surface-800 bg-surface-900/50 rounded-lg border p-6">
+		<h2 class="text-text-100 mb-1 text-sm font-semibold">Anthropic API Key</h2>
+		<p class="text-text-500 mb-4 text-xs">
 			Used to generate session summaries via Haiku for sessions that don't have one. Optional —
 			without it, the first prompt is shown as the title instead.
 		</p>
 
 		{#if form?.success}
 			<div
-				class="mb-4 rounded-md border border-green-800/50 bg-green-900/20 px-3 py-2 text-xs text-green-400"
+				class="border-success-500/30 bg-success-500/10 text-success-500 mb-4 rounded-md border px-3 py-2 text-xs"
 			>
 				{form.cleared
 					? 'API key cleared.'
@@ -33,7 +33,7 @@
 
 		{#if form?.error}
 			<div
-				class="mb-4 rounded-md border border-red-800/50 bg-red-900/20 px-3 py-2 text-xs text-red-400"
+				class="border-error-500/30 bg-error-500/10 text-error-400 mb-4 rounded-md border px-3 py-2 text-xs"
 			>
 				{form.error}
 			</div>
@@ -41,8 +41,8 @@
 
 		{#if data.hasApiKey}
 			<div class="mb-4 flex items-center gap-2">
-				<span class="text-xs text-zinc-400">Current key:</span>
-				<code class="font-mono text-xs text-zinc-500">{data.maskedKey}</code>
+				<span class="text-text-300 text-xs">Current key:</span>
+				<code class="text-text-500 font-mono text-xs">{data.maskedKey}</code>
 			</div>
 		{/if}
 
@@ -51,12 +51,12 @@
 				name="apiKey"
 				type="password"
 				placeholder="sk-ant-api03-..."
-				class="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 font-mono text-xs text-zinc-300 placeholder-zinc-700 outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-600"
+				class="border-surface-800 bg-surface-950 text-text-100 placeholder-text-500 focus:border-accent-500/50 input-glow w-full rounded-md border px-3 py-2 font-mono text-xs outline-none"
 			/>
 			<div class="flex gap-2">
 				<button
 					type="submit"
-					class="bg-accent-500 hover:bg-accent-400 rounded-md px-4 py-1.5 text-xs font-medium text-white transition-colors"
+					class="bg-accent-500 hover:bg-accent-400 text-surface-950 rounded-md px-4 py-1.5 text-xs font-medium transition-colors"
 				>
 					Save Key
 				</button>
@@ -67,7 +67,7 @@
 			<form method="POST" action="?/clear" use:enhance class="mt-3">
 				<button
 					type="submit"
-					class="rounded-md border border-zinc-700 px-4 py-1.5 text-xs text-zinc-400 transition-colors hover:border-zinc-600 hover:text-zinc-300"
+					class="border-surface-700 text-text-300 hover:border-surface-600 hover:text-text-100 rounded-md border px-4 py-1.5 text-xs transition-colors"
 				>
 					Clear Key
 				</button>

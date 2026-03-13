@@ -44,12 +44,12 @@
 </script>
 
 <header
-	class="flex items-center gap-4 border-b border-zinc-800 bg-zinc-950/80 px-4 py-2.5 backdrop-blur-sm"
+	class="border-surface-800 bg-surface-950/80 flex items-center gap-4 border-b px-4 py-2.5 backdrop-blur-sm"
 >
 	{#if !sidebarOpen}
 		<button
 			onclick={onToggleSidebar}
-			class="text-zinc-500 hover:text-zinc-300"
+			class="text-text-500 hover:text-text-100"
 			aria-label="Open sidebar"
 		>
 			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -58,15 +58,15 @@
 		</button>
 	{/if}
 
-	<nav class="flex items-center gap-1 text-xs text-zinc-500">
+	<nav class="text-text-500 flex items-center gap-1 text-xs">
 		{#each breadcrumbs as crumb, i (i)}
 			{#if i > 0}
-				<span class="text-zinc-700">/</span>
+				<span class="text-text-700">/</span>
 			{/if}
 			{#if i === breadcrumbs.length - 1}
-				<span class="text-zinc-300">{crumb.label}</span>
+				<span class="text-text-100">{crumb.label}</span>
 			{:else}
-				<a href={resolve(crumb.path)} class="transition-colors hover:text-zinc-300">
+				<a href={resolve(crumb.path)} class="hover:text-text-100 transition-colors">
 					{crumb.label}
 				</a>
 			{/if}
@@ -75,7 +75,7 @@
 
 	<a
 		href={resolve('/')}
-		class="ml-auto flex items-center text-zinc-500 transition-colors hover:text-zinc-300"
+		class="text-text-500 hover:text-text-100 ml-auto flex items-center transition-colors"
 		aria-label="Search sessions"
 	>
 		<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

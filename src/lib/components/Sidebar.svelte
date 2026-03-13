@@ -10,16 +10,18 @@
 </script>
 
 <aside
-	class="flex flex-col border-r border-zinc-800 bg-zinc-950 transition-all duration-200 {open
+	class="border-surface-800 bg-surface-950 flex flex-col border-r transition-all duration-250 {open
 		? 'w-64'
 		: 'w-0 overflow-hidden'}"
 >
-	<div class="flex items-center justify-between border-b border-zinc-800 p-4">
-		<a href={resolve('/')} class="flex items-center gap-2 text-sm font-bold text-zinc-100">
-			<span class="text-accent-400 text-lg">CI</span>
+	<div class="border-surface-800 flex items-center justify-between border-b p-4">
+		<a href={resolve('/')} class="text-text-100 flex items-center gap-2 text-sm font-bold">
+			<span class="bg-accent-500/15 text-accent-400 rounded-md px-1.5 py-0.5 text-sm font-bold"
+				>CI</span
+			>
 			<span>Inspector</span>
 		</a>
-		<button onclick={onToggle} class="text-zinc-500 hover:text-zinc-300" aria-label="Close sidebar">
+		<button onclick={onToggle} class="text-text-500 hover:text-text-100" aria-label="Close sidebar">
 			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
 			</svg>
@@ -27,7 +29,7 @@
 	</div>
 
 	<nav class="flex-1 overflow-y-auto p-2">
-		<div class="mb-2 px-2 text-[10px] font-semibold tracking-widest text-zinc-600 uppercase">
+		<div class="text-text-500 mb-2 px-2 text-[10px] font-semibold tracking-widest uppercase">
 			Projects
 		</div>
 		{#each projects as project (project.id)}
@@ -35,19 +37,19 @@
 				href={resolve(`/projects/${project.id}`)}
 				class="group flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors
 					{currentProjectId === project.id
-					? 'bg-accent-500/10 text-accent-400'
-					: 'text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-200'}"
+					? 'bg-accent-500/10 text-accent-400 border-accent-400 border-l-2'
+					: 'text-text-300 hover:bg-surface-800/50 hover:text-text-100'}"
 			>
 				<span class="truncate">{project.displayName}</span>
-				<span class="ml-auto text-[10px] text-zinc-600">{project.sessionCount}</span>
+				<span class="text-text-500 ml-auto text-[10px]">{project.sessionCount}</span>
 			</a>
 		{/each}
 	</nav>
 
-	<div class="border-t border-zinc-800 p-2">
+	<div class="border-surface-800 border-t p-2">
 		<a
 			href={resolve('/settings')}
-			class="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-zinc-500 transition-colors hover:bg-zinc-800/50 hover:text-zinc-300"
+			class="text-text-500 hover:bg-surface-800/50 hover:text-text-100 flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors"
 		>
 			<svg
 				class="h-3.5 w-3.5"

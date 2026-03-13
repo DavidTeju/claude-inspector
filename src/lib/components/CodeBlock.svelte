@@ -49,19 +49,19 @@
 </script>
 
 <div
-	class="code-block group relative my-2 overflow-hidden rounded-md border border-zinc-800 bg-[#0d1117]"
+	class="code-block group border-surface-800 relative my-2 overflow-hidden rounded-md border bg-[#0d1117]"
 >
-	<div class="flex items-center justify-between border-b border-zinc-800/50 px-3 py-1">
-		<span class="text-[10px] text-zinc-600">{language}</span>
+	<div class="border-surface-800/50 flex items-center justify-between border-b px-3 py-1">
+		<span class="text-accent-400/50 font-sans text-[10px] tracking-wide uppercase">{language}</span>
 	</div>
 
 	<div class="overflow-x-auto p-3 text-[12px] leading-relaxed">
 		{#if isLoading}
-			<pre class="font-mono text-zinc-400"><code>{code}</code></pre>
+			<pre class="text-text-300 font-mono"><code>{code}</code></pre>
 		{:else if highlightedHtml}
 			{@html highlightedHtml}
 		{:else}
-			<pre class="font-mono text-zinc-400"><code>{code}</code></pre>
+			<pre class="text-text-300 font-mono"><code>{code}</code></pre>
 		{/if}
 	</div>
 </div>

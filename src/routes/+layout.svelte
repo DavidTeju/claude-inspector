@@ -17,7 +17,7 @@
 	<div class="flex flex-1 flex-col overflow-hidden">
 		<TopBar {sidebarOpen} onToggleSidebar={() => (sidebarOpen = !sidebarOpen)} />
 
-		<main class="flex-1 overflow-y-auto p-6">
+		<main class="flex-1 overflow-y-auto p-6 lg:p-8">
 			{@render children()}
 		</main>
 	</div>
