@@ -914,7 +914,13 @@ function getDatabase(): Database.Database {
 
 function ensureSchema(database: Database.Database): void {
 	const version = database.pragma('user_version', { simple: true });
-	if (typeof version === 'number' && version === SESSION_INDEX_DB_VERSION) return;
+	if (
+		typeof version === 'number' &&
+		version === SESSION_INDEX_DB_VERSION &&
+		hasRequiredSchema(database)
+	) {
+		return;
+	}
 
 	database.exec(`
 		DROP TABLE IF EXISTS session_files;
@@ -1040,6 +1046,29 @@ function ensureSchema(database: Database.Database): void {
 	`);
 
 	database.pragma(`user_version = ${SESSION_INDEX_DB_VERSION}`);
+}
+
+function hasRequiredSchema(database: Database.Database): boolean {
+	const requiredTables = [
+		'projects',
+		'sessions',
+		'reconcile_state',
+		'session_tools',
+		'session_progress',
+		'session_files',
+		'session_search'
+	];
+
+	const placeholders = requiredTables.map(() => '?').join(',');
+	const row = database
+		.prepare<string[], { cnt: number }>(
+			`SELECT COUNT(DISTINCT name) as cnt
+			 FROM sqlite_master
+			 WHERE type = 'table' AND name IN (${placeholders})`
+		)
+		.get(...requiredTables);
+
+	return row?.cnt === requiredTables.length;
 }
 
 function rowToSessionEntry(row: SessionRow): SessionEntry {
