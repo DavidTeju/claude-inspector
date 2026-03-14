@@ -107,7 +107,7 @@ interface ThreadRecordBase extends BaseRecord {
 	teamName?: string;
 }
 
-export interface UserRecord extends ThreadRecordBase {
+interface ApiUserRecordBase extends ThreadRecordBase {
 	type: 'user';
 	message: UserMessage;
 	promptId?: string;
@@ -115,6 +115,14 @@ export interface UserRecord extends ThreadRecordBase {
 	isMeta?: boolean;
 	isCompactSummary?: boolean;
 	isVisibleInTranscriptOnly?: boolean;
+}
+
+export interface UserRecord extends ApiUserRecordBase {
+	recordKind: 'user';
+}
+
+export interface ToolResultRecord extends ApiUserRecordBase {
+	recordKind: 'tool_result';
 	sourceToolUseID?: string;
 	sourceToolAssistantUUID?: string;
 }
@@ -182,10 +190,16 @@ export interface FileHistorySnapshotRecord extends MetadataRecordBase {
 	snapshot?: JsonObject;
 }
 
-export type ThreadRecord = UserRecord | AssistantRecord | ProgressRecord | SystemRecord;
+export type ThreadRecord =
+	| UserRecord
+	| ToolResultRecord
+	| AssistantRecord
+	| ProgressRecord
+	| SystemRecord;
 
 export type ClaudeSessionRecord =
 	| UserRecord
+	| ToolResultRecord
 	| AssistantRecord
 	| ProgressRecord
 	| SystemRecord
@@ -206,6 +220,16 @@ export function isThreadRecord(record: ClaudeSessionRecord): record is ThreadRec
 }
 
 export function isUserRecord(record: ClaudeSessionRecord): record is UserRecord {
+	return record.type === 'user' && 'recordKind' in record && record.recordKind === 'user';
+}
+
+export function isToolResultRecord(record: ClaudeSessionRecord): record is ToolResultRecord {
+	return record.type === 'user' && 'recordKind' in record && record.recordKind === 'tool_result';
+}
+
+export function isApiUserRecord(
+	record: ClaudeSessionRecord
+): record is UserRecord | ToolResultRecord {
 	return record.type === 'user';
 }
 
@@ -223,6 +247,162 @@ export function extractTextFromMessageContent(content: ClaudeMessageContent | un
 		.join('');
 }
 
+function parseUserRecord(record: JsonObject): UserRecord | ToolResultRecord | null {
+	const base = parseThreadRecordBase(record);
+	const message = parseUserMessage(record.message);
+	if (!base || !message) return null;
+
+	const shared = {
+		...base,
+		type: 'user' as const,
+		message,
+		promptId: asString(record.promptId),
+		permissionMode: asString(record.permissionMode),
+		isMeta: asBoolean(record.isMeta),
+		isCompactSummary: asBoolean(record.isCompactSummary),
+		isVisibleInTranscriptOnly: asBoolean(record.isVisibleInTranscriptOnly)
+	};
+
+	const sourceToolUseID = asString(record.sourceToolUseID);
+	if (sourceToolUseID) {
+		return {
+			...shared,
+			recordKind: 'tool_result',
+			sourceToolUseID,
+			sourceToolAssistantUUID: asString(record.sourceToolAssistantUUID)
+		};
+	}
+
+	// Skill injections (isMeta) are system-generated, not human messages
+	if (shared.isMeta) {
+		return { ...shared, recordKind: 'tool_result' };
+	}
+
+	if (
+		Array.isArray(message.content) &&
+		message.content.length > 0 &&
+		message.content.every((block) => block.type === 'tool_result')
+	) {
+		return { ...shared, recordKind: 'tool_result' };
+	}
+
+	// Records without promptId were not initiated by a human user
+	// (e.g. agent/subagent prompts, other system injections)
+	if (!shared.promptId) {
+		return { ...shared, recordKind: 'tool_result' };
+	}
+
+	return { ...shared, recordKind: 'user' };
+}
+
+function parseAssistantRecord(record: JsonObject): AssistantRecord | null {
+	const base = parseThreadRecordBase(record);
+	const message = parseAssistantMessage(record.message);
+	if (!base || !message) return null;
+
+	return {
+		...base,
+		type: 'assistant',
+		message,
+		requestId: asString(record.requestId),
+		isApiErrorMessage: asBoolean(record.isApiErrorMessage),
+		apiError: record.apiError,
+		error: record.error
+	};
+}
+
+function parseProgressRecord(record: JsonObject): ProgressRecord | null {
+	const base = parseThreadRecordBase(record);
+	if (!base) return null;
+
+	return {
+		...base,
+		type: 'progress',
+		data: asObject(record.data) ?? undefined
+	};
+}
+
+function parseSystemRecord(record: JsonObject): SystemRecord | null {
+	const base = parseThreadRecordBase(record);
+	if (!base) return null;
+
+	return {
+		...base,
+		type: 'system',
+		subtype: asString(record.subtype),
+		content: asString(record.content),
+		data: asObject(record.data) ?? undefined,
+		durationMs: asNumber(record.durationMs),
+		logicalParentUuid: asString(record.logicalParentUuid),
+		compactMetadata: asObject(record.compactMetadata) ?? undefined
+	};
+}
+
+function parseSummaryRecord(record: JsonObject): SummaryRecord {
+	return {
+		...parseMetadataRecordBase(record, 'summary'),
+		type: 'summary',
+		summary: asString(record.summary) ?? '',
+		leafUuid: asString(record.leafUuid)
+	};
+}
+
+function parseCustomTitleRecord(record: JsonObject): CustomTitleRecord {
+	return {
+		...parseMetadataRecordBase(record, 'custom-title'),
+		type: 'custom-title',
+		customTitle: asString(record.customTitle) ?? ''
+	};
+}
+
+function parseLastPromptRecord(record: JsonObject): LastPromptRecord {
+	return {
+		...parseMetadataRecordBase(record, 'last-prompt'),
+		type: 'last-prompt',
+		lastPrompt: asString(record.lastPrompt) ?? ''
+	};
+}
+
+function parseAgentNameRecord(record: JsonObject): AgentNameRecord {
+	return {
+		...parseMetadataRecordBase(record, 'agent-name'),
+		type: 'agent-name',
+		agentName: asString(record.agentName) ?? ''
+	};
+}
+
+function parseQueueOperationRecord(record: JsonObject): QueueOperationRecord {
+	return {
+		...parseMetadataRecordBase(record, 'queue-operation'),
+		type: 'queue-operation',
+		operation: asString(record.operation),
+		content: record.content
+	};
+}
+
+function parseFileHistorySnapshotRecord(record: JsonObject): FileHistorySnapshotRecord {
+	return {
+		...parseMetadataRecordBase(record, 'file-history-snapshot'),
+		type: 'file-history-snapshot',
+		messageId: asString(record.messageId),
+		isSnapshotUpdate: asBoolean(record.isSnapshotUpdate),
+		snapshot: asObject(record.snapshot) ?? undefined
+	};
+}
+
+const recordParsers: Record<string, (record: JsonObject) => ClaudeSessionRecord | null> = {
+	user: parseUserRecord,
+	assistant: parseAssistantRecord,
+	progress: parseProgressRecord,
+	system: parseSystemRecord,
+	summary: parseSummaryRecord,
+	'custom-title': parseCustomTitleRecord,
+	'last-prompt': parseLastPromptRecord,
+	'agent-name': parseAgentNameRecord,
+	'queue-operation': parseQueueOperationRecord,
+	'file-history-snapshot': parseFileHistorySnapshotRecord
+};
+
 export function parseSessionRecordValue(value: unknown): ClaudeSessionRecord | null {
 	const record = asObject(value);
 	if (!record) return null;
@@ -230,108 +410,8 @@ export function parseSessionRecordValue(value: unknown): ClaudeSessionRecord | n
 	const type = asString(record.type);
 	if (!type) return null;
 
-	switch (type) {
-		case 'user': {
-			const base = parseThreadRecordBase(record);
-			const message = parseUserMessage(record.message);
-			if (!base || !message) return null;
-
-			return {
-				...base,
-				type,
-				message,
-				promptId: asString(record.promptId),
-				permissionMode: asString(record.permissionMode),
-				isMeta: asBoolean(record.isMeta),
-				isCompactSummary: asBoolean(record.isCompactSummary),
-				isVisibleInTranscriptOnly: asBoolean(record.isVisibleInTranscriptOnly),
-				sourceToolUseID: asString(record.sourceToolUseID),
-				sourceToolAssistantUUID: asString(record.sourceToolAssistantUUID)
-			};
-		}
-		case 'assistant': {
-			const base = parseThreadRecordBase(record);
-			const message = parseAssistantMessage(record.message);
-			if (!base || !message) return null;
-
-			return {
-				...base,
-				type,
-				message,
-				requestId: asString(record.requestId),
-				isApiErrorMessage: asBoolean(record.isApiErrorMessage),
-				apiError: record.apiError,
-				error: record.error
-			};
-		}
-		case 'progress': {
-			const base = parseThreadRecordBase(record);
-			if (!base) return null;
-
-			return {
-				...base,
-				type,
-				data: asObject(record.data) ?? undefined
-			};
-		}
-		case 'system': {
-			const base = parseThreadRecordBase(record);
-			if (!base) return null;
-
-			return {
-				...base,
-				type,
-				subtype: asString(record.subtype),
-				content: asString(record.content),
-				data: asObject(record.data) ?? undefined,
-				durationMs: asNumber(record.durationMs),
-				logicalParentUuid: asString(record.logicalParentUuid),
-				compactMetadata: asObject(record.compactMetadata) ?? undefined
-			};
-		}
-		case 'summary':
-			return {
-				...parseMetadataRecordBase(record, type),
-				type,
-				summary: asString(record.summary) ?? '',
-				leafUuid: asString(record.leafUuid)
-			};
-		case 'custom-title':
-			return {
-				...parseMetadataRecordBase(record, type),
-				type,
-				customTitle: asString(record.customTitle) ?? ''
-			};
-		case 'last-prompt':
-			return {
-				...parseMetadataRecordBase(record, type),
-				type,
-				lastPrompt: asString(record.lastPrompt) ?? ''
-			};
-		case 'agent-name':
-			return {
-				...parseMetadataRecordBase(record, type),
-				type,
-				agentName: asString(record.agentName) ?? ''
-			};
-		case 'queue-operation':
-			return {
-				...parseMetadataRecordBase(record, type),
-				type,
-				operation: asString(record.operation),
-				content: record.content
-			};
-		case 'file-history-snapshot':
-			return {
-				...parseMetadataRecordBase(record, type),
-				type,
-				messageId: asString(record.messageId),
-				isSnapshotUpdate: asBoolean(record.isSnapshotUpdate),
-				snapshot: asObject(record.snapshot) ?? undefined
-			};
-		default:
-			return null;
-	}
+	const parser = recordParsers[type];
+	return parser ? parser(record) : null;
 }
 
 function parseThreadRecordBase(record: JsonObject): Omit<ThreadRecordBase, 'type'> | null {
