@@ -2,19 +2,13 @@
 
 A local web UI for browsing, searching, and interacting with your [Claude Code](https://docs.anthropic.com/en/docs/claude-code) sessions. Claude Code stores all conversations as JSONL files in `~/.claude/projects/` — this app gives you a searchable, navigable interface to explore past sessions and run live ones.
 
-![Home page with project grid and search](screenshots/home.png)
-
 ## Features
 
-- **Live sessions** — start new Claude Code sessions directly from the browser. Stream responses in real-time, answer permission requests, respond to questions, and track token costs — all through the web UI. Powered by the [Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk).
+- **Live sessions** — start new Claude Code sessions directly from the browser, or resume existing ones. Stream responses in real-time, answer permission requests, respond to questions, and track token costs — all through the web UI. Powered by the [Claude Agent SDK](https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk).
 
-- **Ripgrep-powered full-text search** — searches actual conversation content across all sessions, not just metadata. Results stream in progressively via SSE with highlighted match snippets.
+- **Full-text search** — a background reconciler indexes session metadata, message text, tool usage, branches, and token counts into a local SQLite database. Supports structured filters (`tool:Read`, `branch:main`, `is:subagent`, etc.) and sort by relevance, newest, or oldest. Results stream via SSE with highlighted match snippets. Falls back to [ripgrep](https://github.com/BurntSushi/ripgrep) for raw JSONL scanning with `mode:raw`.
 
-![Search with highlighted results](screenshots/search.png)
-
-- **Session viewer** — full conversation renderer with user/assistant threading, collapsible tool calls with paired input/result, collapsible thinking blocks, and syntax-highlighted code blocks (shiki).
-
-![Session viewer with messages and tool calls](screenshots/session.png)
+- **Session viewer** — full conversation renderer with user/assistant threading, grouped consecutive assistant messages, collapsible tool calls with paired input/result, collapsible thinking blocks, syntax-highlighted code blocks (shiki), subagent badges with links to parent sessions, and token cost tracking.
 
 - **Project browser** — lists all projects with session counts and relative timestamps
 - **Session list** — sortable table per project with summaries, first prompts, message counts, and git branches
@@ -41,20 +35,14 @@ CLAUDE_DATA_PATH=/path/to/claude/data npm run dev
 
 Add an Anthropic API key in Settings to auto-generate short titles for sessions using Haiku. Without it, the first user prompt is shown as the title instead.
 
-## How Search Works
+## Search Filters
 
-Search is **SQLite-first**: a background reconciler indexes session metadata, message text, tool usage, branches, and token counts into a local SQLite database. Queries run against this index for fast, structured search.
-
-**Structured query filters:**
 - `tool:Read` — sessions that used a specific tool
 - `branch:main` — sessions on a specific git branch
 - `is:error` — sessions with API errors
 - `is:subagent` — subagent sessions only
 - `has:tokens` / `has:cost` — sessions with token usage data
-
-**Fallback:** Use `mode:raw` (or `debug:raw` / `source:raw`) to force the legacy [ripgrep](https://github.com/BurntSushi/ripgrep) path, which scans JSONL files directly with `--fixed-strings` (user input is never interpreted as regex).
-
-Results stream to the client via Server-Sent Events for progressive rendering.
+- `mode:raw` — bypass SQLite and scan JSONL files directly via ripgrep
 
 ## Tech Stack
 
@@ -62,9 +50,9 @@ Results stream to the client via Server-Sent Events for progressive rendering.
 - **Tailwind CSS v4**
 - **shiki** — syntax highlighting
 - **marked** — markdown rendering
-- **@vscode/ripgrep** — full-text search
+- **better-sqlite3** — session index and search
+- **@vscode/ripgrep** — raw full-text search fallback
 - **@anthropic-ai/claude-agent-sdk** — live session management
-- **better-sqlite3** — session index cache
 - **TypeScript** throughout
 
 ## Architecture
@@ -97,7 +85,7 @@ src/
 │   │   ├── session-manager.ts            # Live session lifecycle (start, stream, interact)
 │   │   ├── active-pids.ts               # Active session process tracking
 │   │   ├── messages.ts                   # Message threading, tool pairing
-│   │   ├── search.ts                     # Ripgrep-based full-text search with SSE streaming
+│   │   ├── search.ts                     # SQLite + ripgrep search with SSE streaming
 │   │   ├── reconciler.ts                 # Background session index builder
 │   │   ├── config.ts                     # App configuration (API key, etc.)
 │   │   └── type-guards.ts               # Shared type guard utilities
@@ -129,7 +117,7 @@ src/
 │   ├── +page.svelte                      # Home: spotlight search + project grid
 │   ├── projects/[projectId]/             # Session list for a project
 │   ├── session/[projectId]/[sessionId]/  # Message viewer (historical + live)
-│   ├── settings/                         # API key configuration
+│   ├── settings/                         # API key and session configuration
 │   └── api/
 │       ├── search/                       # SSE search endpoint
 │       └── session/                      # Live session APIs
