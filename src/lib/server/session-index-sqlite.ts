@@ -1,20 +1,25 @@
 import { mkdirSync } from 'fs';
 import type { Stats } from 'fs';
-import Database from 'better-sqlite3';
+import SQLite from 'better-sqlite3';
 import type { Project, SessionEntry } from '../types.js';
 import { dirNameToDisplayName, isDoubleMangledProjectId } from '../utils.js';
+import { getInspectorDataDir, getSessionIndexDbPath } from './paths.js';
 import type { SessionFileDescriptor } from './session-discovery.js';
 import { extractSessionEntry } from './session-metadata.js';
 import {
 	extractTextFromMessageContent,
 	isAssistantRecord,
+	isToolResultRecord,
 	isUserRecord,
+	type AssistantRecord,
 	type ClaudeContentBlock,
-	type ParsedSessionRecord
+	type ParsedSessionRecord,
+	type ToolResultRecord,
+	type UserRecord
 } from './session-schema.js';
-import { getInspectorDataDir, getSessionIndexDbPath } from './paths.js';
 
 const SESSION_INDEX_DB_VERSION = 2;
+const INDEX_BATCH_SIZE = 500;
 
 interface ProjectRow {
 	id: string;
@@ -156,16 +161,43 @@ export interface IndexedSearchQuery {
 
 type SqlRow = Record<string, unknown>;
 
-let database: Database.Database | null = null;
+interface RecordFacts {
+	toolResults: Map<string, ToolResultFact>;
+	tools: Map<string, IndexedToolFact>;
+	progressEvents: IndexedProgressFact[];
+	fileFacts: IndexedFileFact[];
+	bodyTextParts: string[];
+	toolTextParts: Set<string>;
+	systemTextParts: string[];
+	latestAssistantRecords: Map<string, { record: AssistantRecord; recordIndex: number }>;
+	hasApiError: boolean;
+	hasCompaction: boolean;
+}
 
-export function buildIndexedSessionData(
-	descriptor: SessionFileDescriptor,
-	records: ParsedSessionRecord[],
-	fileStat: Stats
-): IndexedSessionData | null {
-	const entry = extractSessionEntry(descriptor, records, fileStat);
-	if (!entry) return null;
+interface TokenUsage {
+	tokenInput: number;
+	tokenOutput: number;
+	tokenCacheRead: number;
+	tokenCacheWrite: number;
+}
 
+interface PersistStatements {
+	deleteSession: SQLite.Statement;
+	deleteSearch: SQLite.Statement;
+	upsertSession: SQLite.Statement;
+	deleteTools: SQLite.Statement;
+	deleteProgress: SQLite.Statement;
+	deleteFiles: SQLite.Statement;
+	upsertReconcileState: SQLite.Statement;
+	insertTool: SQLite.Statement;
+	insertProgress: SQLite.Statement;
+	insertFile: SQLite.Statement;
+	insertSearch: SQLite.Statement;
+}
+
+let database: SQLite.Database | null = null;
+
+function collectRecordFacts(records: ParsedSessionRecord[]): RecordFacts {
 	const toolResults = new Map<string, ToolResultFact>();
 	const tools = new Map<string, IndexedToolFact>();
 	const progressEvents: IndexedProgressFact[] = [];
@@ -175,7 +207,7 @@ export function buildIndexedSessionData(
 	const systemTextParts: string[] = [];
 	const latestAssistantRecords = new Map<
 		string,
-		{ record: Extract<ParsedSessionRecord['record'], { type: 'assistant' }>; recordIndex: number }
+		{ record: AssistantRecord; recordIndex: number }
 	>();
 
 	let hasApiError = false;
@@ -184,135 +216,243 @@ export function buildIndexedSessionData(
 	for (const parsedRecord of records) {
 		const { record, source } = parsedRecord;
 
+		collectQueueOperationFacts(record, systemTextParts, { hasCompaction });
 		if (record.type === 'queue-operation' && record.operation?.toLowerCase().includes('compact')) {
 			hasCompaction = true;
 		}
-		if (record.type === 'queue-operation') {
-			const queueText = [
-				record.operation,
-				typeof record.content === 'string' ? record.content : undefined
-			]
-				.filter(Boolean)
-				.join(' ')
-				.trim();
-			if (queueText) {
-				systemTextParts.push(queueText);
-			}
-		}
 
-		if (record.type === 'file-history-snapshot' && record.snapshot) {
-			for (const filePath of Object.keys(record.snapshot)) {
-				fileFacts.push({
-					recordIndex: source.recordIndex,
-					path: filePath,
-					kind: record.isSnapshotUpdate ? 'file-history-update' : 'file-history-snapshot'
-				});
-				systemTextParts.push(filePath);
-			}
-		}
+		collectFileHistoryFacts(record, source, fileFacts, systemTextParts);
 
 		if (record.type === 'progress') {
-			progressEvents.push({
-				recordIndex: source.recordIndex,
-				uuid: record.uuid,
-				timestamp: record.timestamp,
-				progressType: asString(record.data?.type),
-				label: asString(record.data?.label) || asString(record.data?.output),
-				payloadJson: toJson(record.data)
-			});
-			const progressText = [
-				asString(record.data?.type),
-				asString(record.data?.label),
-				asString(record.data?.output)
-			]
-				.filter(Boolean)
-				.join(' ')
-				.trim();
-			if (progressText) {
-				systemTextParts.push(progressText);
-			}
+			collectProgressFact(record, source, progressEvents, systemTextParts);
 			continue;
 		}
 
 		if (record.type === 'system') {
-			if (record.subtype === 'api_error') {
-				hasApiError = true;
-			}
-			if (record.compactMetadata) {
-				hasCompaction = true;
-			}
-			const systemText = [record.subtype, record.content].filter(Boolean).join(' ').trim();
-			if (systemText) {
-				systemTextParts.push(systemText);
-			}
+			({ hasApiError, hasCompaction } = collectSystemFact(
+				record,
+				systemTextParts,
+				hasApiError,
+				hasCompaction
+			));
+			continue;
+		}
+
+		if (isToolResultRecord(record)) {
+			hasCompaction = collectToolResultFact(record, toolResults, hasCompaction);
 			continue;
 		}
 
 		if (isUserRecord(record)) {
-			if (record.isCompactSummary) {
-				hasCompaction = true;
-			}
-
-			const userText = extractTextFromMessageContent(record.message.content).trim();
-			if (userText) {
-				bodyTextParts.push(userText);
-			}
-
-			if (!Array.isArray(record.message.content)) continue;
-
-			for (const block of record.message.content) {
-				if (block.type !== 'tool_result' || !block.tool_use_id) continue;
-
-				toolResults.set(block.tool_use_id, {
-					resultText: flattenContent(block.content),
-					isError: block.is_error ?? false
-				});
-			}
-
+			hasCompaction = collectUserMessageFact(record, bodyTextParts, hasCompaction);
 			continue;
 		}
 
 		if (!isAssistantRecord(record)) continue;
 
-		const assistantMessageKey = record.message.id || record.uuid;
-		const previousAssistant = latestAssistantRecords.get(assistantMessageKey);
-		if (!previousAssistant || previousAssistant.recordIndex < source.recordIndex) {
-			latestAssistantRecords.set(assistantMessageKey, { record, recordIndex: source.recordIndex });
-		}
+		hasApiError = collectAssistantFact(
+			record,
+			source,
+			latestAssistantRecords,
+			bodyTextParts,
+			tools,
+			toolResults,
+			toolTextParts,
+			hasApiError
+		);
+	}
 
-		if (record.isApiErrorMessage || record.apiError || record.error) {
-			hasApiError = true;
-		}
+	return {
+		toolResults,
+		tools,
+		progressEvents,
+		fileFacts,
+		bodyTextParts,
+		toolTextParts,
+		systemTextParts,
+		latestAssistantRecords,
+		hasApiError,
+		hasCompaction
+	};
+}
 
-		const assistantText = extractTextFromMessageContent(record.message.content).trim();
-		if (assistantText) {
-			bodyTextParts.push(assistantText);
-		}
+function collectQueueOperationFacts(
+	record: ParsedSessionRecord['record'],
+	systemTextParts: string[],
+	_flags: { hasCompaction: boolean }
+): void {
+	if (record.type !== 'queue-operation') return;
 
-		if (!Array.isArray(record.message.content)) continue;
+	const queueText = [
+		record.operation,
+		typeof record.content === 'string' ? record.content : undefined
+	]
+		.filter(Boolean)
+		.join(' ')
+		.trim();
+	if (queueText) {
+		systemTextParts.push(queueText);
+	}
+}
 
+function collectFileHistoryFacts(
+	record: ParsedSessionRecord['record'],
+	source: ParsedSessionRecord['source'],
+	fileFacts: IndexedFileFact[],
+	systemTextParts: string[]
+): void {
+	if (record.type !== 'file-history-snapshot' || !record.snapshot) return;
+
+	for (const filePath of Object.keys(record.snapshot)) {
+		fileFacts.push({
+			recordIndex: source.recordIndex,
+			path: filePath,
+			kind: record.isSnapshotUpdate ? 'file-history-update' : 'file-history-snapshot'
+		});
+		systemTextParts.push(filePath);
+	}
+}
+
+function collectProgressFact(
+	record: Extract<ParsedSessionRecord['record'], { type: 'progress' }>,
+	source: ParsedSessionRecord['source'],
+	progressEvents: IndexedProgressFact[],
+	systemTextParts: string[]
+): void {
+	progressEvents.push({
+		recordIndex: source.recordIndex,
+		uuid: record.uuid,
+		timestamp: record.timestamp,
+		progressType: asString(record.data?.type),
+		label: asString(record.data?.label) || asString(record.data?.output),
+		payloadJson: toJson(record.data)
+	});
+	const progressText = [
+		asString(record.data?.type),
+		asString(record.data?.label),
+		asString(record.data?.output)
+	]
+		.filter(Boolean)
+		.join(' ')
+		.trim();
+	if (progressText) {
+		systemTextParts.push(progressText);
+	}
+}
+
+function collectSystemFact(
+	record: Extract<ParsedSessionRecord['record'], { type: 'system' }>,
+	systemTextParts: string[],
+	prevApiError: boolean,
+	prevCompaction: boolean
+): { hasApiError: boolean; hasCompaction: boolean } {
+	const hasApiError = prevApiError || record.subtype === 'api_error';
+	const hasCompaction = prevCompaction || Boolean(record.compactMetadata);
+	const systemText = [record.subtype, record.content].filter(Boolean).join(' ').trim();
+	if (systemText) {
+		systemTextParts.push(systemText);
+	}
+	return { hasApiError, hasCompaction };
+}
+
+function collectUserMessageFact(
+	record: UserRecord,
+	bodyTextParts: string[],
+	prevCompaction: boolean
+): boolean {
+	const hasCompaction = prevCompaction || Boolean(record.isCompactSummary);
+
+	const userText = extractTextFromMessageContent(record.message.content).trim();
+	if (userText) {
+		bodyTextParts.push(userText);
+	}
+
+	return hasCompaction;
+}
+
+function collectToolResultFact(
+	record: ToolResultRecord,
+	toolResults: Map<string, ToolResultFact>,
+	prevCompaction: boolean
+): boolean {
+	const hasCompaction = prevCompaction || Boolean(record.isCompactSummary);
+
+	if (Array.isArray(record.message.content)) {
 		for (const block of record.message.content) {
-			if (block.type !== 'tool_use' || !block.id) continue;
+			if (block.type !== 'tool_result' || !block.tool_use_id) continue;
 
-			const toolResult = toolResults.get(block.id);
-			tools.set(block.id, {
-				assistantUuid: record.uuid,
-				toolUseId: block.id,
-				toolName: block.name || 'unknown',
-				caller: block.caller,
-				inputJson: JSON.stringify(block.input || {}),
-				resultText: toolResult?.resultText,
-				isError: toolResult?.isError ?? false
+			toolResults.set(block.tool_use_id, {
+				resultText: flattenContent(block.content),
+				isError: block.is_error ?? false
 			});
-			if (block.name) {
-				toolTextParts.add(block.name);
-			}
-			if (block.caller) {
-				toolTextParts.add(block.caller);
-			}
 		}
 	}
 
+	return hasCompaction;
+}
+
+function collectAssistantToolUses(
+	record: AssistantRecord,
+	tools: Map<string, IndexedToolFact>,
+	toolResults: Map<string, ToolResultFact>,
+	toolTextParts: Set<string>
+): void {
+	if (!Array.isArray(record.message.content)) return;
+
+	for (const block of record.message.content) {
+		if (block.type !== 'tool_use' || !block.id) continue;
+
+		const toolResult = toolResults.get(block.id);
+		tools.set(block.id, {
+			assistantUuid: record.uuid,
+			toolUseId: block.id,
+			toolName: block.name || 'unknown',
+			caller: block.caller,
+			inputJson: JSON.stringify(block.input || {}),
+			resultText: toolResult?.resultText,
+			isError: toolResult?.isError ?? false
+		});
+		if (block.name) {
+			toolTextParts.add(block.name);
+		}
+		if (block.caller) {
+			toolTextParts.add(block.caller);
+		}
+	}
+}
+
+function collectAssistantFact(
+	record: AssistantRecord,
+	source: ParsedSessionRecord['source'],
+	latestAssistantRecords: Map<string, { record: AssistantRecord; recordIndex: number }>,
+	bodyTextParts: string[],
+	tools: Map<string, IndexedToolFact>,
+	toolResults: Map<string, ToolResultFact>,
+	toolTextParts: Set<string>,
+	prevApiError: boolean
+): boolean {
+	const hasApiError =
+		prevApiError || Boolean(record.isApiErrorMessage || record.apiError || record.error);
+
+	const assistantMessageKey = record.message.id || record.uuid;
+	const previousAssistant = latestAssistantRecords.get(assistantMessageKey);
+	if (!previousAssistant || previousAssistant.recordIndex < source.recordIndex) {
+		latestAssistantRecords.set(assistantMessageKey, { record, recordIndex: source.recordIndex });
+	}
+
+	const assistantText = extractTextFromMessageContent(record.message.content).trim();
+	if (assistantText) {
+		bodyTextParts.push(assistantText);
+	}
+
+	collectAssistantToolUses(record, tools, toolResults, toolTextParts);
+
+	return hasApiError;
+}
+
+function aggregateTokenUsage(
+	latestAssistantRecords: Map<string, { record: AssistantRecord; recordIndex: number }>
+): TokenUsage {
 	let tokenInput = 0;
 	let tokenOutput = 0;
 	let tokenCacheRead = 0;
@@ -333,32 +473,58 @@ export function buildIndexedSessionData(
 		]);
 	}
 
+	return { tokenInput, tokenOutput, tokenCacheRead, tokenCacheWrite };
+}
+
+function buildSearchDocument(
+	entry: SessionEntry,
+	bodyTextParts: string[],
+	toolTextParts: Set<string>,
+	systemTextParts: string[]
+): IndexedSearchDocument {
+	return {
+		titleText: [entry.summary, entry.customTitle, entry.nativeSummary].filter(Boolean).join('\n'),
+		promptText: [entry.firstPrompt, entry.lastPrompt].filter(Boolean).join('\n'),
+		bodyText: bodyTextParts.join('\n'),
+		toolText: [...toolTextParts].join('\n'),
+		branchText: entry.gitBranch,
+		systemText: systemTextParts.join('\n')
+	};
+}
+
+export function buildIndexedSessionData(
+	descriptor: SessionFileDescriptor,
+	records: ParsedSessionRecord[],
+	fileStat: Stats
+): IndexedSessionData | null {
+	const entry = extractSessionEntry(descriptor, records, fileStat);
+	if (!entry) return null;
+
+	const facts = collectRecordFacts(records);
+	const usage = aggregateTokenUsage(facts.latestAssistantRecords);
+	const searchDocument = buildSearchDocument(
+		entry,
+		facts.bodyTextParts,
+		facts.toolTextParts,
+		facts.systemTextParts
+	);
+
 	return {
 		entry,
 		sizeBytes: fileStat.size,
-		tokenInput,
-		tokenOutput,
-		tokenCacheRead,
-		tokenCacheWrite,
-		hasApiError,
-		hasCompaction,
-		tools: [...tools.values()],
-		progressEvents,
-		fileFacts,
-		searchDocument: {
-			titleText: [entry.summary, entry.customTitle, entry.nativeSummary].filter(Boolean).join('\n'),
-			promptText: [entry.firstPrompt, entry.lastPrompt].filter(Boolean).join('\n'),
-			bodyText: bodyTextParts.join('\n'),
-			toolText: [...toolTextParts].join('\n'),
-			branchText: entry.gitBranch,
-			systemText: systemTextParts.join('\n')
-		}
+		...usage,
+		hasApiError: facts.hasApiError,
+		hasCompaction: facts.hasCompaction,
+		tools: [...facts.tools.values()],
+		progressEvents: facts.progressEvents,
+		fileFacts: facts.fileFacts,
+		searchDocument
 	};
 }
 
 export function getIndexedProjects(): Project[] {
-	const database = getDatabase();
-	const rows = database
+	const db = getDatabase();
+	const rows = db
 		.prepare<[], ProjectRow>(
 			`SELECT id, display_name, path, session_count, last_modified
 			 FROM projects
@@ -380,14 +546,14 @@ export function getIndexedProjects(): Project[] {
 }
 
 export function getIndexedProjectIds(): string[] {
-	const database = getDatabase();
-	const rows = database.prepare<[], { id: string }>(`SELECT id FROM projects`).all();
+	const db = getDatabase();
+	const rows = db.prepare<[], { id: string }>(`SELECT id FROM projects`).all();
 	return toSqlRows(rows).map((row) => requireString(row, 'id'));
 }
 
 export function getIndexedSessions(projectId: string): SessionEntry[] {
-	const database = getDatabase();
-	const rows = database
+	const db = getDatabase();
+	const rows = db
 		.prepare<[string], SessionRow>(
 			`SELECT *
 			 FROM sessions
@@ -400,8 +566,8 @@ export function getIndexedSessions(projectId: string): SessionEntry[] {
 }
 
 export function getIndexedSessionsByPath(projectId: string): Map<string, StoredIndexedSession> {
-	const database = getDatabase();
-	const rows = database
+	const db = getDatabase();
+	const rows = db
 		.prepare<[string], SessionRow>(
 			`SELECT *
 			 FROM sessions
@@ -424,8 +590,8 @@ export function getIndexedSessionsByPath(projectId: string): Map<string, StoredI
 }
 
 export function getReconcileStateByPath(projectId: string): Map<string, ReconcileStateRow> {
-	const database = getDatabase();
-	const rows = database
+	const db = getDatabase();
+	const rows = db
 		.prepare<[string], ReconcileStateRow>(
 			`SELECT file_path, session_id, size_bytes, mtime_ms
 			 FROM reconcile_state
@@ -445,8 +611,8 @@ export function getIndexedSessionMeta(
 	projectId: string,
 	sessionId: string
 ): IndexedSessionMeta | null {
-	const database = getDatabase();
-	const row = database
+	const db = getDatabase();
+	const row = db
 		.prepare<[string, string], SessionRow>(
 			`SELECT *
 			 FROM sessions
@@ -467,9 +633,9 @@ export function getIndexedSessionMeta(
 
 export function searchIndexedSessions(
 	query: IndexedSearchQuery,
-	limit = 500
+	limit = INDEX_BATCH_SIZE
 ): IndexedSearchSession[] {
-	const database = getDatabase();
+	const db = getDatabase();
 	const whereClauses: string[] = [];
 	const params: Array<string | number> = [];
 	const searchTextExpression =
@@ -523,7 +689,7 @@ export function searchIndexedSessions(
 
 	if (query.textTerms.length > 0) {
 		const ftsQuery = query.textTerms.map(toFtsTerm).join(' AND ');
-		const rows = database
+		const rows = db
 			.prepare(
 				`SELECT
 					s.project_id,
@@ -547,7 +713,7 @@ export function searchIndexedSessions(
 		return toSqlRows(rows).map((row) => toIndexedSearchSession(row));
 	}
 
-	const rows = database
+	const rows = db
 		.prepare(
 			`SELECT
 				s.project_id,
@@ -571,59 +737,11 @@ export function searchIndexedSessions(
 	return toSqlRows(rows).map((row) => toIndexedSearchSession(row));
 }
 
-export function persistProjectIndex(
-	projectId: string,
-	projectPath: string,
-	changedSessions: IndexedSessionData[],
-	removedSessionIds: string[],
-	allEntries: SessionEntry[]
-): void {
-	const database = getDatabase();
-	const startedAt = new Date().toISOString();
-	const lastModified = allEntries[0]?.modified || '';
-
-	database.exec('BEGIN IMMEDIATE');
-
-	try {
-		if (allEntries.length === 0) {
-			database.prepare(`DELETE FROM session_search WHERE project_id = ?`).run(projectId);
-			database.prepare(`DELETE FROM projects WHERE id = ?`).run(projectId);
-			database.exec('COMMIT');
-			return;
-		}
-
-		database
-			.prepare(
-				`INSERT INTO projects (id, display_name, path, session_count, last_modified, updated_at)
-				 VALUES (?, ?, ?, ?, ?, ?)
-				 ON CONFLICT(id) DO UPDATE SET
-					display_name = excluded.display_name,
-					path = excluded.path,
-					session_count = excluded.session_count,
-					last_modified = excluded.last_modified,
-					updated_at = excluded.updated_at`
-			)
-			.run(
-				projectId,
-				dirNameToDisplayName(projectId),
-				projectPath,
-				allEntries.length,
-				lastModified,
-				startedAt
-			);
-
-		const deleteSessionStatement = database.prepare(
-			`DELETE FROM sessions WHERE project_id = ? AND session_id = ?`
-		);
-		const deleteSearchStatement = database.prepare(
-			`DELETE FROM session_search WHERE project_id = ? AND session_id = ?`
-		);
-		for (const removedSessionId of removedSessionIds) {
-			deleteSearchStatement.run(projectId, removedSessionId);
-			deleteSessionStatement.run(projectId, removedSessionId);
-		}
-
-		const upsertSessionStatement = database.prepare(
+function prepareStatements(db: SQLite.Database): PersistStatements {
+	return {
+		deleteSession: db.prepare(`DELETE FROM sessions WHERE project_id = ? AND session_id = ?`),
+		deleteSearch: db.prepare(`DELETE FROM session_search WHERE project_id = ? AND session_id = ?`),
+		upsertSession: db.prepare(
 			`INSERT INTO sessions (
 				project_id,
 				session_id,
@@ -677,18 +795,13 @@ export function persistProjectIndex(
 				token_cache_write = excluded.token_cache_write,
 				has_api_error = excluded.has_api_error,
 				has_compaction = excluded.has_compaction`
-		);
-
-		const deleteToolsStatement = database.prepare(
-			`DELETE FROM session_tools WHERE project_id = ? AND session_id = ?`
-		);
-		const deleteProgressStatement = database.prepare(
+		),
+		deleteTools: db.prepare(`DELETE FROM session_tools WHERE project_id = ? AND session_id = ?`),
+		deleteProgress: db.prepare(
 			`DELETE FROM session_progress WHERE project_id = ? AND session_id = ?`
-		);
-		const deleteFilesStatement = database.prepare(
-			`DELETE FROM session_files WHERE project_id = ? AND session_id = ?`
-		);
-		const upsertReconcileStateStatement = database.prepare(
+		),
+		deleteFiles: db.prepare(`DELETE FROM session_files WHERE project_id = ? AND session_id = ?`),
+		upsertReconcileState: db.prepare(
 			`INSERT INTO reconcile_state (file_path, project_id, session_id, size_bytes, mtime_ms, indexed_at)
 			 VALUES (?, ?, ?, ?, ?, ?)
 			 ON CONFLICT(file_path) DO UPDATE SET
@@ -697,8 +810,8 @@ export function persistProjectIndex(
 				size_bytes = excluded.size_bytes,
 				mtime_ms = excluded.mtime_ms,
 				indexed_at = excluded.indexed_at`
-		);
-		const insertToolStatement = database.prepare(
+		),
+		insertTool: db.prepare(
 			`INSERT INTO session_tools (
 				project_id,
 				session_id,
@@ -710,8 +823,8 @@ export function persistProjectIndex(
 				result_text,
 				is_error
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-		);
-		const insertProgressStatement = database.prepare(
+		),
+		insertProgress: db.prepare(
 			`INSERT INTO session_progress (
 				project_id,
 				session_id,
@@ -722,8 +835,8 @@ export function persistProjectIndex(
 				label,
 				payload_json
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-		);
-		const insertFileStatement = database.prepare(
+		),
+		insertFile: db.prepare(
 			`INSERT INTO session_files (
 				project_id,
 				session_id,
@@ -731,8 +844,8 @@ export function persistProjectIndex(
 				path,
 				kind
 			) VALUES (?, ?, ?, ?, ?)`
-		);
-		const insertSearchStatement = database.prepare(
+		),
+		insertSearch: db.prepare(
 			`INSERT INTO session_search (
 				project_id,
 				session_id,
@@ -743,104 +856,183 @@ export function persistProjectIndex(
 				branch_text,
 				system_text
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+		)
+	};
+}
+
+function persistSessionTools(
+	stmts: PersistStatements,
+	projectId: string,
+	session: IndexedSessionData
+): void {
+	for (const tool of session.tools) {
+		stmts.insertTool.run(
+			projectId,
+			session.entry.sessionId,
+			tool.toolUseId,
+			tool.assistantUuid ?? null,
+			tool.toolName,
+			tool.caller ?? null,
+			tool.inputJson,
+			tool.resultText ?? null,
+			toSqlBoolean(tool.isError)
 		);
+	}
+}
 
-		for (const session of changedSessions) {
-			upsertSessionStatement.run(
-				projectId,
-				session.entry.sessionId,
-				session.entry.displaySessionId ?? null,
-				session.entry.fullPath,
-				session.entry.relativePath ?? null,
-				session.entry.fileMtime,
-				session.sizeBytes,
-				session.entry.firstPrompt,
-				session.entry.summary,
-				session.entry.messageCount,
-				session.entry.created,
-				session.entry.modified,
-				session.entry.gitBranch,
-				session.entry.projectPath,
-				toSqlBoolean(session.entry.isSidechain),
-				toSqlBoolean(session.entry.isSubagent ?? false),
-				session.entry.parentSessionId ?? null,
-				session.entry.customTitle ?? null,
-				session.entry.nativeSummary ?? null,
-				session.entry.lastPrompt ?? null,
-				session.tokenInput,
-				session.tokenOutput,
-				session.tokenCacheRead,
-				session.tokenCacheWrite,
-				toSqlBoolean(session.hasApiError),
-				toSqlBoolean(session.hasCompaction)
-			);
+function persistSessionProgress(
+	stmts: PersistStatements,
+	projectId: string,
+	session: IndexedSessionData
+): void {
+	for (const event of session.progressEvents) {
+		stmts.insertProgress.run(
+			projectId,
+			session.entry.sessionId,
+			event.recordIndex,
+			event.uuid ?? null,
+			event.timestamp ?? null,
+			event.progressType ?? null,
+			event.label ?? null,
+			event.payloadJson ?? null
+		);
+	}
+}
 
-			deleteToolsStatement.run(projectId, session.entry.sessionId);
-			deleteProgressStatement.run(projectId, session.entry.sessionId);
-			deleteFilesStatement.run(projectId, session.entry.sessionId);
-			deleteSearchStatement.run(projectId, session.entry.sessionId);
+function persistSessionFiles(
+	stmts: PersistStatements,
+	projectId: string,
+	session: IndexedSessionData
+): void {
+	for (const fileFact of session.fileFacts) {
+		stmts.insertFile.run(
+			projectId,
+			session.entry.sessionId,
+			fileFact.recordIndex,
+			fileFact.path,
+			fileFact.kind
+		);
+	}
+}
 
-			upsertReconcileStateStatement.run(
-				session.entry.fullPath,
-				projectId,
-				session.entry.sessionId,
-				session.sizeBytes,
-				session.entry.fileMtime,
-				startedAt
-			);
+function persistSingleSession(
+	stmts: PersistStatements,
+	projectId: string,
+	session: IndexedSessionData,
+	startedAt: string
+): void {
+	stmts.upsertSession.run(
+		projectId,
+		session.entry.sessionId,
+		session.entry.displaySessionId ?? null,
+		session.entry.fullPath,
+		session.entry.relativePath ?? null,
+		session.entry.fileMtime,
+		session.sizeBytes,
+		session.entry.firstPrompt,
+		session.entry.summary,
+		session.entry.messageCount,
+		session.entry.created,
+		session.entry.modified,
+		session.entry.gitBranch,
+		session.entry.projectPath,
+		toSqlBoolean(session.entry.isSidechain),
+		toSqlBoolean(session.entry.isSubagent ?? false),
+		session.entry.parentSessionId ?? null,
+		session.entry.customTitle ?? null,
+		session.entry.nativeSummary ?? null,
+		session.entry.lastPrompt ?? null,
+		session.tokenInput,
+		session.tokenOutput,
+		session.tokenCacheRead,
+		session.tokenCacheWrite,
+		toSqlBoolean(session.hasApiError),
+		toSqlBoolean(session.hasCompaction)
+	);
 
-			for (const tool of session.tools) {
-				insertToolStatement.run(
-					projectId,
-					session.entry.sessionId,
-					tool.toolUseId,
-					tool.assistantUuid ?? null,
-					tool.toolName,
-					tool.caller ?? null,
-					tool.inputJson,
-					tool.resultText ?? null,
-					toSqlBoolean(tool.isError)
-				);
-			}
+	stmts.deleteTools.run(projectId, session.entry.sessionId);
+	stmts.deleteProgress.run(projectId, session.entry.sessionId);
+	stmts.deleteFiles.run(projectId, session.entry.sessionId);
+	stmts.deleteSearch.run(projectId, session.entry.sessionId);
 
-			for (const event of session.progressEvents) {
-				insertProgressStatement.run(
-					projectId,
-					session.entry.sessionId,
-					event.recordIndex,
-					event.uuid ?? null,
-					event.timestamp ?? null,
-					event.progressType ?? null,
-					event.label ?? null,
-					event.payloadJson ?? null
-				);
-			}
+	stmts.upsertReconcileState.run(
+		session.entry.fullPath,
+		projectId,
+		session.entry.sessionId,
+		session.sizeBytes,
+		session.entry.fileMtime,
+		startedAt
+	);
 
-			for (const fileFact of session.fileFacts) {
-				insertFileStatement.run(
-					projectId,
-					session.entry.sessionId,
-					fileFact.recordIndex,
-					fileFact.path,
-					fileFact.kind
-				);
-			}
+	persistSessionTools(stmts, projectId, session);
+	persistSessionProgress(stmts, projectId, session);
+	persistSessionFiles(stmts, projectId, session);
 
-			insertSearchStatement.run(
-				projectId,
-				session.entry.sessionId,
-				session.searchDocument.titleText,
-				session.searchDocument.promptText,
-				session.searchDocument.bodyText,
-				session.searchDocument.toolText,
-				session.searchDocument.branchText,
-				session.searchDocument.systemText
-			);
+	stmts.insertSearch.run(
+		projectId,
+		session.entry.sessionId,
+		session.searchDocument.titleText,
+		session.searchDocument.promptText,
+		session.searchDocument.bodyText,
+		session.searchDocument.toolText,
+		session.searchDocument.branchText,
+		session.searchDocument.systemText
+	);
+}
+
+export function persistProjectIndex(
+	projectId: string,
+	projectPath: string,
+	changedSessions: IndexedSessionData[],
+	removedSessionIds: string[],
+	allEntries: SessionEntry[]
+): void {
+	const db = getDatabase();
+	const startedAt = new Date().toISOString();
+	const lastModified = allEntries[0]?.modified || '';
+
+	db.exec('BEGIN IMMEDIATE');
+
+	try {
+		if (allEntries.length === 0) {
+			db.prepare(`DELETE FROM session_search WHERE project_id = ?`).run(projectId);
+			db.prepare(`DELETE FROM projects WHERE id = ?`).run(projectId);
+			db.exec('COMMIT');
+			return;
 		}
 
-		database.exec('COMMIT');
+		db.prepare(
+			`INSERT INTO projects (id, display_name, path, session_count, last_modified, updated_at)
+			 VALUES (?, ?, ?, ?, ?, ?)
+			 ON CONFLICT(id) DO UPDATE SET
+				display_name = excluded.display_name,
+				path = excluded.path,
+				session_count = excluded.session_count,
+				last_modified = excluded.last_modified,
+				updated_at = excluded.updated_at`
+		).run(
+			projectId,
+			dirNameToDisplayName(projectId),
+			projectPath,
+			allEntries.length,
+			lastModified,
+			startedAt
+		);
+
+		const stmts = prepareStatements(db);
+
+		for (const removedSessionId of removedSessionIds) {
+			stmts.deleteSearch.run(projectId, removedSessionId);
+			stmts.deleteSession.run(projectId, removedSessionId);
+		}
+
+		for (const session of changedSessions) {
+			persistSingleSession(stmts, projectId, session, startedAt);
+		}
+
+		db.exec('COMMIT');
 	} catch (error) {
-		database.exec('ROLLBACK');
+		db.exec('ROLLBACK');
 		throw error;
 	}
 }
@@ -848,18 +1040,18 @@ export function persistProjectIndex(
 export function deleteIndexedProjects(projectIds: string[]): void {
 	if (projectIds.length === 0) return;
 
-	const database = getDatabase();
-	const deleteProjectStatement = database.prepare(`DELETE FROM projects WHERE id = ?`);
+	const db = getDatabase();
+	const deleteProjectStatement = db.prepare(`DELETE FROM projects WHERE id = ?`);
 
-	database.exec('BEGIN IMMEDIATE');
+	db.exec('BEGIN IMMEDIATE');
 	try {
 		for (const projectId of projectIds) {
-			database.prepare(`DELETE FROM session_search WHERE project_id = ?`).run(projectId);
+			db.prepare(`DELETE FROM session_search WHERE project_id = ?`).run(projectId);
 			deleteProjectStatement.run(projectId);
 		}
-		database.exec('COMMIT');
+		db.exec('COMMIT');
 	} catch (error) {
-		database.exec('ROLLBACK');
+		db.exec('ROLLBACK');
 		throw error;
 	}
 }
@@ -869,14 +1061,16 @@ export function updateIndexedSessionSummary(
 	sessionId: string,
 	summary: string
 ): void {
-	const database = getDatabase();
-	database.exec('BEGIN IMMEDIATE');
+	const db = getDatabase();
+	db.exec('BEGIN IMMEDIATE');
 	try {
-		database
-			.prepare(`UPDATE sessions SET summary = ? WHERE project_id = ? AND session_id = ?`)
-			.run(summary, projectId, sessionId);
+		db.prepare(`UPDATE sessions SET summary = ? WHERE project_id = ? AND session_id = ?`).run(
+			summary,
+			projectId,
+			sessionId
+		);
 
-		const row = database
+		const row = db
 			.prepare<[string, string], { custom_title: string | null; native_summary: string | null }>(
 				`SELECT custom_title, native_summary
 				 FROM sessions
@@ -886,43 +1080,41 @@ export function updateIndexedSessionSummary(
 			.get(projectId, sessionId);
 
 		const titleText = [summary, row?.custom_title, row?.native_summary].filter(Boolean).join('\n');
-		database
-			.prepare(
-				`UPDATE session_search
-				 SET title_text = ?
-				 WHERE project_id = ? AND session_id = ?`
-			)
-			.run(titleText, projectId, sessionId);
+		db.prepare(
+			`UPDATE session_search
+			 SET title_text = ?
+			 WHERE project_id = ? AND session_id = ?`
+		).run(titleText, projectId, sessionId);
 
-		database.exec('COMMIT');
+		db.exec('COMMIT');
 	} catch (error) {
-		database.exec('ROLLBACK');
+		db.exec('ROLLBACK');
 		throw error;
 	}
 }
 
-function getDatabase(): Database.Database {
+function getDatabase(): SQLite.Database {
 	if (database) return database;
 
 	mkdirSync(getInspectorDataDir(), { recursive: true });
-	database = new Database(getSessionIndexDbPath());
+	database = new SQLite(getSessionIndexDbPath());
 	database.pragma('foreign_keys = ON');
 	database.pragma('journal_mode = WAL');
 	ensureSchema(database);
 	return database;
 }
 
-function ensureSchema(database: Database.Database): void {
-	const version = database.pragma('user_version', { simple: true });
+function ensureSchema(db: SQLite.Database): void {
+	const version = db.pragma('user_version', { simple: true });
 	if (
 		typeof version === 'number' &&
 		version === SESSION_INDEX_DB_VERSION &&
-		hasRequiredSchema(database)
+		hasRequiredSchema(db)
 	) {
 		return;
 	}
 
-	database.exec(`
+	db.exec(`
 		DROP TABLE IF EXISTS session_files;
 		DROP TABLE IF EXISTS session_progress;
 		DROP TABLE IF EXISTS session_tools;
@@ -1045,10 +1237,10 @@ function ensureSchema(database: Database.Database): void {
 		);
 	`);
 
-	database.pragma(`user_version = ${SESSION_INDEX_DB_VERSION}`);
+	db.pragma(`user_version = ${SESSION_INDEX_DB_VERSION}`);
 }
 
-function hasRequiredSchema(database: Database.Database): boolean {
+function hasRequiredSchema(db: SQLite.Database): boolean {
 	const requiredTables = [
 		'projects',
 		'sessions',
@@ -1060,7 +1252,7 @@ function hasRequiredSchema(database: Database.Database): boolean {
 	];
 
 	const placeholders = requiredTables.map(() => '?').join(',');
-	const row = database
+	const row = db
 		.prepare<string[], { cnt: number }>(
 			`SELECT COUNT(DISTINCT name) as cnt
 			 FROM sqlite_master

@@ -1,6 +1,6 @@
+import type { Handle } from '@sveltejs/kit';
 import { startReconciliation } from '$lib/server/reconciler.js';
 import { cleanupOrphanedProcesses, shutdownAllSessions } from '$lib/server/session-manager.js';
-import type { Handle } from '@sveltejs/kit';
 
 const globalHooksState = globalThis as typeof globalThis & {
 	__claudeInspectorShutdownRegistered?: boolean;
@@ -8,7 +8,7 @@ const globalHooksState = globalThis as typeof globalThis & {
 
 // Start background reconciliation on server init
 startReconciliation();
-void cleanupOrphanedProcesses().catch((error) => {
+cleanupOrphanedProcesses().catch((error) => {
 	console.error('[session-manager] orphan cleanup failed:', error);
 });
 

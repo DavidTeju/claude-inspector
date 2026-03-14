@@ -14,6 +14,15 @@ import {
 	type IndexedSearchSession
 } from './session-index-sqlite.js';
 
+const PREVIEW_MAX_LENGTH = 150;
+const CONTEXT_BEFORE_LENGTH = 60;
+const CONTEXT_AFTER_LENGTH = 90;
+const MAX_DB_SESSIONS = 500;
+const SEARCH_BATCH_SIZE = 25;
+const RG_TIMEOUT_MS = 10_000;
+const MAX_EMITTED_SESSIONS = 500;
+const JSON_INDENT = 4;
+
 interface RgMatch {
 	projectId: string;
 	sessionId: string;
@@ -170,10 +179,10 @@ function createSnippet(text: string, term: string): string {
 	const lower = normalized.toLowerCase();
 	const termLower = term.toLowerCase();
 	const idx = lower.indexOf(termLower);
-	if (idx === -1) return normalized.slice(0, 150);
+	if (idx === -1) return normalized.slice(0, PREVIEW_MAX_LENGTH);
 
-	const start = Math.max(0, idx - 60);
-	const end = Math.min(normalized.length, idx + term.length + 90);
+	const start = Math.max(0, idx - CONTEXT_BEFORE_LENGTH);
+	const end = Math.min(normalized.length, idx + term.length + CONTEXT_AFTER_LENGTH);
 
 	let snippet = normalized.slice(start, end);
 	if (start > 0) snippet = '...' + snippet;
@@ -186,7 +195,7 @@ function createSnippets(searchText: string, terms: string[]): string[] {
 	if (!searchText.trim()) return [];
 
 	if (terms.length === 0) {
-		const fallback = searchText.replace(/\n/g, ' ').trim().slice(0, 150);
+		const fallback = searchText.replace(/\n/g, ' ').trim().slice(0, PREVIEW_MAX_LENGTH);
 		return fallback ? [fallback] : [];
 	}
 
@@ -263,7 +272,10 @@ async function emitIndexedMatches(
 	await ensureSearchProjectsIndexed(projectFilter);
 	if (cancelled.value) return 0;
 
-	const results = searchIndexedSessions(toIndexedSearchQuery(query, projectFilter), 500);
+	const results = searchIndexedSessions(
+		toIndexedSearchQuery(query, projectFilter),
+		MAX_DB_SESSIONS
+	);
 	let emitted = 0;
 
 	for (const result of results) {
@@ -276,12 +288,41 @@ async function emitIndexedMatches(
 		callbacks.onResult(toSearchResult(result, query.textTerms));
 		emitted += 1;
 
-		if (emitted % 25 === 0) {
+		if (emitted % SEARCH_BATCH_SIZE === 0) {
 			await new Promise((resolve) => setTimeout(resolve, 0));
 		}
 	}
 
 	return emitted;
+}
+
+/**
+ * Parse a file path relative to the projects directory into project/session identifiers.
+ */
+function parseSessionPath(relPath: string): { projectId: string; sessionId: string } | null {
+	const parts = relPath.split('/');
+	if (parts.length < 2) return null;
+
+	const projectId = parts[0];
+	if (!projectId) return null;
+
+	if (parts.length === 2) {
+		const sessionId = parts[1]?.replace('.jsonl', '');
+		if (!sessionId) return null;
+		return { projectId, sessionId };
+	}
+
+	if (parts.length === JSON_INDENT && parts[2] === 'subagents') {
+		const parentSessionId = parts[1];
+		const childSessionId = parts[3]?.replace('.jsonl', '');
+		if (!parentSessionId || !childSessionId) return null;
+		return {
+			projectId,
+			sessionId: `${parentSessionId}~subagent~${childSessionId}`
+		};
+	}
+
+	return null;
 }
 
 function processRgMatch(rgEvent: Record<string, unknown>, projectsDir: string): RgMatch | null {
@@ -295,32 +336,41 @@ function processRgMatch(rgEvent: Record<string, unknown>, projectsDir: string): 
 	if (!filePath || !lineText) return null;
 
 	const relPath = filePath.replace(projectsDir + '/', '');
-	const parts = relPath.split('/');
-	if (parts.length < 2) return null;
+	const parsed = parseSessionPath(relPath);
+	if (!parsed) return null;
 
-	const projectId = parts[0];
-	if (!projectId) return null;
+	return { ...parsed, filePath, lineText };
+}
 
-	if (parts.length === 2) {
-		const sessionId = parts[1]?.replace('.jsonl', '');
-		if (!sessionId) return null;
-		return { projectId, sessionId, filePath, lineText };
+/**
+ * Parse a JSONL line into a record and extract its text content.
+ */
+function parseRecordLine(lineText: string): string | null {
+	let record: Record<string, unknown>;
+	try {
+		record = JSON.parse(lineText);
+	} catch {
+		return null;
 	}
+	return extractTextContent(record);
+}
 
-	if (parts.length === 4 && parts[2] === 'subagents') {
-		const parentSessionId = parts[1];
-		const childSessionId = parts[3]?.replace('.jsonl', '');
-		if (!parentSessionId || !childSessionId) return null;
-
-		return {
-			projectId,
-			sessionId: `${parentSessionId}~subagent~${childSessionId}`,
-			filePath,
-			lineText
-		};
+/**
+ * Compute a relevance score by checking how many search terms appear
+ * in the session's first prompt and summary.
+ */
+function computeRelevance(
+	terms: string[],
+	meta: { firstPrompt?: string; summary?: string } | null | undefined
+): number {
+	const promptLower = (meta?.firstPrompt || '').toLowerCase();
+	const summaryLower = (meta?.summary || '').toLowerCase();
+	let relevance = 0;
+	for (const term of terms) {
+		if (promptLower.includes(term)) relevance += 2;
+		if (summaryLower.includes(term)) relevance += 1;
 	}
-
-	return null;
+	return relevance;
 }
 
 async function processRawMatch(
@@ -329,14 +379,7 @@ async function processRawMatch(
 	emittedSessions: Set<string>,
 	callbacks: StreamingSearchCallbacks
 ): Promise<boolean> {
-	let record: Record<string, unknown>;
-	try {
-		record = JSON.parse(match.lineText);
-	} catch {
-		return false;
-	}
-
-	const textContent = extractTextContent(record);
+	const textContent = parseRecordLine(match.lineText);
 	if (!textContent) return false;
 
 	const lowerText = textContent.toLowerCase();
@@ -358,14 +401,6 @@ async function processRawMatch(
 		}
 	}
 
-	const promptLower = (meta?.firstPrompt || '').toLowerCase();
-	const summaryLower = (meta?.summary || '').toLowerCase();
-	let relevance = 0;
-	for (const term of terms) {
-		if (promptLower.includes(term)) relevance += 2;
-		if (summaryLower.includes(term)) relevance += 1;
-	}
-
 	callbacks.onResult({
 		projectId: match.projectId,
 		projectName: dirNameToDisplayName(match.projectId),
@@ -374,7 +409,7 @@ async function processRawMatch(
 		firstPrompt: meta?.firstPrompt || '',
 		snippets: createSnippets(textContent, terms),
 		modified,
-		relevance
+		relevance: computeRelevance(terms, meta)
 	});
 
 	return true;
@@ -436,7 +471,7 @@ function searchSessionsRawStreaming(
 	const stdoutChunks: Buffer[] = [];
 	const timeout = setTimeout(() => {
 		rgProcess.kill();
-	}, 10000);
+	}, RG_TIMEOUT_MS);
 
 	rgProcess.stdout?.on('data', (chunk: Buffer) => {
 		stdoutChunks.push(chunk);
@@ -452,7 +487,7 @@ function searchSessionsRawStreaming(
 		const fullOutput = Buffer.concat(stdoutChunks).toString('utf-8');
 		for (const line of fullOutput.split('\n')) {
 			if (!line.trim()) continue;
-			if (emittedSessions.size >= 500) break;
+			if (emittedSessions.size >= MAX_EMITTED_SESSIONS) break;
 
 			try {
 				const rgEvent = JSON.parse(line);
@@ -519,7 +554,7 @@ export function searchSessionsStreaming(
 	}
 
 	const cancelled = { value: false };
-	void emitIndexedMatches(parsedQuery, safeProjectFilter, new Set<string>(), callbacks, cancelled)
+	emitIndexedMatches(parsedQuery, safeProjectFilter, new Set<string>(), callbacks, cancelled)
 		.then((emitted) => {
 			if (!cancelled.value) {
 				callbacks.onDone(emitted);

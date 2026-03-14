@@ -1,29 +1,22 @@
 import type { ContentBlock, ThreadMessage, ToolCall } from '../types.js';
 import {
 	extractTextFromMessageContent,
+	isApiUserRecord,
 	isAssistantRecord,
 	isUserRecord,
 	type AssistantRecord,
 	type ClaudeContentBlock,
 	type ClaudeMessageContent,
 	type ParsedSessionRecord,
+	type ToolResultRecord,
 	type UserRecord
 } from './session-schema.js';
 
-export function toThreadMessages(
-	records: ParsedSessionRecord[],
-	{ includeSidechain = false }: { includeSidechain?: boolean } = {}
-): ThreadMessage[] {
-	type TranscriptRecord = UserRecord | AssistantRecord;
+type TranscriptRecord = UserRecord | ToolResultRecord | AssistantRecord;
 
-	const transcriptRecords: TranscriptRecord[] = records
-		.map(({ record }) => record)
-		.filter(
-			(record): record is TranscriptRecord =>
-				(isUserRecord(record) || isAssistantRecord(record)) &&
-				(includeSidechain || record.isSidechain !== true)
-		);
+type ToolResultMap = Map<string, { content: string | ContentBlock[]; isError: boolean }>;
 
+function orderRecordsByTree(transcriptRecords: TranscriptRecord[]): TranscriptRecord[] {
 	const byUuid = new Map(transcriptRecords.map((record) => [record.uuid, record]));
 	const roots = transcriptRecords.filter(
 		(record) => !record.parentUuid || !byUuid.has(record.parentUuid)
@@ -55,11 +48,14 @@ export function toThreadMessages(
 	}
 
 	ordered.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+	return ordered;
+}
 
-	const toolResultMap = new Map<string, { content: string | ContentBlock[]; isError: boolean }>();
+function buildToolResultMap(ordered: TranscriptRecord[]): ToolResultMap {
+	const toolResultMap: ToolResultMap = new Map();
 
 	for (const record of ordered) {
-		if (!isUserRecord(record) || !Array.isArray(record.message.content)) continue;
+		if (!isApiUserRecord(record) || !Array.isArray(record.message.content)) continue;
 
 		for (const block of record.message.content) {
 			if (block.type !== 'tool_result' || !block.tool_use_id) continue;
@@ -71,81 +67,117 @@ export function toThreadMessages(
 		}
 	}
 
+	return toolResultMap;
+}
+
+function convertUserRecord(record: UserRecord): ThreadMessage | null {
+	const textContent = extractTextFromMessageContent(record.message.content);
+	const rawContent = toSharedMessageContent(record.message.content);
+
+	return {
+		uuid: record.uuid,
+		role: 'user',
+		timestamp: record.timestamp,
+		textContent,
+		toolCalls: [],
+		thinkingBlocks: [],
+		rawContent,
+		model: undefined
+	};
+}
+
+interface AssistantContentParts {
+	textParts: string[];
+	toolCalls: ToolCall[];
+	thinkingBlocks: string[];
+}
+
+function extractAssistantContentParts(
+	content: ClaudeMessageContent,
+	toolResultMap: ToolResultMap
+): AssistantContentParts {
+	const textParts: string[] = [];
+	const toolCalls: ToolCall[] = [];
+	const thinkingBlocks: string[] = [];
+
+	if (Array.isArray(content)) {
+		for (const block of content) {
+			if (block.type === 'text' && block.text) {
+				textParts.push(block.text);
+			} else if (block.type === 'tool_use' && block.id) {
+				const result = toolResultMap.get(block.id);
+				toolCalls.push({
+					id: block.id,
+					name: block.name || 'unknown',
+					input: block.input || {},
+					result: result?.content,
+					isError: result?.isError
+				});
+			} else if (block.type === 'thinking' && block.thinking) {
+				thinkingBlocks.push(block.thinking);
+			}
+		}
+	} else if (typeof content === 'string') {
+		textParts.push(content);
+	}
+
+	return { textParts, toolCalls, thinkingBlocks };
+}
+
+function convertAssistantRecord(
+	record: AssistantRecord,
+	toolResultMap: ToolResultMap
+): ThreadMessage | null {
+	const { textParts, toolCalls, thinkingBlocks } = extractAssistantContentParts(
+		record.message.content,
+		toolResultMap
+	);
+
+	const textContent = textParts.join('\n').trim();
+	if (!textContent && toolCalls.length === 0 && thinkingBlocks.length === 0) {
+		return null;
+	}
+
+	return {
+		uuid: record.uuid,
+		role: 'assistant',
+		timestamp: record.timestamp,
+		textContent,
+		toolCalls,
+		thinkingBlocks,
+		rawContent: toSharedMessageContent(record.message.content),
+		model: record.message.model
+	};
+}
+
+export function toThreadMessages(
+	records: ParsedSessionRecord[],
+	{ includeSidechain = false }: { includeSidechain?: boolean } = {}
+): ThreadMessage[] {
+	const transcriptRecords: TranscriptRecord[] = records
+		.map(({ record }) => record)
+		.filter(
+			(record): record is TranscriptRecord =>
+				(isApiUserRecord(record) || isAssistantRecord(record)) &&
+				(includeSidechain || record.isSidechain !== true)
+		);
+
+	const ordered = orderRecordsByTree(transcriptRecords);
+	const toolResultMap = buildToolResultMap(ordered);
 	const messages: ThreadMessage[] = [];
 
 	for (const record of ordered) {
 		if (isUserRecord(record)) {
-			const textContent = extractTextFromMessageContent(record.message.content);
-			const rawContent = toSharedMessageContent(record.message.content);
-
-			if (!textContent && Array.isArray(record.message.content)) {
-				const hasOnlyToolResults = record.message.content.every(
-					(block) => block.type === 'tool_result'
-				);
-				if (hasOnlyToolResults) continue;
-			}
-
-			messages.push({
-				uuid: record.uuid,
-				role: 'user',
-				timestamp: record.timestamp,
-				textContent,
-				toolCalls: [],
-				thinkingBlocks: [],
-				rawContent,
-				model: undefined
-			});
+			const message = convertUserRecord(record);
+			if (message) messages.push(message);
 			continue;
 		}
 
-		if (!isAssistantRecord(record)) continue;
-
-		const toolCalls: ToolCall[] = [];
-		const thinkingBlocks: string[] = [];
-		const textParts: string[] = [];
-
-		if (Array.isArray(record.message.content)) {
-			for (const block of record.message.content) {
-				if (block.type === 'text' && block.text) {
-					textParts.push(block.text);
-					continue;
-				}
-
-				if (block.type === 'tool_use' && block.id) {
-					const result = toolResultMap.get(block.id);
-					toolCalls.push({
-						id: block.id,
-						name: block.name || 'unknown',
-						input: block.input || {},
-						result: result?.content,
-						isError: result?.isError
-					});
-					continue;
-				}
-
-				if (block.type === 'thinking' && block.thinking) {
-					thinkingBlocks.push(block.thinking);
-				}
-			}
-		} else if (typeof record.message.content === 'string') {
-			textParts.push(record.message.content);
+		if (isAssistantRecord(record)) {
+			const message = convertAssistantRecord(record, toolResultMap);
+			if (message) messages.push(message);
 		}
-
-		const textContent = textParts.join('\n').trim();
-		if (!textContent && toolCalls.length === 0 && thinkingBlocks.length === 0) {
-			continue;
-		}
-
-		messages.push({
-			uuid: record.uuid,
-			role: 'assistant',
-			timestamp: record.timestamp,
-			textContent,
-			toolCalls,
-			thinkingBlocks,
-			rawContent: toSharedMessageContent(record.message.content),
-			model: record.message.model
-		});
+		// ToolResultRecords are skipped — already consumed by toolResultMap
 	}
 
 	return messages;
@@ -186,30 +218,7 @@ function toSharedContentBlock(block: ClaudeContentBlock): ContentBlock | null {
 				caller: block.caller
 			};
 		case 'tool_result':
-			if (typeof block.content === 'string') {
-				return {
-					type: 'tool_result',
-					tool_use_id: block.tool_use_id,
-					content: block.content,
-					is_error: block.is_error
-				};
-			}
-
-			if (Array.isArray(block.content)) {
-				return {
-					type: 'tool_result',
-					tool_use_id: block.tool_use_id,
-					content: toSharedContentBlocks(block.content),
-					is_error: block.is_error
-				};
-			}
-
-			return {
-				type: 'tool_result',
-				tool_use_id: block.tool_use_id,
-				content: undefined,
-				is_error: block.is_error
-			};
+			return toSharedToolResultBlock(block);
 		case 'thinking':
 			return {
 				type: 'thinking',
@@ -224,4 +233,33 @@ function toSharedContentBlock(block: ClaudeContentBlock): ContentBlock | null {
 		default:
 			return null;
 	}
+}
+
+function toSharedToolResultBlock(
+	block: ClaudeContentBlock & { type: 'tool_result' }
+): ContentBlock {
+	if (typeof block.content === 'string') {
+		return {
+			type: 'tool_result',
+			tool_use_id: block.tool_use_id,
+			content: block.content,
+			is_error: block.is_error
+		};
+	}
+
+	if (Array.isArray(block.content)) {
+		return {
+			type: 'tool_result',
+			tool_use_id: block.tool_use_id,
+			content: toSharedContentBlocks(block.content),
+			is_error: block.is_error
+		};
+	}
+
+	return {
+		type: 'tool_result',
+		tool_use_id: block.tool_use_id,
+		content: undefined,
+		is_error: block.is_error
+	};
 }

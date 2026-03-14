@@ -1,3 +1,7 @@
+import { spawn } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import { open, readdir, stat } from 'node:fs/promises';
+import path from 'node:path';
 import {
 	query,
 	getSessionInfo,
@@ -9,6 +13,14 @@ import {
 	type SDKUserMessage,
 	type PermissionMode
 } from '@anthropic-ai/claude-agent-sdk';
+import {
+	HTTP_BAD_REQUEST,
+	HTTP_NOT_FOUND,
+	HTTP_CONFLICT,
+	MS_PER_SECOND,
+	MS_PER_MINUTE,
+	SECONDS_PER_MINUTE
+} from '$lib/constants.js';
 import type {
 	ActiveSessionState,
 	ActiveSessionSummary,
@@ -20,36 +32,41 @@ import type {
 	PermissionResponse,
 	SessionCost
 } from '$lib/shared/active-session-types.js';
+import type { ModelOption } from '$lib/shared/models.js';
+import { FALLBACK_MODELS } from '$lib/shared/models.js';
 import type { ContentBlock, ThreadMessage, ToolCall } from '$lib/types.js';
-import { spawn } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
-import { open, readdir, stat } from 'node:fs/promises';
-import path from 'node:path';
-import { getConfig } from './config.js';
 import {
 	cleanupOrphanedProcesses as cleanupTrackedProcesses,
 	renameActiveSessionProcess,
 	recordActiveSessionProcess,
 	removeActiveSessionProcess
 } from './active-pids.js';
+import { getConfig } from './config.js';
 import { parseSessionMessages } from './messages.js';
 import { getProjectsDir } from './paths.js';
 import { normalizeProjectId } from './project-id.js';
 import { reconcileProjectNow } from './reconciler.js';
 import { findSessionFile } from './session-discovery.js';
-import type { ModelOption } from '$lib/shared/models.js';
-import { FALLBACK_MODELS } from '$lib/shared/models.js';
+
+/** File-local constants */
+const RECONCILE_DEBOUNCE_MS = 5_000;
+const MAX_PROMPT_LENGTH = 2048;
+const HEARTBEAT_INTERVAL_MS = 15_000;
+const REAPER_MULTIPLIER = 5;
+const REAPER_INTERVAL_MS = REAPER_MULTIPLIER * MS_PER_MINUTE;
+const REAPER_STALE_THRESHOLD_MS = MS_PER_MINUTE;
+const SSE_RETRY_MS = 1_000;
 
 /** Debounce reconciliation per project — avoids redundant work on multi-turn sessions */
 const pendingReconciles = new Map<string, NodeJS.Timeout>();
-function debouncedReconcile(projectId: string, delayMs = 5_000): void {
+function debouncedReconcile(projectId: string, delayMs = RECONCILE_DEBOUNCE_MS): void {
 	const existing = pendingReconciles.get(projectId);
 	if (existing) clearTimeout(existing);
 	pendingReconciles.set(
 		projectId,
 		setTimeout(() => {
 			pendingReconciles.delete(projectId);
-			void reconcileProjectNow(projectId).catch(() => {});
+			reconcileProjectNow(projectId).catch(() => {});
 		}, delayMs)
 	);
 }
@@ -107,6 +124,7 @@ export interface ActiveSession {
 	queuedContext: string | null;
 	queuedContextId: SDKUserMessage['uuid'] | null;
 	toolResults: Map<string, { content: string | ContentBlock[]; isError: boolean }>;
+	dangerousPermissionsAllowed: boolean;
 	childPid?: number;
 }
 
@@ -151,6 +169,7 @@ interface SessionReplaySnapshot {
 	state: ActiveSessionState;
 	model: string;
 	permissionMode: PermissionMode;
+	dangerousPermissionsAllowed: boolean;
 	messages: ThreadMessage[];
 	inProgress: InProgressTurnSnapshot | null;
 	pendingPermission: PermissionRequest | null;
@@ -234,7 +253,7 @@ function createUuid(): NonNullable<SDKUserMessage['uuid']> {
 
 function ensureString(value: unknown, message: string): string {
 	if (typeof value !== 'string' || value.trim().length === 0) {
-		throw new SessionManagerError(400, message);
+		throw new SessionManagerError(HTTP_BAD_REQUEST, message);
 	}
 
 	return value.trim();
@@ -255,7 +274,7 @@ function asString(value: unknown): string | undefined {
 function requireProjectId(projectId: string): string {
 	const normalizedProjectId = normalizeProjectId(projectId);
 	if (!normalizedProjectId) {
-		throw new SessionManagerError(400, 'Invalid projectId');
+		throw new SessionManagerError(HTTP_BAD_REQUEST, 'Invalid projectId');
 	}
 
 	return normalizedProjectId;
@@ -267,7 +286,7 @@ async function resolveProjectPath(projectId: string): Promise<string> {
 	const projectStat = await stat(projectPath).catch(() => null);
 
 	if (!projectStat?.isDirectory()) {
-		throw new SessionManagerError(404, `Project not found: ${safeProjectId}`);
+		throw new SessionManagerError(HTTP_NOT_FOUND, `Project not found: ${safeProjectId}`);
 	}
 
 	return projectPath;
@@ -294,7 +313,7 @@ async function resolveRealProjectCwd(storagePath: string, sessionId?: string): P
 		const fd = await open(path.join(storagePath, jsonl), 'r');
 		try {
 			// Read only the first 2 KB — cwd appears in the second line of the JSONL
-			const buf = Buffer.alloc(2048);
+			const buf = Buffer.alloc(MAX_PROMPT_LENGTH);
 			const { bytesRead } = await fd.read(buf, 0, buf.length, 0);
 			const head = buf.toString('utf-8', 0, bytesRead);
 			const firstNewline = head.indexOf('\n');
@@ -316,7 +335,7 @@ async function resolveRealProjectCwd(storagePath: string, sessionId?: string): P
 async function loadSessionHistory(projectId: string, sessionId: string): Promise<ThreadMessage[]> {
 	const sessionFile = await findSessionFile(projectId, sessionId);
 	if (!sessionFile) {
-		throw new SessionManagerError(404, `Session history not found: ${sessionId}`);
+		throw new SessionManagerError(HTTP_NOT_FOUND, `Session history not found: ${sessionId}`);
 	}
 
 	return parseSessionMessages(sessionFile.fullPath, {
@@ -360,6 +379,7 @@ function buildReplaySnapshot(session: ActiveSession): SessionReplaySnapshot {
 		state: session.state,
 		model: session.model,
 		permissionMode: session.permissionMode,
+		dangerousPermissionsAllowed: session.dangerousPermissionsAllowed,
 		messages: structuredClone(session.messageBuffer),
 		inProgress: session.inProgressTurn ? structuredClone(session.inProgressTurn) : null,
 		pendingPermission: session.pendingPermission
@@ -558,46 +578,58 @@ function toThreadMessageFromUserMessage(
 	};
 }
 
+/** Extract tool calls from an SDK assistant message's content blocks. */
+function extractToolCallsFromContent(
+	toolResultMap: Map<string, { content: string | ContentBlock[]; isError: boolean }>,
+	content: unknown[]
+): ToolCall[] {
+	const toolCalls: ToolCall[] = [];
+	for (const block of content) {
+		const candidate = asRecord(block);
+		if (!candidate || candidate.type !== 'tool_use') continue;
+
+		const toolId = asString(candidate.id);
+		if (!toolId) continue;
+
+		const priorResult = toolResultMap.get(toolId);
+		toolCalls.push({
+			id: toolId,
+			name: asString(candidate.name) ?? 'unknown',
+			input: asRecord(candidate.input) ?? {},
+			result: priorResult?.content,
+			isError: priorResult?.isError
+		});
+		if (priorResult) {
+			toolResultMap.delete(toolId);
+		}
+	}
+	return toolCalls;
+}
+
+/** Extract thinking text from an SDK assistant message's content blocks. */
+function extractThinkingTexts(content: unknown[]): string[] {
+	const thinkingBlocks: string[] = [];
+	for (const block of content) {
+		const candidate = asRecord(block);
+		if (!candidate || candidate.type !== 'thinking') continue;
+
+		const thinking = asString(candidate.thinking);
+		if (thinking) {
+			thinkingBlocks.push(thinking);
+		}
+	}
+	return thinkingBlocks;
+}
+
 function toThreadMessageFromAssistantMessage(
 	session: ActiveSession,
 	message: SDKAssistantMessage,
 	timestamp: string
 ): ThreadMessage | null {
 	const textParts = extractTextParts(message.message.content);
-	const toolCalls: ToolCall[] = [];
-	const thinkingBlocks: string[] = [];
-
-	if (Array.isArray(message.message.content)) {
-		for (const block of message.message.content) {
-			const candidate = asRecord(block);
-			if (!candidate) continue;
-
-			if (candidate.type === 'tool_use') {
-				const toolId = asString(candidate.id);
-				if (!toolId) continue;
-
-				const priorResult = session.toolResults.get(toolId);
-				toolCalls.push({
-					id: toolId,
-					name: asString(candidate.name) ?? 'unknown',
-					input: asRecord(candidate.input) ?? {},
-					result: priorResult?.content,
-					isError: priorResult?.isError
-				});
-				if (priorResult) {
-					session.toolResults.delete(toolId);
-				}
-				continue;
-			}
-
-			if (candidate.type === 'thinking') {
-				const thinking = asString(candidate.thinking);
-				if (thinking) {
-					thinkingBlocks.push(thinking);
-				}
-			}
-		}
-	}
+	const contentBlocks = Array.isArray(message.message.content) ? message.message.content : [];
+	const toolCalls = extractToolCallsFromContent(session.toolResults, contentBlocks as unknown[]);
+	const thinkingBlocks = extractThinkingTexts(contentBlocks as unknown[]);
 
 	const textContent = textParts.join('').trim();
 	if (!textContent && toolCalls.length === 0 && thinkingBlocks.length === 0) {
@@ -668,6 +700,24 @@ function updateCost(session: ActiveSession, message: SDKResultMessage): void {
 	};
 }
 
+/** Parse a single question option from raw input, returning null if invalid. */
+function parseQuestionOption(
+	optionInput: unknown
+): { label: string; description?: string; value?: string; preview?: string } | null {
+	const option = asRecord(optionInput);
+	if (!option) return null;
+
+	const label = asString(option.label);
+	if (!label) return null;
+
+	return {
+		label,
+		description: asString(option.description),
+		value: asString(option.value),
+		preview: asString(option.preview)
+	};
+}
+
 function asAskUserQuestionItems(input: Record<string, unknown>): AskUserQuestionItem[] {
 	const questions = Array.isArray(input.questions) ? input.questions : [];
 	const items: AskUserQuestionItem[] = [];
@@ -680,22 +730,9 @@ function asAskUserQuestionItems(input: Record<string, unknown>): AskUserQuestion
 		if (!questionText) continue;
 
 		const optionsInput = Array.isArray(question.options) ? question.options : [];
-		const options: AskUserQuestionItem['options'] = [];
-
-		for (const optionInput of optionsInput) {
-			const option = asRecord(optionInput);
-			if (!option) continue;
-
-			const label = asString(option.label);
-			if (!label) continue;
-
-			options.push({
-				label,
-				description: asString(option.description),
-				value: asString(option.value),
-				preview: asString(option.preview)
-			});
-		}
+		const options: AskUserQuestionItem['options'] = optionsInput
+			.map(parseQuestionOption)
+			.filter((parsed): parsed is NonNullable<typeof parsed> => parsed !== null);
 
 		items.push({
 			question: questionText,
@@ -711,7 +748,7 @@ function asAskUserQuestionItems(input: Record<string, unknown>): AskUserQuestion
 function normalizeAnswerRecord(answers: unknown): Record<string, string> {
 	const candidate = asRecord(answers);
 	if (!candidate) {
-		throw new SessionManagerError(400, 'answers must be an object');
+		throw new SessionManagerError(HTTP_BAD_REQUEST, 'answers must be an object');
 	}
 
 	const normalized: Record<string, string> = {};
@@ -727,7 +764,7 @@ function normalizeAnswerRecord(answers: unknown): Record<string, string> {
 			continue;
 		}
 
-		throw new SessionManagerError(400, `Invalid answer for "${key}"`);
+		throw new SessionManagerError(HTTP_BAD_REQUEST, `Invalid answer for "${key}"`);
 	}
 
 	return normalized;
@@ -760,7 +797,8 @@ function createSession(
 		inputQueue: createAsyncQueue<SDKUserMessage>(),
 		queuedContext: null,
 		queuedContextId: null,
-		toolResults: new Map()
+		toolResults: new Map(),
+		dangerousPermissionsAllowed: permissionMode === 'bypassPermissions'
 	};
 }
 
@@ -820,7 +858,7 @@ async function createQuery(session: ActiveSession, resumeSessionId?: string): Pr
 	});
 
 	// Fire-and-forget: cache supported models from the SDK
-	void queryObject
+	queryObject
 		.supportedModels()
 		.then((models) => {
 			if (Array.isArray(models) && models.length > 0) {
@@ -879,7 +917,7 @@ async function handlePermissionRequest(
 	};
 
 	const config = await getConfig();
-	const timeoutMs = config.permissionTimeoutMinutes * 60 * 1000;
+	const timeoutMs = config.permissionTimeoutMinutes * SECONDS_PER_MINUTE * MS_PER_SECOND;
 
 	return new Promise((resolve) => {
 		const timeout = setTimeout(() => {
@@ -936,7 +974,7 @@ async function handleAskUserQuestion(
 		timestamp: nowIso()
 	};
 	const config = await getConfig();
-	const timeoutMs = config.permissionTimeoutMinutes * 60 * 1000;
+	const timeoutMs = config.permissionTimeoutMinutes * SECONDS_PER_MINUTE * MS_PER_SECOND;
 
 	return new Promise((resolve) => {
 		const timeout = setTimeout(() => {
@@ -991,7 +1029,8 @@ function handleSystemMessage(session: ActiveSession, message: SDKSystemSessionMe
 			sessionId: session.sessionId,
 			state: session.state,
 			model: session.model,
-			permissionMode: session.permissionMode
+			permissionMode: session.permissionMode,
+			dangerousPermissionsAllowed: session.dangerousPermissionsAllowed
 		});
 		return;
 	}
@@ -1061,6 +1100,40 @@ function handleStreamEventMessage(session: ActiveSession, message: SDKStreamEven
 	}
 }
 
+type ClassifiedContentBlock =
+	| { type: 'text'; text: string }
+	| { type: 'thinking'; thinking: string }
+	| { type: 'tool_use'; toolId: string; toolName: string; input: Record<string, unknown> };
+
+/** Classify a raw content block into a typed discriminated object, or null if unrecognised. */
+function classifyContentBlock(block: unknown): ClassifiedContentBlock | null {
+	const candidate = asRecord(block);
+	if (!candidate) return null;
+
+	if (candidate.type === 'text') {
+		const text = asString(candidate.text);
+		return text ? { type: 'text', text } : null;
+	}
+
+	if (candidate.type === 'thinking') {
+		const thinking = asString(candidate.thinking);
+		return thinking ? { type: 'thinking', thinking } : null;
+	}
+
+	if (candidate.type === 'tool_use') {
+		const toolId = asString(candidate.id);
+		if (!toolId) return null;
+		return {
+			type: 'tool_use',
+			toolId,
+			toolName: asString(candidate.name) ?? 'unknown',
+			input: asRecord(candidate.input) ?? {}
+		};
+	}
+
+	return null;
+}
+
 function broadcastAssistantContentBlocks(
 	session: ActiveSession,
 	message: SDKAssistantMessage
@@ -1072,36 +1145,25 @@ function broadcastAssistantContentBlocks(
 	const finalThinkingBlocks: string[] = [];
 
 	for (const block of message.message.content) {
-		const candidate = asRecord(block);
-		if (!candidate) continue;
+		const classified = classifyContentBlock(block);
+		if (!classified) continue;
 
-		if (candidate.type === 'text') {
-			const text = asString(candidate.text);
-			if (text) {
-				finalTextBlocks.push(text);
-			}
-			continue;
-		}
-
-		if (candidate.type === 'thinking') {
-			const thinking = asString(candidate.thinking);
-			if (thinking) {
-				finalThinkingBlocks.push(thinking);
-			}
-			continue;
-		}
-
-		if (candidate.type === 'tool_use') {
-			const toolId = asString(candidate.id);
-			if (!toolId) continue;
-
-			broadcast(session, {
-				type: 'tool_use',
-				uuid: broadcastUuid,
-				toolId,
-				toolName: asString(candidate.name) ?? 'unknown',
-				input: asRecord(candidate.input) ?? {}
-			});
+		switch (classified.type) {
+			case 'text':
+				finalTextBlocks.push(classified.text);
+				break;
+			case 'thinking':
+				finalThinkingBlocks.push(classified.thinking);
+				break;
+			case 'tool_use':
+				broadcast(session, {
+					type: 'tool_use',
+					uuid: broadcastUuid,
+					toolId: classified.toolId,
+					toolName: classified.toolName,
+					input: classified.input
+				});
+				break;
 		}
 	}
 
@@ -1280,40 +1342,43 @@ function handlePromptSuggestionSdkMessage(
 	});
 }
 
+/** Dispatch a single SDK message to the appropriate handler. */
+function dispatchSdkMessage(session: ActiveSession, message: SDKMessage, receivedAt: string): void {
+	switch (message.type) {
+		case 'system':
+			handleSystemMessage(session, message);
+			break;
+		case 'stream_event':
+			handleStreamEventMessage(session, message);
+			break;
+		case 'assistant':
+			handleAssistantSdkMessage(session, message, receivedAt);
+			break;
+		case 'user':
+			handleUserSdkMessage(session, message, receivedAt);
+			break;
+		case 'result':
+			handleResultSdkMessage(session, message, receivedAt);
+			break;
+		case 'rate_limit_event':
+			handleRateLimitSdkMessage(session, message);
+			break;
+		case 'tool_progress':
+			handleToolProgressSdkMessage(session, message);
+			break;
+		case 'prompt_suggestion':
+			handlePromptSuggestionSdkMessage(session, message);
+			break;
+		default:
+			break;
+	}
+}
+
 async function consumeQuery(session: ActiveSession, queryObject: Query): Promise<void> {
 	try {
 		for await (const message of queryObject) {
-			const receivedAt = nowIso();
 			touchSession(session);
-
-			switch (message.type) {
-				case 'system':
-					handleSystemMessage(session, message);
-					break;
-				case 'stream_event':
-					handleStreamEventMessage(session, message);
-					break;
-				case 'assistant':
-					handleAssistantSdkMessage(session, message, receivedAt);
-					break;
-				case 'user':
-					handleUserSdkMessage(session, message, receivedAt);
-					break;
-				case 'result':
-					handleResultSdkMessage(session, message, receivedAt);
-					break;
-				case 'rate_limit_event':
-					handleRateLimitSdkMessage(session, message);
-					break;
-				case 'tool_progress':
-					handleToolProgressSdkMessage(session, message);
-					break;
-				case 'prompt_suggestion':
-					handlePromptSuggestionSdkMessage(session, message);
-					break;
-				default:
-					break;
-			}
+			dispatchSdkMessage(session, message, nowIso());
 		}
 
 		session.queryObject = null;
@@ -1345,7 +1410,7 @@ async function consumeQuery(session: ActiveSession, queryObject: Query): Promise
 function requireSession(sessionId: string): ActiveSession {
 	const session = managerState.activeSessions.get(sessionId);
 	if (!session) {
-		throw new SessionManagerError(404, `Active session not found: ${sessionId}`);
+		throw new SessionManagerError(HTTP_NOT_FOUND, `Active session not found: ${sessionId}`);
 	}
 
 	return session;
@@ -1361,16 +1426,16 @@ function ensureMaintenanceLoops(): void {
 				type: 'heartbeat'
 			});
 		}
-	}, 15_000);
+	}, HEARTBEAT_INTERVAL_MS);
 
 	managerState.reaperInterval = setInterval(() => {
 		void reapInactiveSessions();
-	}, 5 * 60_000);
+	}, REAPER_INTERVAL_MS);
 }
 
 async function reapInactiveSessions(): Promise<void> {
 	const config = await getConfig();
-	const cutoff = Date.now() - config.sessionReapMinutes * 60_000;
+	const cutoff = Date.now() - config.sessionReapMinutes * REAPER_STALE_THRESHOLD_MS;
 	const sessionIdsToReap: string[] = [];
 
 	for (const session of managerState.activeSessions.values()) {
@@ -1432,7 +1497,7 @@ export async function resumeSession(options: {
 	const existing = managerState.activeSessions.get(sessionId);
 	if (existing) {
 		if (existing.projectId !== projectId) {
-			throw new SessionManagerError(409, 'Active session belongs to a different project');
+			throw new SessionManagerError(HTTP_CONFLICT, 'Active session belongs to a different project');
 		}
 
 		if (existing.permissionMode !== options.permissionMode) {
@@ -1525,11 +1590,11 @@ export async function sendMessage(
 	const normalizedPrompt = ensureString(prompt, 'prompt is required');
 
 	if (session.state === 'awaiting_permission' || session.state === 'awaiting_input') {
-		throw new SessionManagerError(409, 'Session is waiting for an in-turn response');
+		throw new SessionManagerError(HTTP_CONFLICT, 'Session is waiting for an in-turn response');
 	}
 
 	if (!session.queryObject) {
-		throw new SessionManagerError(409, 'Session is no longer accepting input');
+		throw new SessionManagerError(HTTP_CONFLICT, 'Session is no longer accepting input');
 	}
 
 	const messageUuid = uuid ?? createUuid();
@@ -1567,7 +1632,10 @@ export async function respondToPermission(
 	}
 
 	if (pendingPermission.request.id !== decision.toolUseId) {
-		throw new SessionManagerError(409, 'toolUseId does not match the current permission request');
+		throw new SessionManagerError(
+			HTTP_CONFLICT,
+			'toolUseId does not match the current permission request'
+		);
 	}
 
 	clearTimeout(pendingPermission.timeout);
@@ -1612,7 +1680,7 @@ export async function respondToQuestion(sessionId: string, answers: unknown): Pr
 	const pendingQuestion = session.pendingQuestion;
 
 	if (!pendingQuestion) {
-		throw new SessionManagerError(409, 'There is no pending question for this session');
+		throw new SessionManagerError(HTTP_CONFLICT, 'There is no pending question for this session');
 	}
 
 	session.pendingQuestion = null;
@@ -1633,7 +1701,7 @@ export async function respondToQuestion(sessionId: string, answers: unknown): Pr
 export async function interruptSession(sessionId: string): Promise<void> {
 	const session = requireSession(sessionId);
 	if (!session.queryObject) {
-		throw new SessionManagerError(409, 'Session is not running');
+		throw new SessionManagerError(HTTP_CONFLICT, 'Session is not running');
 	}
 
 	await session.queryObject.interrupt();
@@ -1675,7 +1743,7 @@ export async function closeSession(sessionId: string): Promise<void> {
 	session.subscribers.clear();
 	await removeActiveSessionProcess(session.sessionId);
 
-	debouncedReconcile(projectId, 1_000);
+	debouncedReconcile(projectId, SSE_RETRY_MS);
 }
 
 export async function setPermissionMode(
@@ -1684,7 +1752,7 @@ export async function setPermissionMode(
 ): Promise<void> {
 	const session = requireSession(sessionId);
 	if (!session.queryObject) {
-		throw new SessionManagerError(409, 'Session is not running');
+		throw new SessionManagerError(HTTP_CONFLICT, 'Session is not running');
 	}
 
 	await session.queryObject.setPermissionMode(permissionMode);
@@ -1696,7 +1764,7 @@ export async function setPermissionMode(
 export async function setModel(sessionId: string, model: string): Promise<void> {
 	const session = requireSession(sessionId);
 	if (!session.queryObject) {
-		throw new SessionManagerError(409, 'Session is not running');
+		throw new SessionManagerError(HTTP_CONFLICT, 'Session is not running');
 	}
 
 	const normalizedModel = model.trim();

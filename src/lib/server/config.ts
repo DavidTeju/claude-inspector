@@ -1,7 +1,7 @@
-import type { PermissionMode } from '$lib/shared/active-session-types.js';
 import { readFile, writeFile, mkdir } from 'fs/promises';
-import path from 'path';
 import { homedir } from 'os';
+import path from 'path';
+import type { PermissionMode } from '$lib/shared/active-session-types.js';
 
 const CONFIG_DIR = path.join(homedir(), '.claude-inspector');
 const CONFIG_PATH = path.join(CONFIG_DIR, 'config.json');

@@ -1,10 +1,10 @@
 import { readdir, stat, writeFile } from 'fs/promises';
 import path from 'path';
+import { SUMMARY_PROMPT_SLICE_LENGTH } from '../constants.js';
 import { SESSION_INDEX_VERSION, type SessionEntry, type SessionIndex } from '../types.js';
 import { getConfig } from './config.js';
-import { listProjectSessionFilesInDir } from './session-discovery.js';
 import { getProjectsDir } from './paths.js';
-import { parseSessionFile } from './session-parser.js';
+import { listProjectSessionFilesInDir } from './session-discovery.js';
 import {
 	buildIndexedSessionData,
 	deleteIndexedProjects,
@@ -16,6 +16,7 @@ import {
 	updateIndexedSessionSummary,
 	type IndexedSessionData
 } from './session-index-sqlite.js';
+import { parseSessionFile } from './session-parser.js';
 
 /** In-memory cache of reconciled sessions per project */
 const cache = new Map<string, SessionEntry[]>();
@@ -209,7 +210,7 @@ async function generateSummaries(
 				messages: [
 					{
 						role: 'user',
-						content: `Summarize this Claude Code session in 6-10 words as a short title. The first user message was: "${prompt.slice(0, 500)}"\n\nRespond with ONLY the title, no quotes or punctuation.`
+						content: `Summarize this Claude Code session in 6-10 words as a short title. The first user message was: "${prompt.slice(0, SUMMARY_PROMPT_SLICE_LENGTH)}"\n\nRespond with ONLY the title, no quotes or punctuation.`
 					}
 				]
 			});

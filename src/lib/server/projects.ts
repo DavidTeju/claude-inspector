@@ -2,8 +2,8 @@ import { readdir, stat } from 'fs/promises';
 import path from 'path';
 import type { Project } from '../types.js';
 import { dirNameToDisplayName, isDoubleMangledProjectId } from '../utils.js';
-import { listProjectSessionFilesInDir } from './session-discovery.js';
 import { getProjectsDir } from './paths.js';
+import { listProjectSessionFilesInDir } from './session-discovery.js';
 import { getIndexedProjects } from './session-index-sqlite.js';
 
 export { dirNameToDisplayName };
