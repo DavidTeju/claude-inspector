@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { slide } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
+	import { cubicOut, slide } from 'svelte/easing';
 	import type { PermissionRequest } from '$lib/shared/active-session-types.js';
+
+	const MAX_JSON_PREVIEW_LENGTH = 200;
 
 	let {
 		request,
@@ -44,7 +45,7 @@
 				return { type: 'pattern' as const, value: String(input.pattern ?? '') };
 			default: {
 				const json = JSON.stringify(input, null, 2);
-				return { type: 'json' as const, value: json, long: json.length > 200 };
+				return { type: 'json' as const, value: json, long: json.length > MAX_JSON_PREVIEW_LENGTH };
 			}
 		}
 	});

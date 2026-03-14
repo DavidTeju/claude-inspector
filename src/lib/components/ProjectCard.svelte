@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import type { Project } from '$lib/types.js';
 	import { formatRelativeDate, pluralize } from '$lib/utils.js';
+	import { resolve } from '$app/paths';
 
 	let { project }: { project: Project } = $props();
 </script>

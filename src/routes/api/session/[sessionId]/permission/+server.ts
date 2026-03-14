@@ -1,6 +1,6 @@
+import { json, type RequestHandler } from '@sveltejs/kit';
 import { SessionManagerError, respondToPermission } from '$lib/server/session-manager.js';
 import type { PermissionResponse } from '$lib/shared/active-session-types.js';
-import { json, type RequestHandler } from '@sveltejs/kit';
 
 function asObject(value: unknown): Record<string, unknown> | null {
 	if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -55,6 +55,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
 			return json({ error: error.message }, { status: error.status });
 		}
 
-		return json({ error: 'Failed to resolve permission request' }, { status: 500 });
+		const message = error instanceof Error ? error.message : 'Failed to resolve permission request';
+		console.error('[permission] Failed to resolve permission request:', error);
+		return json({ error: message }, { status: 500 });
 	}
 };

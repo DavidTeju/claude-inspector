@@ -1,4 +1,8 @@
 <script lang="ts">
+	const DRAFT_SAVE_DEBOUNCE_MS = 500;
+	const MIN_TEXTAREA_HEIGHT = 44;
+	const MAX_TEXTAREA_HEIGHT = 200;
+
 	let {
 		onSubmit,
 		disabled = false,
@@ -41,16 +45,15 @@
 			} else {
 				localStorage.removeItem(draftKey);
 			}
-		}, 500);
+		}, DRAFT_SAVE_DEBOUNCE_MS);
 		return () => clearTimeout(draftTimer);
 	});
 
-	// Auto-resize textarea
+	// Auto-resize textarea whenever text changes
 	$effect(() => {
-		if (!textareaEl) return;
-		void text;
+		if (!textareaEl || (!text && text !== '')) return;
 		textareaEl.style.height = 'auto';
-		textareaEl.style.height = `${Math.min(Math.max(textareaEl.scrollHeight, 44), 200)}px`;
+		textareaEl.style.height = `${Math.min(Math.max(textareaEl.scrollHeight, MIN_TEXTAREA_HEIGHT), MAX_TEXTAREA_HEIGHT)}px`;
 	});
 
 	function handleKeydown(e: KeyboardEvent) {

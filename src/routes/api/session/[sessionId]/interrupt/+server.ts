@@ -1,5 +1,5 @@
-import { SessionManagerError, interruptSession } from '$lib/server/session-manager.js';
 import { json, type RequestHandler } from '@sveltejs/kit';
+import { SessionManagerError, interruptSession } from '$lib/server/session-manager.js';
 
 export const POST: RequestHandler = async ({ params }) => {
 	try {
@@ -15,6 +15,8 @@ export const POST: RequestHandler = async ({ params }) => {
 			return json({ error: error.message }, { status: error.status });
 		}
 
-		return json({ error: 'Failed to interrupt session' }, { status: 500 });
+		const message = error instanceof Error ? error.message : 'Failed to interrupt session';
+		console.error('[interrupt] Failed to interrupt session:', error);
+		return json({ error: message }, { status: 500 });
 	}
 };

@@ -1,40 +1,82 @@
-import { findSessionFile } from '$lib/server/session-discovery.js';
+import { error } from '@sveltejs/kit';
+import { HTTP_NOT_FOUND } from '$lib/constants.js';
 import { parseSessionMessages } from '$lib/server/messages.js';
+import { findSessionFile } from '$lib/server/session-discovery.js';
 import { getIndexedSessionMeta } from '$lib/server/session-index-sqlite.js';
 import { getActiveSession } from '$lib/server/session-manager.js';
-import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types.js';
 
-export const load: PageServerLoad = async ({ params }) => {
-	const sessionFile = await findSessionFile(params.projectId, params.sessionId);
-	const activeSession = getActiveSession(params.sessionId);
+interface SessionFileData {
+	sessionId: string;
+	routeId: string;
+	isSubagent: boolean;
+	parentSessionId: string | undefined;
+	messages: Awaited<ReturnType<typeof parseSessionMessages>>;
+	summary: string | null;
+	firstPrompt: string | null;
+}
 
-	if (!sessionFile && !activeSession) {
-		throw error(404, `Session not found: ${params.sessionId}`);
+async function resolveSessionFile(
+	projectId: string,
+	sessionId: string
+): Promise<SessionFileData | null> {
+	const sessionFile = await findSessionFile(projectId, sessionId);
+	if (!sessionFile) return null;
+
+	const messages = await parseSessionMessages(sessionFile.fullPath, {
+		includeSidechain: sessionFile.isSubagent
+	});
+	const meta = getIndexedSessionMeta(projectId, sessionFile.sessionId);
+
+	return {
+		sessionId: sessionFile.sessionId,
+		routeId: sessionFile.routeId,
+		isSubagent: sessionFile.isSubagent,
+		parentSessionId: sessionFile.parentSessionId ?? undefined,
+		messages,
+		summary: meta?.summary ?? null,
+		firstPrompt: meta?.firstPrompt ?? null
+	};
+}
+
+function buildDefaults(
+	projectId: string,
+	sessionId: string
+): SessionFileData & { projectId: string } {
+	return {
+		projectId,
+		sessionId,
+		routeId: sessionId,
+		isSubagent: false,
+		parentSessionId: undefined,
+		messages: [],
+		summary: null,
+		firstPrompt: null
+	};
+}
+
+async function loadSessionData(projectId: string, sessionId: string) {
+	const fileData = await resolveSessionFile(projectId, sessionId);
+	const activeSession = getActiveSession(sessionId);
+
+	if (!fileData && !activeSession) {
+		return null;
 	}
 
-	try {
-		const messages = sessionFile
-			? await parseSessionMessages(sessionFile.fullPath, {
-					includeSidechain: sessionFile.isSubagent
-				})
-			: [];
-		const meta = sessionFile
-			? getIndexedSessionMeta(params.projectId, sessionFile.sessionId)
-			: null;
+	const defaults = buildDefaults(projectId, sessionId);
+	const resolved = fileData ? { ...defaults, ...fileData } : defaults;
+	return { ...resolved, projectId, isActive: !!activeSession };
+}
 
-		return {
-			projectId: params.projectId,
-			sessionId: sessionFile?.sessionId ?? params.sessionId,
-			routeId: sessionFile?.routeId ?? params.sessionId,
-			isSubagent: sessionFile?.isSubagent ?? false,
-			parentSessionId: sessionFile?.parentSessionId ?? undefined,
-			messages,
-			summary: meta?.summary ?? null,
-			firstPrompt: meta?.firstPrompt ?? null,
-			isActive: !!activeSession
-		};
-	} catch {
-		throw error(404, `Session not found: ${params.sessionId}`);
+export const load: PageServerLoad = async ({ params }) => {
+	try {
+		const data = await loadSessionData(params.projectId, params.sessionId);
+		if (!data) {
+			throw error(HTTP_NOT_FOUND, `Session not found: ${params.sessionId}`);
+		}
+		return data;
+	} catch (err) {
+		if (err && typeof err === 'object' && 'status' in err) throw err;
+		throw error(HTTP_NOT_FOUND, `Session not found: ${params.sessionId}`);
 	}
 };

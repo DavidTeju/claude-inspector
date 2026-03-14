@@ -1,8 +1,10 @@
 <script lang="ts">
-	import { slide } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
 	import { diffLines } from 'diff';
+	import { cubicOut, slide } from 'svelte/easing';
 	import type { ToolCall } from '$lib/types.js';
+
+	const MAX_INLINE_LENGTH = 80;
+	const MAX_PREVIEW_LENGTH = 60;
 
 	let { tool }: { tool: ToolCall } = $props();
 
@@ -30,13 +32,13 @@
 			case 'edit':
 				return input.file_path ? String(input.file_path) : '';
 			case 'bash':
-				return input.command ? String(input.command).slice(0, 80) : '';
+				return input.command ? String(input.command).slice(0, MAX_INLINE_LENGTH) : '';
 			case 'glob':
 			case 'grep':
 				return input.pattern ? String(input.pattern) : '';
 			default: {
 				if (input.description) return String(input.description);
-				if (input.url) return String(input.url).slice(0, 60);
+				if (input.url) return String(input.url).slice(0, MAX_PREVIEW_LENGTH);
 				if (input.query) return String(input.query);
 				return '';
 			}

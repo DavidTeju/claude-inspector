@@ -1,8 +1,7 @@
 <script lang="ts">
-	import { slide } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
-	import ToolUseBlock from './ToolUseBlock.svelte';
+	import { cubicOut, slide } from 'svelte/easing';
 	import type { ToolCall } from '$lib/types.js';
+	import ToolUseBlock from './ToolUseBlock.svelte';
 
 	let { tools }: { tools: ToolCall[] } = $props();
 

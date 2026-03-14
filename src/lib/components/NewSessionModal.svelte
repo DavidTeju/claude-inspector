@@ -1,12 +1,12 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { resolve } from '$app/paths';
-	import Composer from './Composer.svelte';
-	import type { Project } from '$lib/types.js';
-	import type { ModelOption } from '$lib/shared/models.js';
 	import type { PermissionMode } from '$lib/shared/active-session-types.js';
+	import type { ModelOption } from '$lib/shared/models.js';
 	import { PERMISSION_MODES, PERMISSION_MODE_LABELS } from '$lib/shared/permission-modes.js';
 	import { newSessionModal } from '$lib/stores/new-session-modal.svelte.js';
+	import type { Project } from '$lib/types.js';
+	import Composer from './Composer.svelte';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 
 	let {
 		projects,

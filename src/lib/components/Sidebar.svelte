@@ -1,11 +1,13 @@
 <script lang="ts">
-	import BrandMark from './BrandMark.svelte';
-	import { resolve } from '$app/paths';
-	import type { Project } from '$lib/types.js';
 	import type { ActiveSessionSummary } from '$lib/shared/active-session-types.js';
 	import { STATE_COLORS } from '$lib/shared/state-colors.js';
+	import type { Project } from '$lib/types.js';
 	import { dirNameToDisplayName } from '$lib/utils.js';
+	import BrandMark from './BrandMark.svelte';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+
+	const SIDEBAR_ID_DISPLAY_LENGTH = 6;
 
 	let {
 		projects,
@@ -88,7 +90,9 @@
 						<span class="truncate" title={dirNameToDisplayName(session.projectId)}
 							>{dirNameToDisplayName(session.projectId)}</span
 						>
-						<span class="text-text-500 ml-auto text-[10px]">{session.sessionId.slice(0, 6)}</span>
+						<span class="text-text-500 ml-auto text-[10px]"
+							>{session.sessionId.slice(0, SIDEBAR_ID_DISPLAY_LENGTH)}</span
+						>
 					</a>
 				{/each}
 			</div>

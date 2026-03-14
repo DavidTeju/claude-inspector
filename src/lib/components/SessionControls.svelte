@@ -1,12 +1,15 @@
 <script lang="ts">
-	import CostDisplay from './CostDisplay.svelte';
+	import { SESSION_ID_DISPLAY_LENGTH } from '$lib/constants.js';
 	import type {
 		ActiveSessionState,
 		PermissionMode,
 		SessionCost
 	} from '$lib/shared/active-session-types.js';
-	import { PERMISSION_MODES, PERMISSION_MODE_LABELS } from '$lib/shared/permission-modes.js';
+	import { getCyclableModes, PERMISSION_MODE_LABELS } from '$lib/shared/permission-modes.js';
 	import { STATE_COLORS } from '$lib/shared/state-colors.js';
+	import CostDisplay from './CostDisplay.svelte';
+
+	const COPY_FEEDBACK_DURATION_MS = 2000;
 
 	let {
 		sessionTitle = '',
@@ -15,6 +18,7 @@
 		messageCount = 0,
 		permissionMode,
 		onPermissionModeChange,
+		dangerousPermissionsAllowed = false,
 		isActive = false,
 		sessionState = 'idle' as ActiveSessionState,
 		cost,
@@ -27,6 +31,7 @@
 		messageCount?: number;
 		permissionMode: PermissionMode;
 		onPermissionModeChange: (mode: PermissionMode) => void;
+		dangerousPermissionsAllowed?: boolean;
 		isActive?: boolean;
 		sessionState?: ActiveSessionState;
 		cost?: SessionCost;
@@ -47,9 +52,10 @@
 	};
 
 	function cyclePermissionMode() {
-		const currentIdx = PERMISSION_MODES.indexOf(permissionMode);
-		const nextIdx = (currentIdx + 1) % PERMISSION_MODES.length;
-		onPermissionModeChange(PERMISSION_MODES[nextIdx]);
+		const modes = getCyclableModes(dangerousPermissionsAllowed);
+		const currentIdx = modes.indexOf(permissionMode);
+		const nextIdx = (currentIdx + 1) % modes.length;
+		onPermissionModeChange(modes[nextIdx]);
 	}
 
 	let currentColor = $derived(STATE_COLORS[sessionState]);
@@ -60,7 +66,7 @@
 	function copyResumeCommand() {
 		navigator.clipboard.writeText(`claude --resume ${sessionId}`);
 		copied = true;
-		setTimeout(() => (copied = false), 2000);
+		setTimeout(() => (copied = false), COPY_FEEDBACK_DURATION_MS);
 	}
 </script>
 
@@ -131,7 +137,7 @@
 				title="Copy resume command"
 			>
 				<code class="text-text-600 max-w-[10rem] truncate font-mono text-[10px]"
-					>claude --resume {sessionId.slice(0, 8)}...</code
+					>claude --resume {sessionId.slice(0, SESSION_ID_DISPLAY_LENGTH)}...</code
 				>
 				{#if copied}
 					<svg

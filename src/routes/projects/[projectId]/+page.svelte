@@ -1,7 +1,10 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
-	import { dirNameToDisplayName, formatDate, pluralize } from '$lib/utils.js';
+	import { STAGGER_DELAY_MS } from '$lib/constants.js';
 	import type { SessionEntry } from '$lib/types.js';
+	import { dirNameToDisplayName, formatDate, pluralize } from '$lib/utils.js';
+	import { resolve } from '$app/paths';
+
+	const STAGGER_BASE_PX = 15;
 
 	let { data } = $props();
 
@@ -84,7 +87,7 @@
 				{#each sortedSessions as session, i (session.sessionId)}
 					<tr
 						class="animate-fade-in-up border-surface-800/50 hover:bg-surface-900/50 border-b transition-colors"
-						style="animation-delay: {Math.min(i, 10) * 15}ms"
+						style="animation-delay: {Math.min(i, STAGGER_DELAY_MS) * STAGGER_BASE_PX}ms"
 					>
 						<td class="px-3 py-2.5">
 							<a

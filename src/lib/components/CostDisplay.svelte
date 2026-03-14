@@ -1,13 +1,19 @@
 <script lang="ts">
 	import type { SessionCost } from '$lib/shared/active-session-types.js';
 
+	const LOW_COST_THRESHOLD = 0.01;
+	const LOW_COST_DECIMALS = 6;
+	const HIGH_COST_DECIMALS = 4;
+
 	let { cost }: { cost: SessionCost } = $props();
 
 	let expanded = $state(false);
 	let containerEl: HTMLDivElement | undefined;
 
 	let formattedTotal = $derived(
-		cost.totalUsd < 0.01 ? `$${cost.totalUsd.toFixed(6)}` : `$${cost.totalUsd.toFixed(4)}`
+		cost.totalUsd < LOW_COST_THRESHOLD
+			? `$${cost.totalUsd.toFixed(LOW_COST_DECIMALS)}`
+			: `$${cost.totalUsd.toFixed(HIGH_COST_DECIMALS)}`
 	);
 
 	let modelEntries = $derived(Object.entries(cost.modelUsage));

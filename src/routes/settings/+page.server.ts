@@ -1,16 +1,26 @@
+import { fail } from '@sveltejs/kit';
+import { HTTP_BAD_REQUEST } from '$lib/constants.js';
 import { getConfig, saveConfig } from '$lib/server/config.js';
 import { startReconciliation } from '$lib/server/reconciler.js';
 import type { PermissionMode } from '$lib/shared/active-session-types.js';
 import { isPermissionMode } from '$lib/shared/permission-modes.js';
-import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types.js';
+
+const API_KEY_PREFIX_LEN = 10;
+const API_KEY_SUFFIX_LEN = 4;
+const MIN_PERMISSION_TIMEOUT = 1;
+const MAX_PERMISSION_TIMEOUT = 60;
+const MIN_REAP_INTERVAL = 5;
+const MAX_REAP_INTERVAL = 1440;
 
 export const load: PageServerLoad = async () => {
 	const config = await getConfig();
 	return {
 		hasApiKey: !!config.anthropicApiKey,
 		maskedKey: config.anthropicApiKey
-			? config.anthropicApiKey.slice(0, 10) + '...' + config.anthropicApiKey.slice(-4)
+			? config.anthropicApiKey.slice(0, API_KEY_PREFIX_LEN) +
+				'...' +
+				config.anthropicApiKey.slice(-API_KEY_SUFFIX_LEN)
 			: '',
 		defaultPermissionMode: config.defaultPermissionMode,
 		defaultModel: config.defaultModel,
@@ -25,7 +35,7 @@ export const actions: Actions = {
 		const apiKey = formData.get('apiKey');
 
 		if (typeof apiKey !== 'string') {
-			return fail(400, { error: 'Invalid API key' });
+			return fail(HTTP_BAD_REQUEST, { error: 'Invalid API key' });
 		}
 
 		await saveConfig({ anthropicApiKey: apiKey.trim() });
@@ -52,15 +62,18 @@ export const actions: Actions = {
 		const reapRaw = Number(formData.get('sessionReap'));
 
 		if (permissionMode && !isPermissionMode(permissionMode)) {
-			return fail(400, { error: 'Invalid permission mode', section: 'session' as const });
+			return fail(HTTP_BAD_REQUEST, {
+				error: 'Invalid permission mode',
+				section: 'session' as const
+			});
 		}
 
 		const permissionTimeoutMinutes = Number.isFinite(timeoutRaw)
-			? Math.max(1, Math.min(60, timeoutRaw))
+			? Math.max(MIN_PERMISSION_TIMEOUT, Math.min(MAX_PERMISSION_TIMEOUT, timeoutRaw))
 			: undefined;
 
 		const sessionReapMinutes = Number.isFinite(reapRaw)
-			? Math.max(5, Math.min(1440, reapRaw))
+			? Math.max(MIN_REAP_INTERVAL, Math.min(MAX_REAP_INTERVAL, reapRaw))
 			: undefined;
 
 		await saveConfig({

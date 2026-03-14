@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { enhance } from '$app/forms';
 	import { PERMISSION_MODES, PERMISSION_MODE_LABELS } from '$lib/shared/permission-modes.js';
 	import { theme, type ThemePreference } from '$lib/stores/theme.svelte.js';
+	import { enhance } from '$app/forms';
 
 	let { data, form } = $props();
 

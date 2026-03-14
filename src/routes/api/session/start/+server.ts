@@ -1,3 +1,4 @@
+import { json, type RequestHandler } from '@sveltejs/kit';
 import { getConfig } from '$lib/server/config.js';
 import {
 	SessionManagerError,
@@ -7,7 +8,6 @@ import {
 import { asObject, asOptionalString } from '$lib/server/type-guards.js';
 import type { PermissionMode } from '$lib/shared/active-session-types.js';
 import { isPermissionMode } from '$lib/shared/permission-modes.js';
-import { json, type RequestHandler } from '@sveltejs/kit';
 
 function asPermissionMode(value: unknown): PermissionMode | undefined {
 	return isPermissionMode(value) ? value : undefined;

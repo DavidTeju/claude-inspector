@@ -1,18 +1,19 @@
 <script lang="ts">
-	import { browser } from '$app/environment';
-	import { resolve } from '$app/paths';
+	import { tick } from 'svelte';
+	import ActiveMessageThread from '$lib/components/ActiveMessageThread.svelte';
+	import Composer from '$lib/components/Composer.svelte';
+	import MessageThread from '$lib/components/MessageThread.svelte';
+	import SessionControls from '$lib/components/SessionControls.svelte';
+	import { SESSION_ID_DISPLAY_LENGTH } from '$lib/constants.js';
+	import type { PermissionMode } from '$lib/shared/active-session-types.js';
 	import {
 		createActiveSessionConnection,
 		type ActiveSessionClient
 	} from '$lib/stores/active-session.svelte.js';
-	import type { PermissionMode } from '$lib/shared/active-session-types.js';
-	import SessionControls from '$lib/components/SessionControls.svelte';
-	import ActiveMessageThread from '$lib/components/ActiveMessageThread.svelte';
-	import MessageThread from '$lib/components/MessageThread.svelte';
-	import Composer from '$lib/components/Composer.svelte';
-	import { dirNameToDisplayName } from '$lib/utils.js';
-	import { tick } from 'svelte';
 	import type { ThreadMessage } from '$lib/types.js';
+	import { dirNameToDisplayName } from '$lib/utils.js';
+	import { browser } from '$app/environment';
+	import { resolve } from '$app/paths';
 
 	let { data } = $props();
 
@@ -52,7 +53,9 @@
 	);
 
 	let sessionTitle = $derived(
-		data.summary || data.firstPrompt || 'Session ' + data.sessionId.slice(0, 8)
+		data.summary ||
+			data.firstPrompt ||
+			'Session ' + data.sessionId.slice(0, SESSION_ID_DISPLAY_LENGTH)
 	);
 	let displayModel = $derived(session?.model || data.messages[0]?.model || '');
 	let currentPermissionMode = $derived(session ? session.permissionMode : localPermissionMode);
@@ -198,6 +201,7 @@
 				messageCount={session ? session.messages.length : data.messages.length}
 				permissionMode={currentPermissionMode}
 				onPermissionModeChange={handlePermissionModeChange}
+				dangerousPermissionsAllowed={session ? session.dangerousPermissionsAllowed : true}
 				isActive={isLive}
 				sessionState={session?.state}
 				cost={session?.cost}
@@ -212,7 +216,7 @@
 				<a
 					href={resolve(`/session/${data.projectId}/${data.parentSessionId}`)}
 					class="text-accent-400/70 hover:text-accent-400 text-xs transition-colors"
-					>Parent session {data.parentSessionId.slice(0, 8)}...</a
+					>Parent session {data.parentSessionId.slice(0, SESSION_ID_DISPLAY_LENGTH)}...</a
 				>
 			</div>
 		{/if}

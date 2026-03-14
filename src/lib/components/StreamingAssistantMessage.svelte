@@ -1,8 +1,8 @@
 <script lang="ts">
-	import ThinkingBlock from './ThinkingBlock.svelte';
-	import MarkdownContent from './MarkdownContent.svelte';
-	import ToolCallGroup from './ToolCallGroup.svelte';
 	import type { ToolCall } from '$lib/types.js';
+	import MarkdownContent from './MarkdownContent.svelte';
+	import ThinkingBlock from './ThinkingBlock.svelte';
+	import ToolCallGroup from './ToolCallGroup.svelte';
 
 	let {
 		text = '',

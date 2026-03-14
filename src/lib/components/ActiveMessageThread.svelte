@@ -1,10 +1,10 @@
 <script lang="ts">
-	import MessageThread from './MessageThread.svelte';
-	import StreamingAssistantMessage from './StreamingAssistantMessage.svelte';
-	import PermissionBanner from './PermissionBanner.svelte';
-	import AskUserQuestion from './AskUserQuestion.svelte';
-	import type { ActiveSessionClient } from '$lib/stores/active-session.svelte.js';
 	import type { PermissionResponse } from '$lib/shared/active-session-types.js';
+	import type { ActiveSessionClient } from '$lib/stores/active-session.svelte.js';
+	import AskUserQuestion from './AskUserQuestion.svelte';
+	import MessageThread from './MessageThread.svelte';
+	import PermissionBanner from './PermissionBanner.svelte';
+	import StreamingAssistantMessage from './StreamingAssistantMessage.svelte';
 
 	let {
 		session,

@@ -1,6 +1,6 @@
+import { json, type RequestHandler } from '@sveltejs/kit';
 import { SessionManagerError, setModel, setPermissionMode } from '$lib/server/session-manager.js';
 import { isPermissionMode } from '$lib/shared/permission-modes.js';
-import { json, type RequestHandler } from '@sveltejs/kit';
 
 function asObject(value: unknown): Record<string, unknown> | null {
 	if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -40,6 +40,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
 			return json({ error: error.message }, { status: error.status });
 		}
 
-		return json({ error: 'Failed to update session config' }, { status: 500 });
+		const message = error instanceof Error ? error.message : 'Failed to update session config';
+		console.error('[config] Failed to update session config:', error);
+		return json({ error: message }, { status: 500 });
 	}
 };

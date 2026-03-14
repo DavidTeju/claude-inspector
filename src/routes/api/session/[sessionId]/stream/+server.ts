@@ -1,6 +1,6 @@
-import type { ClientEvent } from '$lib/shared/active-session-types.js';
-import { getActiveSession, subscribe } from '$lib/server/session-manager.js';
 import { json, type RequestHandler } from '@sveltejs/kit';
+import { getActiveSession, subscribe } from '$lib/server/session-manager.js';
+import type { ClientEvent } from '$lib/shared/active-session-types.js';
 
 const encoder = new TextEncoder();
 
@@ -44,7 +44,8 @@ export const GET: RequestHandler = async ({ params }) => {
 					sessionId: subscription.snapshot.sessionId,
 					state: subscription.snapshot.state,
 					model: subscription.snapshot.model,
-					permissionMode: subscription.snapshot.permissionMode
+					permissionMode: subscription.snapshot.permissionMode,
+					dangerousPermissionsAllowed: subscription.snapshot.dangerousPermissionsAllowed
 				})
 			) {
 				unsubscribe();

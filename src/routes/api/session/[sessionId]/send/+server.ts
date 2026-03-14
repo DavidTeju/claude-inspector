@@ -1,6 +1,6 @@
+import { json, type RequestHandler } from '@sveltejs/kit';
 import { SessionManagerError, sendMessage } from '$lib/server/session-manager.js';
 import { asObject } from '$lib/server/type-guards.js';
-import { json, type RequestHandler } from '@sveltejs/kit';
 
 function isMessageUuid(
 	value: unknown
@@ -34,6 +34,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
 			return json({ error: error.message }, { status: error.status });
 		}
 
-		return json({ error: 'Failed to send message' }, { status: 500 });
+		const message = error instanceof Error ? error.message : 'Failed to send message';
+		console.error('[send] Failed to send message:', error);
+		return json({ error: message }, { status: 500 });
 	}
 };

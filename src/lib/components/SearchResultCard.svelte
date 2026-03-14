@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
 	import type { SearchResult } from '$lib/types.js';
 	import { highlightTerms, formatDate } from '$lib/utils.js';
+	import { resolve } from '$app/paths';
 
 	let { result, query }: { result: SearchResult; query: string } = $props();
 </script>

@@ -1,7 +1,5 @@
 <script lang="ts">
-	import { slide } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
-
+	import { cubicOut, slide } from 'svelte/easing';
 	let { content }: { content: string } = $props();
 	let expanded = $state(false);
 

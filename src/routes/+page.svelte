@@ -1,17 +1,68 @@
 <script lang="ts">
-	import { page } from '$app/state';
-	import type { Project, SearchResult } from '$lib/types.js';
 	import ProjectCard from '$lib/components/ProjectCard.svelte';
 	import SearchResultCard from '$lib/components/SearchResultCard.svelte';
+	import { STAGGER_BASE_MS, STAGGER_DELAY_MS } from '$lib/constants.js';
+	import type { Project, SearchResult } from '$lib/types.js';
 	import { pluralize } from '$lib/utils.js';
+	import { page } from '$app/state';
+
+	const SEARCH_DEBOUNCE_MS = 300;
+
+	const EVENT_PREFIX = 'event: ';
+	const DATA_PREFIX = 'data: ';
 
 	type SearchSortMode = 'relevance' | 'newest' | 'oldest';
+
+	interface SSEEvent {
+		type: string;
+		data: string;
+	}
 
 	const SEARCH_SORT_OPTIONS: Array<{ value: SearchSortMode; label: string }> = [
 		{ value: 'relevance', label: 'Relevance' },
 		{ value: 'newest', label: 'Newest' },
 		{ value: 'oldest', label: 'Oldest' }
 	];
+
+	function parseSSEEvent(raw: string): SSEEvent | null {
+		if (!raw.trim()) return null;
+
+		const lines = raw.split('\n');
+		let eventType = '';
+		let eventData = '';
+
+		for (const line of lines) {
+			if (line.startsWith(EVENT_PREFIX)) {
+				eventType = line.slice(EVENT_PREFIX.length);
+			} else if (line.startsWith(DATA_PREFIX)) {
+				eventData = line.slice(DATA_PREFIX.length);
+			}
+		}
+
+		if (!eventType || !eventData) return null;
+		return { type: eventType, data: eventData };
+	}
+
+	async function* parseSSEStream(body: ReadableStream<Uint8Array>): AsyncGenerator<SSEEvent> {
+		const reader = body.getReader();
+		const decoder = new TextDecoder();
+		let buffer = '';
+
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done) break;
+
+			buffer += decoder.decode(value, { stream: true });
+
+			const chunks = buffer.split('\n\n');
+			buffer = chunks.pop() || '';
+
+			for (const chunk of chunks) {
+				const event = parseSSEEvent(chunk);
+				if (event) yield event;
+			}
+		}
+	}
 
 	let { data } = $props();
 
@@ -62,7 +113,7 @@
 
 		debounceTimer = setTimeout(() => {
 			executeSearch(searchQuery);
-		}, 300);
+		}, SEARCH_DEBOUNCE_MS);
 	}
 
 	function cancelSearch() {
@@ -81,7 +132,6 @@
 	}
 
 	async function executeSearch(query: string) {
-		// Abort any in-flight request
 		if (abortController) {
 			abortController.abort();
 		}
@@ -102,55 +152,21 @@
 				return;
 			}
 
-			const reader = response.body.getReader();
-			const decoder = new TextDecoder();
-			let buffer = '';
+			for await (const event of parseSSEStream(response.body)) {
+				try {
+					const parsed = JSON.parse(event.data);
 
-			while (true) {
-				const { done, value } = await reader.read();
-				if (done) break;
-
-				buffer += decoder.decode(value, { stream: true });
-
-				// Parse SSE events from buffer
-				const events = buffer.split('\n\n');
-				buffer = events.pop() || ''; // keep incomplete event in buffer
-
-				for (const event of events) {
-					if (!event.trim()) continue;
-
-					const lines = event.split('\n');
-					let eventType = '';
-					let eventData = '';
-
-					for (const line of lines) {
-						if (line.startsWith('event: ')) {
-							eventType = line.slice(7);
-						} else if (line.startsWith('data: ')) {
-							eventData = line.slice(6);
-						}
+					if (event.type === 'result') {
+						results.push(parsed as SearchResult);
+					} else if (event.type === 'done' || event.type === 'error') {
+						isSearching = false;
 					}
-
-					if (!eventType || !eventData) continue;
-
-					try {
-						const parsed = JSON.parse(eventData);
-
-						if (eventType === 'result') {
-							results.push(parsed as SearchResult);
-						} else if (eventType === 'done') {
-							isSearching = false;
-						} else if (eventType === 'error') {
-							isSearching = false;
-						}
-					} catch {
-						// Skip malformed event data
-					}
+				} catch {
+					// Skip malformed event data
 				}
 			}
 		} catch (err: unknown) {
 			if (err instanceof Error && err.name === 'AbortError') {
-				// Expected — new search started or component unmounted
 				return;
 			}
 			isSearching = false;
@@ -271,7 +287,10 @@
 			{#if results.length > 0}
 				<div class="space-y-3">
 					{#each visibleResults as result, i (result.projectId + '/' + result.sessionId)}
-						<div class="animate-fade-in-up" style="animation-delay: {Math.min(i, 10) * 40}ms">
+						<div
+							class="animate-fade-in-up"
+							style="animation-delay: {Math.min(i, STAGGER_DELAY_MS) * STAGGER_BASE_MS}ms"
+						>
 							<SearchResultCard {result} query={searchQuery} />
 						</div>
 					{/each}
@@ -302,7 +321,10 @@
 
 			<div class="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
 				{#each projects as project, i (project.id)}
-					<div class="animate-fade-in-up" style="animation-delay: {Math.min(i, 10) * 40}ms">
+					<div
+						class="animate-fade-in-up"
+						style="animation-delay: {Math.min(i, STAGGER_DELAY_MS) * STAGGER_BASE_MS}ms"
+					>
 						<ProjectCard {project} />
 					</div>
 				{/each}

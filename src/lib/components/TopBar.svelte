@@ -1,9 +1,10 @@
 <script lang="ts">
+	import BrandMark from '$lib/components/BrandMark.svelte';
+	import { SESSION_ID_DISPLAY_LENGTH } from '$lib/constants.js';
+	import { theme } from '$lib/stores/theme.svelte.js';
+	import { dirNameToDisplayName } from '$lib/utils.js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import BrandMark from '$lib/components/BrandMark.svelte';
-	import { dirNameToDisplayName } from '$lib/utils.js';
-	import { theme } from '$lib/stores/theme.svelte.js';
 
 	let { sidebarOpen, onToggleSidebar }: { sidebarOpen: boolean; onToggleSidebar: () => void } =
 		$props();
@@ -36,7 +37,7 @@
 			}
 			if (sessionId) {
 				parts.push({
-					label: sessionId.slice(0, 8) + '...',
+					label: sessionId.slice(0, SESSION_ID_DISPLAY_LENGTH) + '...',
 					path: `/session/${projectId}/${sessionId}`
 				});
 			}

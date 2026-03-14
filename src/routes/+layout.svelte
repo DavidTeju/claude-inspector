@@ -1,16 +1,19 @@
 <script lang="ts">
 	import '../app.css';
 	import '$lib/stores/theme.svelte.js';
+	import NewSessionModal from '$lib/components/NewSessionModal.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import TopBar from '$lib/components/TopBar.svelte';
-	import NewSessionModal from '$lib/components/NewSessionModal.svelte';
 	import { newSessionModal } from '$lib/stores/new-session-modal.svelte.js';
 	import { page } from '$app/state';
 
 	let { data, children } = $props();
 
-	let innerWidth = $state(1200);
-	let isMobile = $derived(innerWidth < 1024);
+	const DEFAULT_INNER_WIDTH = 1200;
+	const MOBILE_BREAKPOINT = 1024;
+
+	let innerWidth = $state(DEFAULT_INNER_WIDTH);
+	let isMobile = $derived(innerWidth < MOBILE_BREAKPOINT);
 
 	// Track explicit user toggle — null means "use viewport default"
 	let userSidebarChoice = $state<boolean | null>(null);

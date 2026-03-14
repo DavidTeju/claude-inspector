@@ -1,3 +1,5 @@
+import { SvelteSet } from 'svelte/reactivity';
+import { HTTP_NOT_FOUND, MS_PER_SECOND } from '$lib/constants.js';
 import type {
 	ActiveSessionState,
 	ClientEvent,
@@ -8,7 +10,8 @@ import type {
 	SessionCost
 } from '$lib/shared/active-session-types.js';
 import type { ThreadMessage, ToolCall } from '$lib/types.js';
-import { SvelteSet } from 'svelte/reactivity';
+
+const SSE_DATA_PREFIX_LENGTH = 'data: '.length;
 
 export interface ActiveSessionClient {
 	readonly sessionId: string;
@@ -26,6 +29,7 @@ export interface ActiveSessionClient {
 	readonly cost: SessionCost;
 	readonly error: string | null;
 	readonly promptSuggestion: string;
+	readonly dangerousPermissionsAllowed: boolean;
 	readonly connected: boolean;
 	readonly reconnecting: boolean;
 
@@ -60,6 +64,7 @@ export function createActiveSessionConnection(
 	let state = $state<ActiveSessionState>('initializing');
 	let model = $state('');
 	let permissionMode = $state<PermissionMode>('default');
+	let dangerousPermissionsAllowed = $state(false);
 	const messages = $state<ThreadMessage[]>(initialMessages ? [...initialMessages] : []);
 	let streamingText = $state('');
 	let streamingThinking = $state('');
@@ -213,6 +218,13 @@ export function createActiveSessionConnection(
 		}
 	}
 
+	function formatRateLimitMessage(event: ClientEvent & { type: 'rate_limit' }): string {
+		const resetsIn = event.resetsAt
+			? Math.ceil((event.resetsAt - Date.now()) / MS_PER_SECOND)
+			: undefined;
+		return resetsIn ? `Rate limited. Resets in ${resetsIn}s` : 'Rate limited';
+	}
+
 	function handleSessionStateEvent(event: ClientEvent) {
 		switch (event.type) {
 			case 'state_change':
@@ -234,10 +246,7 @@ export function createActiveSessionConnection(
 				break;
 			case 'rate_limit':
 				if (event.status === 'rejected') {
-					const resetsIn = event.resetsAt
-						? Math.ceil((event.resetsAt - Date.now()) / 1000)
-						: undefined;
-					error = resetsIn ? `Rate limited. Resets in ${resetsIn}s` : 'Rate limited';
+					error = formatRateLimitMessage(event);
 				}
 				break;
 			case 'error':
@@ -285,6 +294,7 @@ export function createActiveSessionConnection(
 		state = event.state;
 		model = event.model;
 		permissionMode = event.permissionMode;
+		dangerousPermissionsAllowed = event.dangerousPermissionsAllowed;
 	}
 
 	function handleConfigChange(event: ClientEvent) {
@@ -342,34 +352,41 @@ export function createActiveSessionConnection(
 
 	// --- SSE parsing ---
 
+	function parseSingleSSEChunk(chunk: string): ClientEvent | null {
+		if (!chunk.trim()) return null;
+
+		const lines = chunk.split('\n');
+		const dataLines: string[] = [];
+
+		for (const line of lines) {
+			if (line.startsWith('data: ')) {
+				dataLines.push(line.slice(SSE_DATA_PREFIX_LENGTH));
+			}
+		}
+
+		if (dataLines.length === 0) return null;
+		const eventData = dataLines.join('\n');
+
+		try {
+			const parsed: unknown = JSON.parse(eventData);
+			if (parsed && typeof parsed === 'object' && 'type' in parsed) {
+				return parsed as ClientEvent;
+			}
+		} catch (e) {
+			if (import.meta.env.DEV) console.warn('[SSE] Malformed event:', chunk, e);
+		}
+
+		return null;
+	}
+
 	function parseSSEBuffer(buffer: string): { events: ClientEvent[]; remaining: string } {
 		const chunks = buffer.split('\n\n');
 		const remaining = chunks.pop() || '';
 		const events: ClientEvent[] = [];
 
 		for (const chunk of chunks) {
-			if (!chunk.trim()) continue;
-
-			const lines = chunk.split('\n');
-			const dataLines: string[] = [];
-
-			for (const line of lines) {
-				if (line.startsWith('data: ')) {
-					dataLines.push(line.slice(6));
-				}
-			}
-
-			if (dataLines.length === 0) continue;
-			const eventData = dataLines.join('\n');
-
-			try {
-				const parsed: unknown = JSON.parse(eventData);
-				if (parsed && typeof parsed === 'object' && 'type' in parsed) {
-					events.push(parsed as ClientEvent);
-				}
-			} catch (e) {
-				if (import.meta.env.DEV) console.warn('[SSE] Malformed event:', chunk, e);
-			}
+			const event = parseSingleSSEChunk(chunk);
+			if (event) events.push(event);
 		}
 
 		return { events, remaining };
@@ -415,7 +432,7 @@ export function createActiveSessionConnection(
 				});
 
 				if (!response.ok || !response.body) {
-					if (response.status === 404) {
+					if (response.status === HTTP_NOT_FOUND) {
 						state = 'closed';
 						connected = false;
 						reconnecting = false;
@@ -570,6 +587,9 @@ export function createActiveSessionConnection(
 		},
 		get connected() {
 			return connected;
+		},
+		get dangerousPermissionsAllowed() {
+			return dangerousPermissionsAllowed;
 		},
 		get reconnecting() {
 			return reconnecting;

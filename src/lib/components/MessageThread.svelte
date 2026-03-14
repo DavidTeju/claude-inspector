@@ -1,7 +1,8 @@
 <script lang="ts">
-	import UserMessage from './UserMessage.svelte';
-	import AssistantMessage from './AssistantMessage.svelte';
+	import { STAGGER_DELAY_MS, STAGGER_BASE_MS } from '$lib/constants.js';
 	import type { ThreadMessage, ContentSegment } from '$lib/types.js';
+	import AssistantMessage from './AssistantMessage.svelte';
+	import UserMessage from './UserMessage.svelte';
 
 	type GroupedMessage = {
 		message: ThreadMessage;
@@ -36,7 +37,10 @@
 
 <div class="border-surface-800/50 space-y-6 border-l pl-6">
 	{#each groupedMessages as group, i (group.message.uuid)}
-		<div class="animate-fade-in-up relative" style="animation-delay: {Math.min(i, 10) * 40}ms">
+		<div
+			class="animate-fade-in-up relative"
+			style="animation-delay: {Math.min(i, STAGGER_DELAY_MS) * STAGGER_BASE_MS}ms"
+		>
 			<!-- Timeline dot -->
 			<div
 				class="absolute top-4 -left-6 h-2 w-2 -translate-x-1/2 rounded-full {group.message.role ===

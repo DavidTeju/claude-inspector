@@ -1,9 +1,9 @@
 <script lang="ts">
-	import ToolCallGroup from './ToolCallGroup.svelte';
-	import ThinkingBlock from './ThinkingBlock.svelte';
-	import MarkdownContent from './MarkdownContent.svelte';
-	import { formatTime } from '$lib/utils.js';
 	import type { ToolCall, ThreadMessage, ContentSegment } from '$lib/types.js';
+	import { formatTime } from '$lib/utils.js';
+	import MarkdownContent from './MarkdownContent.svelte';
+	import ThinkingBlock from './ThinkingBlock.svelte';
+	import ToolCallGroup from './ToolCallGroup.svelte';
 
 	type RenderItem =
 		| { kind: 'thinking'; content: string }

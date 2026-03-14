@@ -1,5 +1,5 @@
-import { SessionManagerError, respondToQuestion } from '$lib/server/session-manager.js';
 import { json, type RequestHandler } from '@sveltejs/kit';
+import { SessionManagerError, respondToQuestion } from '$lib/server/session-manager.js';
 
 function asObject(value: unknown): Record<string, unknown> | null {
 	if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -25,6 +25,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
 			return json({ error: error.message }, { status: error.status });
 		}
 
-		return json({ error: 'Failed to answer question' }, { status: 500 });
+		const message = error instanceof Error ? error.message : 'Failed to answer question';
+		console.error('[question] Failed to answer question:', error);
+		return json({ error: message }, { status: 500 });
 	}
 };
