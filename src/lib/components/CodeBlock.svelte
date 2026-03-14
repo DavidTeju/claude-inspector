@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { codeToHtml } from 'shiki';
+	import { theme } from '$lib/stores/theme.svelte.js';
 
 	let { code, language = 'text' }: { code: string; language?: string } = $props();
 
 	let highlightedHtml = $state('');
 	let isLoading = $state(true);
+
+	let shikiTheme = $derived(theme.resolved === 'dark' ? 'github-dark' : 'github-light');
 
 	// Map common language aliases
 	const langMap: Record<string, string> = {
@@ -24,10 +27,12 @@
 
 	$effect(() => {
 		const lang = langMap[language] || language;
+		const currentTheme = shikiTheme;
 
+		isLoading = true;
 		codeToHtml(code, {
 			lang,
-			theme: 'github-dark'
+			theme: currentTheme
 		})
 			.then((html) => {
 				highlightedHtml = html;
@@ -35,7 +40,7 @@
 			})
 			.catch(() => {
 				// Fallback: try as plain text
-				codeToHtml(code, { lang: 'text', theme: 'github-dark' })
+				codeToHtml(code, { lang: 'text', theme: currentTheme })
 					.then((html) => {
 						highlightedHtml = html;
 						isLoading = false;
@@ -49,7 +54,7 @@
 </script>
 
 <div
-	class="code-block group border-surface-800 relative my-2 overflow-hidden rounded-md border bg-[#0d1117]"
+	class="code-block group border-surface-800 bg-surface-950 relative my-2 overflow-hidden rounded-md border"
 >
 	<div class="border-surface-800/50 flex items-center justify-between border-b px-3 py-1">
 		<span class="text-accent-400/50 font-sans text-[10px] tracking-wide uppercase">{language}</span>

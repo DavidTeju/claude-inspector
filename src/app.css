@@ -1,36 +1,32 @@
 @import 'tailwindcss';
 
 @theme {
-	/* Surfaces (blue-steel grays) */
-	--color-surface-950: #0b0c10;
-	--color-surface-900: #13141a;
-	--color-surface-850: #1a1b23;
-	--color-surface-800: #23252f;
-	--color-surface-700: #363845;
-	--color-surface-600: #4a4d5e;
+	/* Color tokens — resolved via CSS custom properties for light/dark switching */
+	--color-surface-950: var(--surface-950);
+	--color-surface-900: var(--surface-900);
+	--color-surface-850: var(--surface-850);
+	--color-surface-800: var(--surface-800);
+	--color-surface-700: var(--surface-700);
+	--color-surface-600: var(--surface-600);
 
-	/* Accent (amber/gold) */
-	--color-accent-500: #d4972e;
-	--color-accent-400: #e2a336;
-	--color-accent-300: #f0c050;
-	--color-accent-200: #fbe3a0;
+	--color-accent-500: var(--accent-500);
+	--color-accent-400: var(--accent-400);
+	--color-accent-300: var(--accent-300);
+	--color-accent-200: var(--accent-200);
 
-	/* User (teal) */
-	--color-user-700: #0f3d36;
-	--color-user-500: #14b8a6;
-	--color-user-400: #2dd4bf;
+	--color-user-700: var(--user-700);
+	--color-user-500: var(--user-500);
+	--color-user-400: var(--user-400);
 
-	/* Text (warm whites) */
-	--color-text-100: #f0eee9;
-	--color-text-300: #b8b5ae;
-	--color-text-500: #6b6860;
-	--color-text-700: #3a3833;
+	--color-text-100: var(--text-100);
+	--color-text-300: var(--text-300);
+	--color-text-500: var(--text-500);
+	--color-text-700: var(--text-700);
 
-	/* Semantic */
-	--color-success-500: #34d399;
-	--color-warning-500: #fbbf24;
-	--color-error-500: #f87171;
-	--color-error-400: #fca5a5;
+	--color-success-500: var(--success-500);
+	--color-warning-500: var(--warning-500);
+	--color-error-500: var(--error-500);
+	--color-error-400: var(--error-400);
 
 	/* Fonts */
 	--font-sans: 'Geist', 'Outfit', ui-sans-serif, system-ui, sans-serif;
@@ -40,13 +36,87 @@
 	--ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* ── Light mode (default) ── */
+:root {
+	--surface-950: #f8f7f5;
+	--surface-900: #f0eeeb;
+	--surface-850: #e8e6e2;
+	--surface-800: #dddad5;
+	--surface-700: #c5c2bc;
+	--surface-600: #a8a49d;
+
+	--accent-500: #b87d1a;
+	--accent-400: #c98a1f;
+	--accent-300: #9a6a15;
+	--accent-200: #7a5310;
+
+	--user-700: #d4f5f0;
+	--user-500: #0e9384;
+	--user-400: #0f7a6e;
+
+	--text-100: #1a1917;
+	--text-300: #4a4843;
+	--text-500: #8a867e;
+	--text-700: #c5c2bc;
+
+	--success-500: #15803d;
+	--warning-500: #ca8a04;
+	--error-500: #dc2626;
+	--error-400: #b91c1c;
+
+	--card-shadow: rgba(0, 0, 0, 0.08);
+}
+
+/* ── Dark mode ── */
+.dark {
+	--surface-950: #0b0c10;
+	--surface-900: #13141a;
+	--surface-850: #1a1b23;
+	--surface-800: #23252f;
+	--surface-700: #363845;
+	--surface-600: #4a4d5e;
+
+	--accent-500: #d4972e;
+	--accent-400: #e2a336;
+	--accent-300: #f0c050;
+	--accent-200: #fbe3a0;
+
+	--user-700: #0f3d36;
+	--user-500: #14b8a6;
+	--user-400: #2dd4bf;
+
+	--text-100: #f0eee9;
+	--text-300: #b8b5ae;
+	--text-500: #6b6860;
+	--text-700: #3a3833;
+
+	--success-500: #34d399;
+	--warning-500: #fbbf24;
+	--error-500: #f87171;
+	--error-400: #fca5a5;
+
+	--card-shadow: rgba(0, 0, 0, 0.3);
+}
+
 html {
+	color-scheme: light;
+	font-size: 17px;
+}
+
+html.dark {
 	color-scheme: dark;
+}
+
+@media (min-width: 1280px) {
+	html {
+		font-size: 18px;
+	}
 }
 
 body {
 	font-family: var(--font-sans);
 	letter-spacing: -0.011em;
+	line-height: 1.55;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 }
@@ -112,7 +182,7 @@ body {
 }
 
 .animate-pulse-border {
-	animation: pulse-border 2s ease-in-out infinite;
+	animation: pulse-border 2s ease-in-out 3;
 }
 
 .input-glow:focus {
@@ -136,5 +206,123 @@ body {
 
 .card-hover:hover {
 	transform: translateY(-1px);
-	box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.3);
+	box-shadow: 0 4px 12px -2px var(--card-shadow);
+}
+
+/* Breathing glow for the active session page wrapper */
+@keyframes session-live {
+	0%,
+	100% {
+		box-shadow: inset 0 1px 0 0 oklch(from var(--color-accent-500) l c h / 0.15);
+	}
+	50% {
+		box-shadow: inset 0 1px 0 0 oklch(from var(--color-accent-500) l c h / 0.35);
+	}
+}
+.session-live-border {
+	animation: session-live 4s ease-in-out infinite;
+}
+
+/* Sidebar active session dot — slower, organic breathing */
+@keyframes breathe {
+	0%,
+	100% {
+		opacity: 1;
+		transform: scale(1);
+	}
+	50% {
+		opacity: 0.5;
+		transform: scale(0.8);
+	}
+}
+.animate-breathe {
+	animation: breathe 3s ease-in-out infinite;
+}
+
+/* Slide-up reveal for the resume composer */
+@keyframes slide-up-reveal {
+	from {
+		opacity: 0;
+		transform: translateY(12px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+.animate-slide-up {
+	animation: slide-up-reveal 350ms var(--ease-spring) both;
+}
+
+.page-title {
+	color: var(--color-text-100);
+	font-size: clamp(1.55rem, 1.15rem + 1.15vw, 2.3rem);
+	font-weight: 700;
+	letter-spacing: -0.04em;
+	line-height: 1.05;
+}
+
+.page-subtitle {
+	margin-top: 0.55rem;
+	color: var(--color-text-500);
+	font-size: 0.94rem;
+	line-height: 1.55;
+}
+
+.section-title {
+	color: var(--color-text-100);
+	font-size: 1.02rem;
+	font-weight: 600;
+	letter-spacing: -0.025em;
+	line-height: 1.2;
+}
+
+.section-subtitle {
+	margin-top: 0.35rem;
+	color: var(--color-text-500);
+	font-size: 0.82rem;
+	line-height: 1.5;
+}
+
+.section-label {
+	color: var(--color-text-500);
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.1em;
+	text-transform: uppercase;
+}
+
+/* Icon buttons — circular action buttons used in TopBar and Sidebar */
+.btn-icon-lg {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 2.5rem;
+	width: 2.5rem;
+	border-radius: 9999px;
+	border: 1px solid var(--color-surface-800);
+	background: oklch(from var(--color-surface-900) l c h / 0.7);
+	color: var(--color-text-500);
+	transition:
+		color 150ms,
+		background-color 150ms,
+		border-color 150ms;
+}
+.btn-icon-lg:hover {
+	border-color: var(--color-surface-700);
+	color: var(--color-text-100);
+}
+
+.btn-icon-sm {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 2rem;
+	width: 2rem;
+	border-radius: 9999px;
+	color: var(--color-text-500);
+	transition: color 150ms;
+}
+.btn-icon-sm:hover {
+	color: var(--color-text-100);
 }
