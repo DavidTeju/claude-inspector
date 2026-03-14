@@ -21,3 +21,9 @@ export const PERMISSION_MODE_LABELS: Record<PermissionMode, string> = {
 export function isPermissionMode(value: unknown): value is PermissionMode {
 	return typeof value === 'string' && (PERMISSION_MODE_SET as Set<string>).has(value);
 }
+
+const MODES_WITHOUT_BYPASS = PERMISSION_MODES.filter((m) => m !== 'bypassPermissions');
+
+export function getCyclableModes(dangerousPermissionsAllowed: boolean): readonly PermissionMode[] {
+	return dangerousPermissionsAllowed ? PERMISSION_MODES : MODES_WITHOUT_BYPASS;
+}

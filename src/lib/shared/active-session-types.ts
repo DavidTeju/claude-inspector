@@ -96,6 +96,7 @@ export interface InitEvent {
 	state: ActiveSessionState;
 	model: string;
 	permissionMode: PermissionMode;
+	dangerousPermissionsAllowed: boolean;
 }
 
 export interface UserEvent {
