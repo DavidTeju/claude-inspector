@@ -2,35 +2,35 @@
 
 @theme {
 	/* Surfaces (blue-steel grays) */
-	--color-surface-950: #0B0C10;
-	--color-surface-900: #13141A;
-	--color-surface-850: #1A1B23;
-	--color-surface-800: #23252F;
+	--color-surface-950: #0b0c10;
+	--color-surface-900: #13141a;
+	--color-surface-850: #1a1b23;
+	--color-surface-800: #23252f;
 	--color-surface-700: #363845;
-	--color-surface-600: #4A4D5E;
+	--color-surface-600: #4a4d5e;
 
 	/* Accent (amber/gold) */
-	--color-accent-500: #D4972E;
-	--color-accent-400: #E2A336;
-	--color-accent-300: #F0C050;
-	--color-accent-200: #FBE3A0;
+	--color-accent-500: #d4972e;
+	--color-accent-400: #e2a336;
+	--color-accent-300: #f0c050;
+	--color-accent-200: #fbe3a0;
 
 	/* User (teal) */
-	--color-user-700: #0F3D36;
-	--color-user-500: #14B8A6;
-	--color-user-400: #2DD4BF;
+	--color-user-700: #0f3d36;
+	--color-user-500: #14b8a6;
+	--color-user-400: #2dd4bf;
 
 	/* Text (warm whites) */
-	--color-text-100: #F0EEE9;
-	--color-text-300: #B8B5AE;
-	--color-text-500: #6B6860;
-	--color-text-700: #3A3833;
+	--color-text-100: #f0eee9;
+	--color-text-300: #b8b5ae;
+	--color-text-500: #6b6860;
+	--color-text-700: #3a3833;
 
 	/* Semantic */
-	--color-success-500: #34D399;
-	--color-warning-500: #FBBF24;
-	--color-error-500: #F87171;
-	--color-error-400: #FCA5A5;
+	--color-success-500: #34d399;
+	--color-warning-500: #fbbf24;
+	--color-error-500: #f87171;
+	--color-error-400: #fca5a5;
 
 	/* Fonts */
 	--font-sans: 'Geist', 'Outfit', ui-sans-serif, system-ui, sans-serif;
@@ -82,13 +82,43 @@ body {
 	}
 }
 
+@keyframes blink {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0;
+	}
+}
+
+@keyframes pulse-border {
+	0%,
+	100% {
+		border-color: var(--color-warning-500);
+	}
+	50% {
+		border-color: oklch(from var(--color-warning-500) l c h / 0.3);
+	}
+}
+
 /* Utilities */
 .animate-fade-in-up {
 	animation: fade-in-up 400ms var(--ease-spring) both;
 }
 
+.animate-blink {
+	animation: blink 1s step-end infinite;
+}
+
+.animate-pulse-border {
+	animation: pulse-border 2s ease-in-out infinite;
+}
+
 .input-glow:focus {
-	box-shadow: 0 0 0 1px oklch(from var(--color-accent-500) l c h / 0.4), 0 0 12px -2px oklch(from var(--color-accent-500) l c h / 0.15);
+	box-shadow:
+		0 0 0 1px oklch(from var(--color-accent-500) l c h / 0.4),
+		0 0 12px -2px oklch(from var(--color-accent-500) l c h / 0.15);
 }
 
 .search-highlight {
@@ -99,7 +129,9 @@ body {
 }
 
 .card-hover {
-	transition: transform 150ms var(--ease-spring), box-shadow 250ms var(--ease-spring);
+	transition:
+		transform 150ms var(--ease-spring),
+		box-shadow 250ms var(--ease-spring);
 }
 
 .card-hover:hover {
