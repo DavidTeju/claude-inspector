@@ -4,29 +4,13 @@ import {
 	resumeSession,
 	startNewSession
 } from '$lib/server/session-manager.js';
+import { asObject, asOptionalString } from '$lib/server/type-guards.js';
 import type { PermissionMode } from '$lib/shared/active-session-types.js';
+import { isPermissionMode } from '$lib/shared/permission-modes.js';
 import { json, type RequestHandler } from '@sveltejs/kit';
 
-const PERMISSION_MODES = new Set<PermissionMode>([
-	'default',
-	'acceptEdits',
-	'bypassPermissions',
-	'plan',
-	'dontAsk'
-]);
-
-function asObject(value: unknown): Record<string, unknown> | null {
-	if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-	return value as Record<string, unknown>;
-}
-
-function asOptionalString(value: unknown): string | undefined {
-	return typeof value === 'string' ? value.trim() : undefined;
-}
-
 function asPermissionMode(value: unknown): PermissionMode | undefined {
-	if (typeof value !== 'string') return undefined;
-	return PERMISSION_MODES.has(value as PermissionMode) ? (value as PermissionMode) : undefined;
+	return isPermissionMode(value) ? value : undefined;
 }
 
 export const POST: RequestHandler = async ({ request }) => {
@@ -68,6 +52,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			return json({ error: error.message }, { status: error.status });
 		}
 
-		return json({ error: 'Failed to start session' }, { status: 500 });
+		const message = error instanceof Error ? error.message : 'Failed to start session';
+		return json({ error: message }, { status: 500 });
 	}
 };

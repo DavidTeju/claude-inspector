@@ -1,7 +1,7 @@
 import { readdir, stat } from 'fs/promises';
 import path from 'path';
 import type { Project } from '../types.js';
-import { dirNameToDisplayName } from '../utils.js';
+import { dirNameToDisplayName, isDoubleMangledProjectId } from '../utils.js';
 import { listProjectSessionFilesInDir } from './session-discovery.js';
 import { getProjectsDir } from './paths.js';
 import { getIndexedProjects } from './session-index-sqlite.js';
@@ -30,6 +30,8 @@ export async function listProjects(): Promise<Project[]> {
 	const projects: Project[] = [];
 
 	for (const entry of entries) {
+		if (isDoubleMangledProjectId(entry)) continue;
+
 		const fullPath = path.join(projectsDir, entry);
 		const directoryStat = await stat(fullPath).catch(() => null);
 		if (!directoryStat?.isDirectory()) continue;

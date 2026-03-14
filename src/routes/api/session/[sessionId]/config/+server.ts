@@ -1,14 +1,6 @@
 import { SessionManagerError, setModel, setPermissionMode } from '$lib/server/session-manager.js';
-import type { PermissionMode } from '$lib/shared/active-session-types.js';
+import { isPermissionMode } from '$lib/shared/permission-modes.js';
 import { json, type RequestHandler } from '@sveltejs/kit';
-
-const PERMISSION_MODES = new Set<PermissionMode>([
-	'default',
-	'acceptEdits',
-	'bypassPermissions',
-	'plan',
-	'dontAsk'
-]);
 
 function asObject(value: unknown): Record<string, unknown> | null {
 	if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
@@ -27,11 +19,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 			return json({ error: 'Request body must be a JSON object' }, { status: 400 });
 		}
 
-		const permissionMode =
-			typeof body.permissionMode === 'string' &&
-			PERMISSION_MODES.has(body.permissionMode as PermissionMode)
-				? (body.permissionMode as PermissionMode)
-				: undefined;
+		const permissionMode = isPermissionMode(body.permissionMode) ? body.permissionMode : undefined;
 		const model = typeof body.model === 'string' ? body.model.trim() : undefined;
 
 		if (!permissionMode && model === undefined) {

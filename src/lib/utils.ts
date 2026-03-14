@@ -16,6 +16,13 @@ export function dirNameToDisplayName(dirName: string): string {
 }
 
 /**
+ * Detects legacy project IDs created by the old cwd double-mangling bug.
+ */
+export function isDoubleMangledProjectId(projectId: string): boolean {
+	return projectId.includes('--claude-projects--');
+}
+
+/**
  * Splits a search query into lowercase terms, filtering out single-character terms.
  */
 export function parseSearchTerms(query: string): string[] {
@@ -23,6 +30,13 @@ export function parseSearchTerms(query: string): string[] {
 		.toLowerCase()
 		.split(/\s+/)
 		.filter((t) => t.length > 1);
+}
+
+/**
+ * Returns "1 session", "5 sessions", etc.
+ */
+export function pluralize(count: number, singular: string, plural?: string): string {
+	return `${count} ${count === 1 ? singular : (plural ?? singular + 's')}`;
 }
 
 export function escapeHtml(text: string): string {

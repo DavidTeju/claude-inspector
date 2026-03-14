@@ -2,7 +2,7 @@ import { mkdirSync } from 'fs';
 import type { Stats } from 'fs';
 import Database from 'better-sqlite3';
 import type { Project, SessionEntry } from '../types.js';
-import { dirNameToDisplayName } from '../utils.js';
+import { dirNameToDisplayName, isDoubleMangledProjectId } from '../utils.js';
 import type { SessionFileDescriptor } from './session-discovery.js';
 import { extractSessionEntry } from './session-metadata.js';
 import {
@@ -367,16 +367,16 @@ export function getIndexedProjects(): Project[] {
 		)
 		.all();
 
-	return toSqlRows(rows).map((row) => {
-		const projectRow = toProjectRow(row);
-		return {
+	return toSqlRows(rows)
+		.map((row) => toProjectRow(row))
+		.filter((projectRow) => !isDoubleMangledProjectId(projectRow.id))
+		.map((projectRow) => ({
 			id: projectRow.id,
 			displayName: projectRow.display_name,
 			path: projectRow.path,
 			sessionCount: projectRow.session_count,
 			lastModified: projectRow.last_modified
-		};
-	});
+		}));
 }
 
 export function getIndexedProjectIds(): string[] {
