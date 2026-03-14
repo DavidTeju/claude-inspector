@@ -18,13 +18,13 @@
 	</div>
 
 	{#if result.sessionSummary}
-		<h3 class="text-text-100 mb-1 text-sm font-medium">
+		<h3 class="text-text-100 mb-1 text-base font-semibold tracking-tight">
 			{@html highlightTerms(result.sessionSummary, query)}
 		</h3>
 	{/if}
 
 	{#if result.firstPrompt}
-		<p class="text-text-500 mb-2 line-clamp-1 text-xs">
+		<p class="text-text-500 mb-2 line-clamp-1 text-sm">
 			{@html highlightTerms(result.firstPrompt, query)}
 		</p>
 	{/if}

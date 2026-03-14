@@ -5,7 +5,8 @@
 		placeholder = 'Send a message...',
 		draftKey = 'composer-draft',
 		suggestion = '',
-		isQueuing = false
+		isQueuing = false,
+		buttonLabel = ''
 	}: {
 		onSubmit: (text: string) => void;
 		disabled?: boolean;
@@ -13,32 +14,25 @@
 		draftKey?: string;
 		suggestion?: string;
 		isQueuing?: boolean;
+		buttonLabel?: string;
 	} = $props();
+
+	let resolvedButtonLabel = $derived(buttonLabel || (isQueuing ? 'Queue' : 'Send'));
 
 	let text = $state('');
 	let textareaEl: HTMLTextAreaElement | undefined = $state();
 
-	// Load draft from localStorage on mount
-	$effect(() => {
-		if (typeof window !== 'undefined') {
-			const draft = localStorage.getItem(draftKey);
-			if (draft) text = draft;
-		}
-	});
-
-	// Auto-resize textarea
-	$effect(() => {
-		if (!textareaEl) return;
-		// Access text to create dependency
-		void text;
-		textareaEl.style.height = 'auto';
-		textareaEl.style.height = `${Math.min(Math.max(textareaEl.scrollHeight, 44), 200)}px`;
-	});
-
-	// Persist draft to localStorage (debounced)
+	// Load draft then persist changes — single effect avoids mount race
+	let draftInitialized = false;
 	let draftTimer: ReturnType<typeof setTimeout> | undefined;
 	$effect(() => {
 		if (typeof window === 'undefined') return;
+		if (!draftInitialized) {
+			const draft = localStorage.getItem(draftKey);
+			if (draft) text = draft;
+			draftInitialized = true;
+			return;
+		}
 		const currentText = text;
 		clearTimeout(draftTimer);
 		draftTimer = setTimeout(() => {
@@ -49,6 +43,14 @@
 			}
 		}, 500);
 		return () => clearTimeout(draftTimer);
+	});
+
+	// Auto-resize textarea
+	$effect(() => {
+		if (!textareaEl) return;
+		void text;
+		textareaEl.style.height = 'auto';
+		textareaEl.style.height = `${Math.min(Math.max(textareaEl.scrollHeight, 44), 200)}px`;
 	});
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -83,22 +85,22 @@
 			{placeholder}
 			{disabled}
 			rows="1"
-			class="text-text-100 placeholder-text-500 w-full resize-none bg-transparent px-4 py-3 text-sm focus:outline-none disabled:opacity-40"
-			style="min-height: 44px; max-height: 200px;"
+			class="text-text-100 placeholder-text-500 w-full resize-none bg-transparent px-4 py-3.5 text-base focus:outline-none disabled:opacity-40 supports-[field-sizing:content]:field-sizing-content"
+			style="min-height: 48px; max-height: 200px;"
 		></textarea>
 
 		{#if suggestion && !text.trim()}
-			<div class="text-text-700 pointer-events-none absolute top-3 left-4 text-sm">
+			<div class="text-text-700 pointer-events-none absolute top-3.5 left-4 text-base">
 				{suggestion}
-				<span class="border-surface-700 text-text-500 ml-2 rounded border px-1 py-0.5 text-[9px]"
+				<span class="border-surface-700 text-text-500 ml-2 rounded border px-1 py-0.5 text-[10px]"
 					>Tab</span
 				>
 			</div>
 		{/if}
 	</div>
 
-	<div class="border-surface-800/50 flex items-center justify-between border-t px-3 py-2">
-		<span class="text-text-700 text-[10px]">
+	<div class="border-surface-800/50 flex items-center justify-between border-t px-3 py-2.5">
+		<span class="text-text-700 text-[11px]">
 			{#if isQueuing}
 				Message will be queued
 			{:else}
@@ -109,13 +111,14 @@
 		<button
 			onclick={submit}
 			disabled={!canSubmit}
-			class="rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors {isQueuing
-				? 'border border-amber-500/30 bg-amber-500/20 text-amber-300'
+			aria-label={isQueuing ? 'Queue message' : 'Send message'}
+			class="rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors {isQueuing
+				? 'border-warning-500/30 bg-warning-500/20 text-warning-500 border'
 				: 'bg-accent-500 text-surface-950'} {!canSubmit
 				? 'cursor-not-allowed opacity-40'
 				: 'cursor-pointer'}"
 		>
-			{isQueuing ? 'Queue' : 'Send'}
+			{resolvedButtonLabel}
 		</button>
 	</div>
 </div>

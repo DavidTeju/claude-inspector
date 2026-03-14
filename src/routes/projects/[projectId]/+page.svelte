@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { formatDate } from '$lib/utils.js';
+	import { dirNameToDisplayName, formatDate, pluralize } from '$lib/utils.js';
 	import type { SessionEntry } from '$lib/types.js';
 
 	let { data } = $props();
@@ -37,17 +37,19 @@
 </script>
 
 <svelte:head>
-	<title>{data.projectId} - Claude Inspector</title>
+	<title>{dirNameToDisplayName(data.projectId)} - Claude Inspector</title>
 </svelte:head>
 
 <div>
 	<div class="mb-6">
-		<h1 class="text-text-100 text-lg font-bold">Sessions</h1>
-		<p class="text-text-500 mt-1 text-xs">{sessions.length} sessions in this project</p>
+		<h1 class="page-title">{dirNameToDisplayName(data.projectId)}</h1>
+		<p class="page-subtitle">
+			{pluralize(sessions.length, 'session')} indexed for this project.
+		</p>
 	</div>
 
 	<div class="border-surface-800 overflow-x-auto rounded-xl border">
-		<table class="w-full text-xs">
+		<table class="w-full text-[0.9rem]">
 			<thead>
 				<tr class="border-surface-800 bg-surface-850 text-text-500 border-b text-left">
 					<th class="px-3 py-2.5 font-medium">Summary / First Prompt</th>
@@ -91,7 +93,7 @@
 							>
 								{#if session.summary}
 									<div class="text-text-100 font-medium">{session.summary}</div>
-									<div class="text-text-500 mt-0.5 line-clamp-1">
+									<div class="text-text-300 mt-0.5 line-clamp-1 text-[0.82rem]">
 										{session.firstPrompt || ''}
 									</div>
 								{:else if session.firstPrompt}

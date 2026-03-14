@@ -3,6 +3,7 @@
 	import type { Project, SearchResult } from '$lib/types.js';
 	import ProjectCard from '$lib/components/ProjectCard.svelte';
 	import SearchResultCard from '$lib/components/SearchResultCard.svelte';
+	import { pluralize } from '$lib/utils.js';
 
 	type SearchSortMode = 'relevance' | 'newest' | 'oldest';
 
@@ -168,6 +169,13 @@
 </svelte:head>
 
 <div>
+	<div class="mb-8">
+		<h1 class="page-title">Search sessions</h1>
+		<p class="page-subtitle">
+			Inspect transcripts, jump between projects, and find the exact Claude conversation you need.
+		</p>
+	</div>
+
 	<!-- Spotlight search input -->
 	<div class="mb-6">
 		<div class="relative">
@@ -191,7 +199,7 @@
 				onkeydown={handleKeydown}
 				type="text"
 				placeholder="Search sessions..."
-				class="input-glow border-surface-800 bg-surface-900 text-text-100 placeholder-text-500 focus:border-accent-500/50 w-full rounded-xl border py-3 pr-10 pl-12 text-sm transition-colors outline-none"
+				class="input-glow border-surface-800 bg-surface-900 text-text-100 placeholder-text-500 focus:border-accent-500/50 w-full rounded-xl border py-3.5 pr-10 pl-12 text-base transition-colors outline-none"
 			/>
 			{#if searchQuery}
 				<button
@@ -288,8 +296,8 @@
 		<!-- Project grid -->
 		<div>
 			<div class="mb-4 flex items-baseline justify-between">
-				<h2 class="text-text-100 text-lg font-bold">Projects</h2>
-				<span class="text-text-500 text-xs">{projects.length} projects</span>
+				<h2 class="section-title">Projects</h2>
+				<span class="text-text-500 text-sm">{pluralize(projects.length, 'project')}</span>
 			</div>
 
 			<div class="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

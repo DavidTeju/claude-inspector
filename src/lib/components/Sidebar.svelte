@@ -1,44 +1,109 @@
 <script lang="ts">
+	import BrandMark from './BrandMark.svelte';
 	import { resolve } from '$app/paths';
 	import type { Project } from '$lib/types.js';
+	import type { ActiveSessionSummary } from '$lib/shared/active-session-types.js';
+	import { STATE_COLORS } from '$lib/shared/state-colors.js';
+	import { dirNameToDisplayName } from '$lib/utils.js';
 	import { page } from '$app/state';
 
-	let { projects, open, onToggle }: { projects: Project[]; open: boolean; onToggle: () => void } =
-		$props();
+	let {
+		projects,
+		activeSessions = [],
+		open,
+		onToggle,
+		onNewSession
+	}: {
+		projects: Project[];
+		activeSessions?: ActiveSessionSummary[];
+		open: boolean;
+		onToggle: () => void;
+		onNewSession: () => void;
+	} = $props();
 
 	let currentProjectId = $derived(page.params?.projectId || '');
 </script>
 
+<!--
+	Tailwind dynamic class safelist (scanner needs to see these as literals):
+	max-lg:translate-x-0 max-lg:-translate-x-full lg:w-64 lg:w-0 lg:overflow-hidden
+-->
 <aside
-	class="border-surface-800 bg-surface-950 flex flex-col border-r transition-all duration-250 {open
-		? 'w-64'
-		: 'w-0 overflow-hidden'}"
+	class="border-surface-800 bg-surface-950 flex flex-col border-r
+		max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-40 max-lg:w-64
+		max-lg:transition-transform max-lg:duration-250 max-lg:ease-out
+		{open ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'}
+		lg:transition-all lg:duration-250
+		{open ? 'lg:w-64' : 'lg:w-0 lg:overflow-hidden'}"
 >
 	<div class="border-surface-800 flex items-center justify-between border-b p-4">
-		<a href={resolve('/')} class="text-text-100 flex items-center gap-2 text-sm font-bold">
-			<span class="bg-accent-500/15 text-accent-400 rounded-md px-1.5 py-0.5 text-sm font-bold"
-				>CI</span
-			>
-			<span>Inspector</span>
+		<a href={resolve('/')} class="min-w-0">
+			<BrandMark compact={true} />
 		</a>
-		<button onclick={onToggle} class="text-text-500 hover:text-text-100" aria-label="Close sidebar">
-			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-				<path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
-			</svg>
-		</button>
+		<div class="flex items-center gap-1.5">
+			<button
+				onclick={onNewSession}
+				class="btn-icon-sm hover:text-accent-400 hover:bg-accent-500/10 cursor-pointer"
+				aria-label="New session"
+			>
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+				</svg>
+			</button>
+			<button onclick={onToggle} class="btn-icon-sm" aria-label="Close sidebar">
+				<svg
+					class="h-[1.125rem] w-[1.125rem]"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
+				</svg>
+			</button>
+		</div>
 	</div>
 
 	<nav class="flex-1 overflow-y-auto p-2">
-		<div class="text-text-500 mb-2 px-2 text-[10px] font-semibold tracking-widest uppercase">
-			Projects
-		</div>
+		{#if activeSessions.length > 0}
+			<div class="border-accent-500/20 border-l-2 pl-1">
+				<div class="mb-2 flex items-center justify-between px-2">
+					<span class="section-label">Active</span>
+					<span
+						class="bg-accent-500/15 text-accent-400 rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
+						>{activeSessions.length}</span
+					>
+				</div>
+				{#each activeSessions as session (session.sessionId)}
+					{@const dotColor = STATE_COLORS[session.state] ?? 'bg-text-700'}
+					<a
+						href={resolve(`/session/${session.projectId}/${session.sessionId}`)}
+						class="hover:bg-accent-500/5 hover:text-text-100 text-text-300 group flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors"
+					>
+						<span
+							class="h-1.5 w-1.5 flex-shrink-0 rounded-full {dotColor} {session.state === 'running'
+								? 'animate-breathe'
+								: ''}"
+						></span>
+						<span class="truncate" title={dirNameToDisplayName(session.projectId)}
+							>{dirNameToDisplayName(session.projectId)}</span
+						>
+						<span class="text-text-500 ml-auto text-[10px]">{session.sessionId.slice(0, 6)}</span>
+					</a>
+				{/each}
+			</div>
+			<div class="border-surface-800/50 my-2 border-b"></div>
+		{/if}
+
+		<div class="section-label mb-2 px-2">Projects</div>
 		{#each projects as project (project.id)}
 			<a
 				href={resolve(`/projects/${project.id}`)}
-				class="group flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors
+				class="group flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors
 					{currentProjectId === project.id
 					? 'bg-accent-500/10 text-accent-400 border-accent-400 border-l-2'
 					: 'text-text-300 hover:bg-surface-800/50 hover:text-text-100'}"
+				title={project.displayName}
 			>
 				<span class="truncate">{project.displayName}</span>
 				<span class="text-text-500 ml-auto text-[10px]">{project.sessionCount}</span>
@@ -49,7 +114,7 @@
 	<div class="border-surface-800 border-t p-2">
 		<a
 			href={resolve('/settings')}
-			class="text-text-500 hover:bg-surface-800/50 hover:text-text-100 flex items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors"
+			class="text-text-500 hover:bg-surface-800/50 hover:text-text-100 flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors"
 		>
 			<svg
 				class="h-3.5 w-3.5"

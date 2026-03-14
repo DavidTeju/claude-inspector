@@ -1,24 +1,75 @@
 <script lang="ts">
 	import '../app.css';
+	import '$lib/stores/theme.svelte.js';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import TopBar from '$lib/components/TopBar.svelte';
+	import NewSessionModal from '$lib/components/NewSessionModal.svelte';
+	import { newSessionModal } from '$lib/stores/new-session-modal.svelte.js';
+	import { page } from '$app/state';
 
 	let { data, children } = $props();
-	let sidebarOpen = $state(true);
+
+	let innerWidth = $state(1200);
+	let isMobile = $derived(innerWidth < 1024);
+
+	// Track explicit user toggle — null means "use viewport default"
+	let userSidebarChoice = $state<boolean | null>(null);
+
+	// Reset user choice when viewport crosses the breakpoint.
+	// Plain `let` (not $state) — intentionally a closure variable, not reactive state.
+	let prevIsMobile: boolean | undefined;
+	$effect.pre(() => {
+		if (prevIsMobile !== undefined && isMobile !== prevIsMobile) {
+			userSidebarChoice = null;
+		}
+		prevIsMobile = isMobile;
+	});
+
+	let sidebarOpen = $derived(userSidebarChoice ?? !isMobile);
+
+	function toggleSidebar() {
+		userSidebarChoice = !sidebarOpen;
+	}
+
+	// Close sidebar on navigation when mobile
+	let lastPath = '';
+	$effect(() => {
+		const path = page.url?.pathname ?? '';
+		if (lastPath && path !== lastPath && isMobile) {
+			userSidebarChoice = false;
+		}
+		lastPath = path;
+	});
 </script>
 
+<svelte:window bind:innerWidth />
+
 <div class="flex h-screen overflow-hidden">
+	<!-- Mobile overlay backdrop -->
+	{#if isMobile && sidebarOpen}
+		<button
+			class="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm transition-opacity"
+			onclick={() => (userSidebarChoice = false)}
+			aria-label="Close sidebar"
+			tabindex="-1"
+		></button>
+	{/if}
+
 	<Sidebar
 		projects={data.projects}
+		activeSessions={data.activeSessions}
 		open={sidebarOpen}
-		onToggle={() => (sidebarOpen = !sidebarOpen)}
+		onToggle={toggleSidebar}
+		onNewSession={() => newSessionModal.show()}
 	/>
 
-	<div class="flex flex-1 flex-col overflow-hidden">
-		<TopBar {sidebarOpen} onToggleSidebar={() => (sidebarOpen = !sidebarOpen)} />
+	<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
+		<TopBar {sidebarOpen} onToggleSidebar={toggleSidebar} />
 
-		<main class="flex-1 overflow-y-auto p-6 lg:p-8">
+		<main class="flex min-h-0 flex-1 flex-col overflow-y-auto p-5 md:p-6 lg:p-8">
 			{@render children()}
 		</main>
 	</div>
 </div>
+
+<NewSessionModal projects={data.projects} models={data.models} />
