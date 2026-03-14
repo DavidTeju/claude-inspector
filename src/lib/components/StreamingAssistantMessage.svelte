@@ -53,7 +53,7 @@
 		{/if}
 
 		<!-- Trailing text with blinking cursor -->
-		{#if splitContent.trailing || !splitContent.complete}
+		{#if splitContent.trailing || (!splitContent.complete && text)}
 			<div class="text-text-300 text-sm leading-relaxed {splitContent.complete ? 'mt-1' : ''}">
 				{splitContent.trailing}<span class="animate-blink text-accent-400">&#x258A;</span>
 			</div>

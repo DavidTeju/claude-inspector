@@ -20,6 +20,7 @@
 	let isNearBottom = $state(true);
 	let scrollPending = false;
 	let scrollThrottled = false;
+	let lastSessionId = '';
 
 	function handleScroll() {
 		if (scrollThrottled || !containerEl) return;
@@ -40,10 +41,18 @@
 
 	// Auto-scroll when new content arrives and user is near bottom
 	$effect(() => {
+		void session.sessionId;
 		void session.messages;
 		void session.streamingText;
+		void session.streamingThinking;
+		void session.streamingToolCalls.length;
 		void session.pendingPermission;
 		void session.pendingQuestion;
+
+		if (session.sessionId !== lastSessionId) {
+			lastSessionId = session.sessionId;
+			isNearBottom = true;
+		}
 
 		if (isNearBottom && containerEl && !scrollPending) {
 			scrollPending = true;
@@ -55,7 +64,11 @@
 	});
 </script>
 
-<div class="relative flex-1 overflow-y-auto" bind:this={containerEl} onscroll={handleScroll}>
+<div
+	class="relative min-h-0 flex-1 overflow-y-auto"
+	bind:this={containerEl}
+	onscroll={handleScroll}
+>
 	<div class="space-y-6 p-6">
 		<!-- Committed messages -->
 		{#if session.messages.length > 0}

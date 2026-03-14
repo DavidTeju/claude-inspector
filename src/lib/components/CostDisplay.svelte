@@ -30,6 +30,8 @@
 <div class="relative" bind:this={containerEl}>
 	<button
 		onclick={() => (expanded = !expanded)}
+		aria-label="Toggle cost breakdown"
+		aria-expanded={expanded}
 		class="text-text-500 hover:text-text-300 cursor-pointer font-mono text-[10px] transition-colors"
 	>
 		{formattedTotal}

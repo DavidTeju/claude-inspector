@@ -46,7 +46,7 @@
 				}
 			}
 
-			if (answer !== undefined) {
+			if (answer !== undefined && !(Array.isArray(answer) && answer.length === 0)) {
 				result[q.question] = answer;
 			}
 		}
@@ -68,13 +68,15 @@
 			{/if}
 			<div class="text-text-300 mb-2 text-sm">{question.question}</div>
 
-			<div class="space-y-1">
+			<div class="space-y-1" role={question.multiSelect ? 'group' : 'radiogroup'}>
 				{#each question.options as option (option.label)}
 					{@const value = option.value ?? option.label}
 					{@const selected = isSelected(qi, value)}
 					<button
 						onclick={() =>
 							question.multiSelect ? toggleMulti(qi, value) : selectSingle(qi, value)}
+						role={question.multiSelect ? 'checkbox' : 'radio'}
+						aria-checked={selected}
 						class="hover:bg-surface-800/30 flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors {selected
 							? 'border-user-400/30 bg-surface-800/50 border'
 							: 'border border-transparent'}"
@@ -107,15 +109,17 @@
 					</button>
 				{/each}
 
-				<!-- Other text input -->
-				<div class="mt-2">
-					<input
-						type="text"
-						bind:value={otherTexts[qi]}
-						placeholder="Other..."
-						class="border-surface-700 bg-surface-900 text-text-100 placeholder-text-500 w-full rounded-md border px-3 py-1.5 text-sm focus:outline-none"
-					/>
-				</div>
+				<!-- Other text input — only for non-binary questions -->
+				{#if question.options.length > 2}
+					<div class="mt-2">
+						<input
+							type="text"
+							bind:value={otherTexts[qi]}
+							placeholder="Other..."
+							class="border-surface-700 bg-surface-900 text-text-100 placeholder-text-500 w-full rounded-md border px-3 py-1.5 text-sm focus:outline-none"
+						/>
+					</div>
+				{/if}
 			</div>
 		</div>
 	{/each}

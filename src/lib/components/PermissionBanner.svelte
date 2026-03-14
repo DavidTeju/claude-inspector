@@ -95,18 +95,21 @@
 	<div class="flex items-center gap-2">
 		<button
 			onclick={() => onAllow()}
+			aria-label="Allow tool use"
 			class="border-success-500/20 bg-success-500/10 text-success-500 hover:bg-success-500/20 cursor-pointer rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors"
 		>
 			Allow
 		</button>
 		<button
 			onclick={() => (openPanel = openPanel === 'note' ? null : 'note')}
+			aria-label="Allow with note"
 			class="border-success-500/20 text-success-500 hover:bg-success-500/10 cursor-pointer rounded-lg border px-3 py-1.5 text-[11px] transition-colors"
 		>
 			Allow + Note
 		</button>
 		<button
 			onclick={() => (openPanel = openPanel === 'deny' ? null : 'deny')}
+			aria-label="Deny tool use"
 			class="border-error-500/20 bg-error-500/10 text-error-500 hover:bg-error-500/20 cursor-pointer rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors"
 		>
 			Deny
