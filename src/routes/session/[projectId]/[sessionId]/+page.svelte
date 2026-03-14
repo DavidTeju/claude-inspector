@@ -1,58 +1,290 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
+	import {
+		createActiveSessionConnection,
+		type ActiveSessionClient
+	} from '$lib/stores/active-session.svelte.js';
+	import type { PermissionMode } from '$lib/shared/active-session-types.js';
+	import SessionControls from '$lib/components/SessionControls.svelte';
+	import ActiveMessageThread from '$lib/components/ActiveMessageThread.svelte';
 	import MessageThread from '$lib/components/MessageThread.svelte';
+	import Composer from '$lib/components/Composer.svelte';
+	import { dirNameToDisplayName } from '$lib/utils.js';
+	import { tick } from 'svelte';
+	import type { ThreadMessage } from '$lib/types.js';
 
 	let { data } = $props();
+
+	type PageMode = 'idle' | 'connecting' | 'active' | 'closed';
+
+	let session: ActiveSessionClient | undefined = $state();
+	let localPermissionMode = $state<PermissionMode>('default');
+	let resumeError = $state<string | null>(null);
+	let resuming = $state(false);
+	let scrollContainerEl: HTMLDivElement | undefined = $state();
+
+	// Local override — set to true after a successful resume so the SSE connection
+	// survives until SvelteKit re-runs the server load with the real isActive flag.
+	let activatedLocally = $state(false);
+
+	// Plain (non-reactive) variable — holds optimistic user message from resume flow.
+	// The $effect picks it up when activatedLocally triggers, includes it in seed messages.
+	let pendingResumeMessage: ThreadMessage | null = null;
+
+	// Derive page mode from session state and server data
+	let pageMode = $derived.by((): PageMode => {
+		if (!session) {
+			return data.isActive || activatedLocally ? 'connecting' : 'idle';
+		}
+		const s = session.state;
+		if (s === 'closed' || s === 'error') return 'closed';
+		return 'active';
+	});
+
+	let isLive = $derived(pageMode === 'active');
+	let isRunning = $derived(session?.state === 'running' || session?.state === 'compacting');
+	let isQueuing = $derived(isRunning);
+	let canResume = $derived(!data.isSubagent);
+	let showComposer = $derived(isLive || canResume);
+	let composerDisabled = $derived(
+		resuming || session?.state === 'awaiting_permission' || session?.state === 'awaiting_input'
+	);
+
+	let sessionTitle = $derived(
+		data.summary || data.firstPrompt || 'Session ' + data.sessionId.slice(0, 8)
+	);
+	let displayModel = $derived(session?.model || data.messages[0]?.model || '');
+	let currentPermissionMode = $derived(session ? session.permissionMode : localPermissionMode);
+
+	let buttonLabel = $derived.by(() => {
+		if (pageMode === 'idle' || pageMode === 'closed') return 'Resume';
+		if (isQueuing) return 'Queue';
+		return 'Send';
+	});
+
+	// Connect to SSE when session is active (from server data or after resume)
+	$effect(() => {
+		if (!browser) return;
+
+		// Read sessionId to re-run on navigation
+		const sid = data.sessionId;
+		const shouldConnect = data.isActive || activatedLocally;
+
+		if (shouldConnect) {
+			const seedMessages = pendingResumeMessage
+				? [...data.messages, pendingResumeMessage]
+				: data.messages;
+			pendingResumeMessage = null;
+			const connection = createActiveSessionConnection(sid, seedMessages);
+			session = connection;
+
+			return () => {
+				session = undefined;
+				connection.disconnect();
+			};
+		}
+
+		// Not active — reset session
+		session = undefined;
+		return undefined;
+	});
+
+	// Reset local override when navigating to a different session
+	$effect(() => {
+		void data.sessionId;
+		activatedLocally = false;
+	});
+
+	// Scroll to bottom on initial idle load
+	async function scrollToBottom() {
+		await tick();
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				scrollContainerEl?.scrollTo({
+					top: scrollContainerEl.scrollHeight,
+					behavior: 'instant'
+				});
+			});
+		});
+	}
+
+	$effect(() => {
+		if (!browser) return;
+		void data.sessionId;
+		if (pageMode === 'idle') {
+			void scrollToBottom();
+		}
+	});
+
+	async function handleSubmit(prompt: string) {
+		if (pageMode === 'active' && session) {
+			// Send or queue to active session
+			await session.send(prompt);
+			return;
+		}
+
+		// Resume flow (idle or closed)
+		resuming = true;
+		resumeError = null;
+
+		try {
+			const response = await fetch('/api/session/start', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					projectId: data.projectId,
+					prompt,
+					sdkSessionId: data.sessionId,
+					permissionMode: localPermissionMode
+				})
+			});
+
+			const body: { error?: string } = await response.json();
+			if (!response.ok) {
+				resumeError = body.error ?? 'Failed to resume session';
+				return;
+			}
+
+			// Disconnect old connection if any (e.g. session was in 'closed' state)
+			session?.disconnect();
+
+			// Create optimistic user message so it's visible immediately
+			pendingResumeMessage = {
+				uuid: globalThis.crypto.randomUUID(),
+				role: 'user',
+				timestamp: new Date().toISOString(),
+				textContent: prompt,
+				toolCalls: [],
+				thinkingBlocks: [],
+				rawContent: prompt,
+				model: undefined
+			};
+
+			// Trigger the $effect to create a new SSE connection
+			activatedLocally = true;
+		} catch {
+			resumeError = 'Failed to resume session';
+		} finally {
+			resuming = false;
+		}
+	}
+
+	function handlePermissionModeChange(mode: PermissionMode) {
+		if (session) {
+			session.setPermissionMode(mode);
+		} else {
+			localPermissionMode = mode;
+		}
+	}
 </script>
 
 <svelte:head>
-	<title
-		>{data.summary || data.firstPrompt || 'Session ' + data.sessionId.slice(0, 8)} - Claude Inspector</title
-	>
+	<title>{sessionTitle} — {dirNameToDisplayName(data.projectId)} — Claude Inspector</title>
 </svelte:head>
 
-<div class="mx-auto max-w-4xl">
-	<!-- Session header -->
-	<div
-		class="border-surface-800 bg-surface-900/50 mb-6 flex items-center gap-4 rounded-lg border p-4"
-	>
-		<div class="flex-1">
-			{#if data.summary}
-				<h1 class="text-text-100 text-sm font-bold">{data.summary}</h1>
-				{#if data.firstPrompt}
-					<p class="text-text-500 mt-1 line-clamp-1 text-xs">{data.firstPrompt}</p>
-				{/if}
-				<p class="text-text-500 mt-1 font-mono text-[10px]">{data.sessionId}</p>
-			{:else if data.firstPrompt}
-				<h1 class="text-text-300 text-sm font-bold italic">{data.firstPrompt}</h1>
-				<p class="text-text-500 mt-1 font-mono text-[10px]">{data.sessionId}</p>
-			{:else}
-				<h1 class="text-text-100 text-sm font-bold">Session {data.sessionId.slice(0, 8)}...</h1>
-				<p class="text-text-500 mt-1 font-mono text-[11px]">{data.sessionId}</p>
-			{/if}
-			{#if data.isSubagent && data.parentSessionId}
+<div
+	class="-m-5 flex h-[calc(100%+2.5rem)] min-h-0 flex-col md:-m-6 md:h-[calc(100%+3rem)] lg:-m-8 lg:h-[calc(100%+4rem)] {isRunning
+		? 'session-live-border'
+		: ''}"
+>
+	{#key data.sessionId}
+		<!-- Controls bar -->
+		<div class="flex-shrink-0 p-4 pb-0">
+			<SessionControls
+				{sessionTitle}
+				sessionId={data.sessionId}
+				model={displayModel}
+				messageCount={session ? session.messages.length : data.messages.length}
+				permissionMode={currentPermissionMode}
+				onPermissionModeChange={handlePermissionModeChange}
+				isActive={isLive}
+				sessionState={session?.state}
+				cost={session?.cost}
+				onInterrupt={() => session?.interrupt()}
+				showResumeCommand={canResume}
+			/>
+		</div>
+
+		<!-- Subagent link -->
+		{#if data.isSubagent && data.parentSessionId}
+			<div class="px-6 pt-2">
 				<a
 					href={resolve(`/session/${data.projectId}/${data.parentSessionId}`)}
-					class="text-accent-400/70 hover:text-accent-400 mt-1 text-[10px] transition-colors"
+					class="text-accent-400/70 hover:text-accent-400 text-xs transition-colors"
 					>Parent session {data.parentSessionId.slice(0, 8)}...</a
 				>
-			{/if}
-		</div>
-		<div class="text-text-500 flex items-center gap-4 text-[11px]">
-			{#if data.isSubagent}
-				<span class="bg-surface-800 text-text-300 rounded px-1.5 py-0.5 text-[10px] font-medium"
-					>Subagent</span
-				>
-			{/if}
-			<span>{data.messages.length} messages</span>
-			{#if data.messages[0]?.model}
-				<span
-					class="bg-accent-500/10 border-accent-500/20 text-accent-300 rounded border px-1.5 py-0.5"
-					>{data.messages[0].model}</span
-				>
-			{/if}
-		</div>
-	</div>
+			</div>
+		{/if}
 
-	<MessageThread messages={data.messages} />
+		<!-- Connection status banners -->
+		{#if session?.reconnecting}
+			<div
+				class="bg-warning-500/10 text-warning-500 mx-4 mt-2 rounded-md px-3 py-1.5 text-center text-[11px]"
+			>
+				Reconnecting...
+			</div>
+		{/if}
+
+		{#if session?.error}
+			<div
+				class="bg-error-500/10 text-error-400 mx-4 mt-2 rounded-md px-3 py-1.5 text-center text-[11px]"
+			>
+				{session.error}
+			</div>
+		{/if}
+
+		{#if resumeError}
+			<div
+				class="bg-error-500/10 text-error-400 mx-4 mt-2 rounded-md px-3 py-1.5 text-center text-[11px]"
+			>
+				{resumeError}
+			</div>
+		{/if}
+
+		<!-- Message area -->
+		{#if session}
+			<!-- Active/closed: use ActiveMessageThread for scroll + streaming + permissions -->
+			<ActiveMessageThread
+				{session}
+				onPermission={(response) => session?.respondPermission(response)}
+				onQuestion={(answers) => session?.respondQuestion(answers)}
+			/>
+		{:else if pageMode === 'connecting'}
+			<!-- Connecting state -->
+			<div class="flex flex-1 items-center justify-center">
+				<div class="text-text-500 text-center text-sm">
+					<div class="bg-accent-400 mx-auto mb-3 h-2 w-2 animate-pulse rounded-full"></div>
+					Connecting...
+				</div>
+			</div>
+		{:else}
+			<!-- Idle: static JSONL messages -->
+			<div class="min-h-0 flex-1 overflow-y-auto" bind:this={scrollContainerEl}>
+				<div class="space-y-6 p-6">
+					{#if data.messages.length > 0}
+						<MessageThread messages={data.messages} />
+					{:else}
+						<div class="text-text-500 py-12 text-center text-sm">No messages in this session.</div>
+					{/if}
+				</div>
+			</div>
+		{/if}
+
+		<!-- Composer (visible for resumable sessions and active sessions) -->
+		{#if showComposer}
+			<div
+				class="border-surface-800 bg-surface-950/88 z-10 flex-shrink-0 border-t p-4 backdrop-blur-sm"
+			>
+				<Composer
+					onSubmit={handleSubmit}
+					disabled={composerDisabled}
+					{isQueuing}
+					{buttonLabel}
+					suggestion={session?.promptSuggestion ?? ''}
+					draftKey={`session-${data.sessionId}`}
+				/>
+			</div>
+		{/if}
+	{/key}
 </div>

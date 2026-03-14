@@ -5,95 +5,160 @@
 		PermissionMode,
 		SessionCost
 	} from '$lib/shared/active-session-types.js';
+	import { PERMISSION_MODES, PERMISSION_MODE_LABELS } from '$lib/shared/permission-modes.js';
+	import { STATE_COLORS } from '$lib/shared/state-colors.js';
 
 	let {
-		state,
-		model,
+		sessionTitle = '',
+		sessionId = '',
+		model = '',
+		messageCount = 0,
 		permissionMode,
+		onPermissionModeChange,
+		isActive = false,
+		sessionState = 'idle' as ActiveSessionState,
 		cost,
 		onInterrupt,
-		onPermissionModeChange
+		showResumeCommand = true
 	}: {
-		state: ActiveSessionState;
-		model: string;
+		sessionTitle?: string;
+		sessionId?: string;
+		model?: string;
+		messageCount?: number;
 		permissionMode: PermissionMode;
-		cost: SessionCost;
-		onInterrupt: () => void;
 		onPermissionModeChange: (mode: PermissionMode) => void;
+		isActive?: boolean;
+		sessionState?: ActiveSessionState;
+		cost?: SessionCost;
+		onInterrupt?: () => void;
+		showResumeCommand?: boolean;
 	} = $props();
 
-	const stateConfig: Record<ActiveSessionState, { label: string; color: string; pulse: boolean }> =
-		{
-			initializing: { label: 'Initializing', color: 'bg-text-500', pulse: true },
-			running: { label: 'Running', color: 'bg-accent-400', pulse: true },
-			awaiting_permission: { label: 'Awaiting Permission', color: 'bg-warning-500', pulse: true },
-			awaiting_input: { label: 'Awaiting Input', color: 'bg-user-400', pulse: true },
-			rate_limited: { label: 'Rate Limited', color: 'bg-error-500', pulse: false },
-			compacting: { label: 'Compacting', color: 'bg-accent-300', pulse: true },
-			idle: { label: 'Idle', color: 'bg-success-500', pulse: false },
-			error: { label: 'Error', color: 'bg-error-500', pulse: false },
-			closed: { label: 'Closed', color: 'bg-text-700', pulse: false }
-		};
-
-	const permissionModes: PermissionMode[] = ['default', 'acceptEdits', 'bypassPermissions', 'plan'];
-	const permissionLabels: Record<string, string> = {
-		default: 'Default',
-		acceptEdits: 'Accept Edits',
-		bypassPermissions: 'Bypass',
-		plan: 'Plan',
-		dontAsk: "Don't Ask"
+	const stateLabels: Record<ActiveSessionState, { label: string; pulse: boolean }> = {
+		initializing: { label: 'Initializing', pulse: true },
+		running: { label: 'Running', pulse: true },
+		awaiting_permission: { label: 'Awaiting Permission', pulse: true },
+		awaiting_input: { label: 'Awaiting Input', pulse: true },
+		rate_limited: { label: 'Rate Limited', pulse: false },
+		compacting: { label: 'Compacting', pulse: true },
+		idle: { label: 'Idle', pulse: false },
+		error: { label: 'Error', pulse: false },
+		closed: { label: 'Closed', pulse: false }
 	};
 
 	function cyclePermissionMode() {
-		const currentIdx = permissionModes.indexOf(permissionMode);
-		const nextIdx = (currentIdx + 1) % permissionModes.length;
-		onPermissionModeChange(permissionModes[nextIdx]);
+		const currentIdx = PERMISSION_MODES.indexOf(permissionMode);
+		const nextIdx = (currentIdx + 1) % PERMISSION_MODES.length;
+		onPermissionModeChange(PERMISSION_MODES[nextIdx]);
 	}
 
-	let currentStateConfig = $derived(stateConfig[state]);
-	let canInterrupt = $derived(state === 'running' || state === 'compacting');
+	let currentColor = $derived(STATE_COLORS[sessionState]);
+	let currentLabel = $derived(stateLabels[sessionState]);
+	let canInterrupt = $derived(sessionState === 'running' || sessionState === 'compacting');
+
+	let copied = $state(false);
+	function copyResumeCommand() {
+		navigator.clipboard.writeText(`claude --resume ${sessionId}`);
+		copied = true;
+		setTimeout(() => (copied = false), 2000);
+	}
 </script>
 
 <div
-	class="border-surface-800 bg-surface-900/70 flex items-center gap-3 rounded-xl border px-4 py-2"
+	class="border-surface-800 bg-surface-900/70 flex items-center gap-3 rounded-xl border px-4 py-2.5"
 >
-	<!-- State pill -->
-	<div class="flex items-center gap-1.5">
-		<span
-			class="h-1.5 w-1.5 rounded-full {currentStateConfig.color} {currentStateConfig.pulse
-				? 'animate-pulse'
-				: ''}"
-		></span>
-		<span class="text-text-300 text-[10px]">{currentStateConfig.label}</span>
-	</div>
-
-	<!-- Interrupt button -->
-	{#if canInterrupt}
-		<button
-			onclick={onInterrupt}
-			class="border-error-500/20 bg-error-500/10 text-error-400 hover:bg-error-500/20 flex cursor-pointer items-center gap-1 rounded-lg border px-2.5 py-1 text-[10px] transition-colors"
-		>
-			<svg class="h-3 w-3" fill="currentColor" viewBox="0 0 24 24">
-				<rect x="6" y="6" width="12" height="12" rx="1" />
-			</svg>
-			Stop
-		</button>
+	<!-- Title (truncated) -->
+	{#if sessionTitle}
+		<span class="text-text-100 min-w-0 truncate text-sm font-medium" title={sessionTitle}>
+			{sessionTitle}
+		</span>
+		<span class="text-surface-700">·</span>
 	{/if}
 
-	<!-- Permission mode -->
+	{#if isActive}
+		<!-- Active mode: state pill -->
+		<div class="flex items-center gap-1.5">
+			<span class="h-2 w-2 rounded-full {currentColor} {currentLabel.pulse ? 'animate-pulse' : ''}"
+			></span>
+			<span class="text-text-300 text-xs font-medium">{currentLabel.label}</span>
+		</div>
+
+		<!-- Interrupt button -->
+		{#if canInterrupt && onInterrupt}
+			<button
+				onclick={onInterrupt}
+				aria-label="Interrupt session"
+				class="border-error-500/20 bg-error-500/10 text-error-400 hover:bg-error-500/20 flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-colors"
+			>
+				<svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
+					<rect x="6" y="6" width="12" height="12" rx="1" />
+				</svg>
+				Stop
+			</button>
+		{/if}
+	{:else}
+		<!-- Idle mode: message count -->
+		{#if messageCount > 0}
+			<span class="text-text-500 text-xs">{messageCount} msg{messageCount !== 1 ? 's' : ''}</span>
+			<span class="text-surface-700">·</span>
+		{/if}
+	{/if}
+
+	<!-- Permission mode (always) -->
 	<button
 		onclick={cyclePermissionMode}
-		class="bg-surface-800 text-text-300 hover:bg-surface-700 cursor-pointer rounded-lg px-2.5 py-1 text-[10px] transition-colors"
+		aria-label="Cycle permission mode"
+		class="bg-surface-800 text-text-300 hover:bg-surface-700 cursor-pointer rounded-lg px-3 py-1.5 text-xs transition-colors"
 		title="Click to cycle permission mode"
 	>
-		{permissionLabels[permissionMode] ?? permissionMode}
+		{PERMISSION_MODE_LABELS[permissionMode] ?? permissionMode}
 	</button>
 
 	<!-- Model display -->
-	<span class="text-text-500 font-mono text-[10px]">{model}</span>
+	{#if model}
+		<span class="text-text-500 font-mono text-xs">{model}</span>
+	{/if}
 
-	<!-- Cost display -->
-	<div class="ml-auto">
-		<CostDisplay {cost} />
+	<div class="ml-auto flex items-center gap-2">
+		{#if isActive && cost}
+			<!-- Active: cost display -->
+			<CostDisplay {cost} />
+		{:else if !isActive && sessionId && showResumeCommand}
+			<!-- Idle: copy resume command -->
+			<button
+				onclick={copyResumeCommand}
+				class="text-text-500 hover:text-text-300 flex cursor-pointer items-center gap-1.5 text-xs transition-colors"
+				title="Copy resume command"
+			>
+				<code class="text-text-600 max-w-[10rem] truncate font-mono text-[10px]"
+					>claude --resume {sessionId.slice(0, 8)}...</code
+				>
+				{#if copied}
+					<svg
+						class="text-success-400 h-3.5 w-3.5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+					</svg>
+				{:else}
+					<svg
+						class="h-3.5 w-3.5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+						/>
+					</svg>
+				{/if}
+			</button>
+		{/if}
 	</div>
 </div>
