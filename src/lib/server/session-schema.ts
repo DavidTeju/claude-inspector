@@ -220,7 +220,7 @@ export function extractTextFromMessageContent(content: ClaudeMessageContent | un
 	return content
 		.filter((block): block is TextBlock => block.type === 'text' && typeof block.text === 'string')
 		.map((block) => block.text)
-		.join('\n');
+		.join('');
 }
 
 export function parseSessionRecordValue(value: unknown): ClaudeSessionRecord | null {

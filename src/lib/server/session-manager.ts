@@ -1,5 +1,6 @@
 import {
 	query,
+	getSessionInfo,
 	type PermissionResult,
 	type Query,
 	type SDKAssistantMessage,
@@ -22,7 +23,7 @@ import type {
 import type { ContentBlock, ThreadMessage, ToolCall } from '$lib/types.js';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { stat } from 'node:fs/promises';
+import { open, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { getConfig } from './config.js';
 import {
@@ -31,8 +32,27 @@ import {
 	recordActiveSessionProcess,
 	removeActiveSessionProcess
 } from './active-pids.js';
+import { parseSessionMessages } from './messages.js';
 import { getProjectsDir } from './paths.js';
 import { normalizeProjectId } from './project-id.js';
+import { reconcileProjectNow } from './reconciler.js';
+import { findSessionFile } from './session-discovery.js';
+import type { ModelOption } from '$lib/shared/models.js';
+import { FALLBACK_MODELS } from '$lib/shared/models.js';
+
+/** Debounce reconciliation per project — avoids redundant work on multi-turn sessions */
+const pendingReconciles = new Map<string, NodeJS.Timeout>();
+function debouncedReconcile(projectId: string, delayMs = 5_000): void {
+	const existing = pendingReconciles.get(projectId);
+	if (existing) clearTimeout(existing);
+	pendingReconciles.set(
+		projectId,
+		setTimeout(() => {
+			pendingReconciles.delete(projectId);
+			void reconcileProjectNow(projectId).catch(() => {});
+		}, delayMs)
+	);
+}
 
 type SessionController = ReadableStreamDefaultController<Uint8Array>;
 type SessionSubscriber = {
@@ -107,6 +127,12 @@ const managerState =
 		activeSessions: new Map<string, ActiveSession>(),
 		maintenanceStarted: false
 	});
+
+const cachedModels: ModelOption[] = [...FALLBACK_MODELS];
+
+export function getCachedModels(): ModelOption[] {
+	return [...cachedModels];
+}
 
 const encoder = new TextEncoder();
 
@@ -245,6 +271,57 @@ async function resolveProjectPath(projectId: string): Promise<string> {
 	}
 
 	return projectPath;
+}
+
+/**
+ * Resolves the real working directory for a project.
+ * The SDK needs the actual project path (e.g. /Users/foo/projects/bar),
+ * not the JSONL storage path (~/.claude/projects/-Users-foo-projects-bar).
+ *
+ * For resume: uses the SDK's getSessionInfo to look up the session's cwd.
+ * For new sessions: reads cwd from an existing JSONL file in the storage dir.
+ * Falls back to the storage path if resolution fails.
+ */
+async function resolveRealProjectCwd(storagePath: string, sessionId?: string): Promise<string> {
+	if (sessionId) {
+		const info = await getSessionInfo(sessionId);
+		if (info?.cwd) return info.cwd;
+	}
+
+	const entries = await readdir(storagePath);
+	const jsonl = entries.find((e) => e.endsWith('.jsonl'));
+	if (jsonl) {
+		const fd = await open(path.join(storagePath, jsonl), 'r');
+		try {
+			// Read only the first 2 KB — cwd appears in the second line of the JSONL
+			const buf = Buffer.alloc(2048);
+			const { bytesRead } = await fd.read(buf, 0, buf.length, 0);
+			const head = buf.toString('utf-8', 0, bytesRead);
+			const firstNewline = head.indexOf('\n');
+			const secondLine = firstNewline >= 0 ? head.slice(firstNewline + 1) : '';
+			const secondNewline = secondLine.indexOf('\n');
+			const line = secondNewline >= 0 ? secondLine.slice(0, secondNewline) : secondLine;
+			const record = JSON.parse(line) as { cwd?: string };
+			if (record.cwd) return record.cwd;
+		} catch {
+			/* ignore parse/read errors */
+		} finally {
+			await fd.close();
+		}
+	}
+
+	return storagePath;
+}
+
+async function loadSessionHistory(projectId: string, sessionId: string): Promise<ThreadMessage[]> {
+	const sessionFile = await findSessionFile(projectId, sessionId);
+	if (!sessionFile) {
+		throw new SessionManagerError(404, `Session history not found: ${sessionId}`);
+	}
+
+	return parseSessionMessages(sessionFile.fullPath, {
+		includeSidechain: sessionFile.isSubagent
+	});
 }
 
 function createUserMessage(
@@ -398,14 +475,6 @@ function hasOnlyToolResults(content: unknown): boolean {
 	);
 }
 
-function toSharedToolResultContent(content: unknown): string | ContentBlock[] {
-	if (typeof content === 'string') return content;
-	if (!Array.isArray(content)) return '';
-	return content
-		.map((block) => toSharedContentBlock(block))
-		.filter((block): block is ContentBlock => block !== null);
-}
-
 function toSharedContent(content: unknown): string | ContentBlock[] {
 	if (typeof content === 'string') return content;
 	if (!Array.isArray(content)) return '';
@@ -438,7 +507,7 @@ function toSharedContentBlock(block: unknown): ContentBlock | null {
 				tool_use_id: asString(candidate.tool_use_id),
 				content:
 					typeof candidate.content === 'string' || Array.isArray(candidate.content)
-						? toSharedToolResultContent(candidate.content)
+						? toSharedContent(candidate.content)
 						: undefined,
 				is_error: candidate.is_error === true
 			};
@@ -470,7 +539,7 @@ function toThreadMessageFromUserMessage(
 	message: SDKUserMessage,
 	timestamp: string
 ): ThreadMessage | null {
-	const textContent = extractTextParts(message.message.content).join('\n').trim();
+	const textContent = extractTextParts(message.message.content).join('').trim();
 	const rawContent = toSharedContent(message.message.content);
 
 	if (!textContent && hasOnlyToolResults(message.message.content)) {
@@ -530,7 +599,7 @@ function toThreadMessageFromAssistantMessage(
 		}
 	}
 
-	const textContent = textParts.join('\n').trim();
+	const textContent = textParts.join('').trim();
 	if (!textContent && toolCalls.length === 0 && thinkingBlocks.length === 0) {
 		return null;
 	}
@@ -561,7 +630,7 @@ function flushInProgressTurn(session: ActiveSession, timestamp: string): void {
 	}
 
 	addOrReplaceMessage(session, {
-		uuid: snapshot.uuid,
+		uuid: snapshot.canonicalUuid ?? snapshot.uuid,
 		role: 'assistant',
 		timestamp,
 		textContent: snapshot.streamingText.trim(),
@@ -750,6 +819,25 @@ async function createQuery(session: ActiveSession, resumeSessionId?: string): Pr
 		}
 	});
 
+	// Fire-and-forget: cache supported models from the SDK
+	void queryObject
+		.supportedModels()
+		.then((models) => {
+			if (Array.isArray(models) && models.length > 0) {
+				const sdkModels: ModelOption[] = [
+					{ value: '', displayName: 'Default' },
+					...models.map((m) => ({
+						value: m.value,
+						displayName: m.displayName
+					}))
+				];
+				cachedModels.splice(0, cachedModels.length, ...sdkModels);
+			}
+		})
+		.catch(() => {
+			/* fallback list remains */
+		});
+
 	return queryObject;
 }
 
@@ -909,8 +997,9 @@ function handleSystemMessage(session: ActiveSession, message: SDKSystemSessionMe
 	}
 
 	if (message.subtype === 'status') {
-		if (message.permissionMode) {
+		if (message.permissionMode && message.permissionMode !== session.permissionMode) {
 			session.permissionMode = message.permissionMode;
+			broadcast(session, { type: 'config_change', permissionMode: session.permissionMode });
 		}
 
 		if (message.status === 'compacting') {
@@ -930,6 +1019,11 @@ function handleSystemMessage(session: ActiveSession, message: SDKSystemSessionMe
 	}
 }
 
+/** Resolve the canonical turn UUID — prefer the in-progress turn's UUID over the message's. */
+function turnUuid(session: ActiveSession, messageUuid: string): string {
+	return session.inProgressTurn?.uuid ?? messageUuid;
+}
+
 function handleStreamEventMessage(session: ActiveSession, message: SDKStreamEventMessage): void {
 	const event = asRecord(message.event);
 	if (event?.type !== 'content_block_delta') {
@@ -939,7 +1033,7 @@ function handleStreamEventMessage(session: ActiveSession, message: SDKStreamEven
 	const delta = asRecord(event.delta);
 	if (!delta) return;
 
-	const snapshot = ensureInProgressTurn(session, message.uuid);
+	const snapshot = ensureInProgressTurn(session, turnUuid(session, message.uuid));
 
 	if (delta.type === 'text_delta') {
 		const text = asString(delta.text);
@@ -948,7 +1042,7 @@ function handleStreamEventMessage(session: ActiveSession, message: SDKStreamEven
 		snapshot.streamingText += text;
 		broadcast(session, {
 			type: 'assistant_text_delta',
-			uuid: message.uuid,
+			uuid: snapshot.uuid,
 			delta: text
 		});
 		return;
@@ -961,7 +1055,7 @@ function handleStreamEventMessage(session: ActiveSession, message: SDKStreamEven
 		snapshot.streamingThinking += thinking;
 		broadcast(session, {
 			type: 'assistant_thinking',
-			uuid: message.uuid,
+			uuid: snapshot.uuid,
 			thinking: snapshot.streamingThinking
 		});
 	}
@@ -973,6 +1067,10 @@ function broadcastAssistantContentBlocks(
 ): void {
 	if (!Array.isArray(message.message.content)) return;
 
+	const broadcastUuid = turnUuid(session, message.uuid);
+	const finalTextBlocks: string[] = [];
+	const finalThinkingBlocks: string[] = [];
+
 	for (const block of message.message.content) {
 		const candidate = asRecord(block);
 		if (!candidate) continue;
@@ -980,12 +1078,7 @@ function broadcastAssistantContentBlocks(
 		if (candidate.type === 'text') {
 			const text = asString(candidate.text);
 			if (text) {
-				broadcast(session, {
-					type: 'assistant_text',
-					uuid: message.uuid,
-					text,
-					model: message.message.model
-				});
+				finalTextBlocks.push(text);
 			}
 			continue;
 		}
@@ -993,11 +1086,7 @@ function broadcastAssistantContentBlocks(
 		if (candidate.type === 'thinking') {
 			const thinking = asString(candidate.thinking);
 			if (thinking) {
-				broadcast(session, {
-					type: 'assistant_thinking',
-					uuid: message.uuid,
-					thinking
-				});
+				finalThinkingBlocks.push(thinking);
 			}
 			continue;
 		}
@@ -1008,13 +1097,51 @@ function broadcastAssistantContentBlocks(
 
 			broadcast(session, {
 				type: 'tool_use',
-				uuid: message.uuid,
+				uuid: broadcastUuid,
 				toolId,
 				toolName: asString(candidate.name) ?? 'unknown',
 				input: asRecord(candidate.input) ?? {}
 			});
 		}
 	}
+
+	if (finalTextBlocks.length > 0) {
+		broadcast(session, {
+			type: 'assistant_text',
+			uuid: broadcastUuid,
+			text: finalTextBlocks.join(''),
+			model: message.message.model
+		});
+	}
+
+	if (finalThinkingBlocks.length > 0) {
+		broadcast(session, {
+			type: 'assistant_thinking',
+			uuid: broadcastUuid,
+			thinking: finalThinkingBlocks.join('\n\n')
+		});
+	}
+}
+
+function syncInProgressTurnFromAssistantMessage(
+	session: ActiveSession,
+	message: SDKAssistantMessage,
+	timestamp: string
+): void {
+	const snapshot = ensureInProgressTurn(session, turnUuid(session, message.uuid));
+	const threadMessage = toThreadMessageFromAssistantMessage(session, message, timestamp);
+	if (!threadMessage) {
+		return;
+	}
+
+	// Store the SDK assistant message UUID — stream events use a different UUID,
+	// but the JSONL records this one. Using it in the flushed ThreadMessage ensures
+	// messageBuffer UUIDs match JSONL UUIDs, making client-side dedup work on refresh.
+	snapshot.canonicalUuid = message.uuid;
+	snapshot.model = threadMessage.model ?? snapshot.model;
+	snapshot.streamingText = threadMessage.textContent;
+	snapshot.streamingThinking = threadMessage.thinkingBlocks.join('\n\n');
+	snapshot.toolCalls = threadMessage.toolCalls.map((toolCall) => ({ ...toolCall }));
 }
 
 function handleAssistantSdkMessage(
@@ -1022,16 +1149,8 @@ function handleAssistantSdkMessage(
 	message: SDKAssistantMessage,
 	receivedAt: string
 ): void {
-	const threadMessage = toThreadMessageFromAssistantMessage(session, message, receivedAt);
-	if (threadMessage) {
-		addOrReplaceMessage(session, threadMessage);
-	}
-
+	syncInProgressTurnFromAssistantMessage(session, message, receivedAt);
 	broadcastAssistantContentBlocks(session, message);
-
-	if (session.inProgressTurn?.uuid === message.uuid) {
-		session.inProgressTurn = null;
-	}
 
 	if (message.error) {
 		broadcast(session, {
@@ -1055,7 +1174,7 @@ function handleUserSdkMessage(
 			const toolId = asString(candidate.tool_use_id);
 			if (!toolId) continue;
 
-			const result = toSharedToolResultContent(candidate.content);
+			const result = toSharedContent(candidate.content);
 			const isError = candidate.is_error === true;
 			const attachedToTurn = updateToolResultInBuffer(session, toolId, result, isError);
 			if (!attachedToTurn) {
@@ -1121,6 +1240,8 @@ function handleResultSdkMessage(
 	}
 
 	setSessionState(session, 'idle');
+
+	debouncedReconcile(session.projectId);
 }
 
 function handleRateLimitSdkMessage(session: ActiveSession, message: SDKRateLimitMessage): void {
@@ -1272,7 +1393,8 @@ export async function startNewSession(options: {
 }): Promise<ActiveSession> {
 	const prompt = ensureString(options.prompt, 'prompt is required');
 	const projectId = requireProjectId(options.projectId);
-	const projectPath = await resolveProjectPath(projectId);
+	const storagePath = await resolveProjectPath(projectId);
+	const projectPath = await resolveRealProjectCwd(storagePath);
 	const sessionId = randomUUID();
 
 	const session = createSession(
@@ -1325,7 +1447,8 @@ export async function resumeSession(options: {
 		return existing;
 	}
 
-	const projectPath = await resolveProjectPath(projectId);
+	const storagePath = await resolveProjectPath(projectId);
+	const projectPath = await resolveRealProjectCwd(storagePath, sessionId);
 
 	const session = createSession(
 		projectId,
@@ -1338,6 +1461,7 @@ export async function resumeSession(options: {
 	managerState.activeSessions.set(session.sessionId, session);
 
 	try {
+		session.messageBuffer = await loadSessionHistory(projectId, sessionId);
 		session.queryObject = await createQuery(session, sessionId);
 		void consumeQuery(session, session.queryObject);
 		session.inputQueue.enqueue(createUserMessage(session.sessionId, prompt));
@@ -1392,7 +1516,11 @@ export function subscribe(sessionId: string, controller: SessionController): Ses
 	};
 }
 
-export async function sendMessage(sessionId: string, prompt: string): Promise<void> {
+export async function sendMessage(
+	sessionId: string,
+	prompt: string,
+	uuid?: SDKUserMessage['uuid']
+): Promise<void> {
 	const session = requireSession(sessionId);
 	const normalizedPrompt = ensureString(prompt, 'prompt is required');
 
@@ -1404,7 +1532,22 @@ export async function sendMessage(sessionId: string, prompt: string): Promise<vo
 		throw new SessionManagerError(409, 'Session is no longer accepting input');
 	}
 
-	session.inputQueue.enqueue(createUserMessage(session.sessionId, normalizedPrompt));
+	const messageUuid = uuid ?? createUuid();
+	session.inputQueue.enqueue(createUserMessage(session.sessionId, normalizedPrompt, messageUuid));
+
+	const userThreadMessage: ThreadMessage = {
+		uuid: String(messageUuid),
+		role: 'user',
+		timestamp: nowIso(),
+		textContent: normalizedPrompt,
+		toolCalls: [],
+		thinkingBlocks: [],
+		rawContent: normalizedPrompt,
+		model: undefined
+	};
+	addOrReplaceMessage(session, userThreadMessage);
+	broadcast(session, { type: 'user', message: userThreadMessage });
+
 	touchSession(session);
 
 	if (session.state !== 'running') {
@@ -1443,6 +1586,7 @@ export async function respondToPermission(
 
 		pendingPermission.resolve({
 			behavior: 'allow',
+			updatedInput: { ...pendingPermission.request.input },
 			toolUseID: decision.toolUseId
 		});
 	} else {
@@ -1500,6 +1644,7 @@ export async function closeSession(sessionId: string): Promise<void> {
 	const session = managerState.activeSessions.get(sessionId);
 	if (!session) return;
 
+	const projectId = session.projectId;
 	managerState.activeSessions.delete(sessionId);
 
 	if (session.pendingPermission) {
@@ -1529,6 +1674,8 @@ export async function closeSession(sessionId: string): Promise<void> {
 	}
 	session.subscribers.clear();
 	await removeActiveSessionProcess(session.sessionId);
+
+	debouncedReconcile(projectId, 1_000);
 }
 
 export async function setPermissionMode(
@@ -1543,6 +1690,7 @@ export async function setPermissionMode(
 	await session.queryObject.setPermissionMode(permissionMode);
 	session.permissionMode = permissionMode;
 	touchSession(session);
+	broadcast(session, { type: 'config_change', permissionMode });
 }
 
 export async function setModel(sessionId: string, model: string): Promise<void> {
@@ -1555,9 +1703,16 @@ export async function setModel(sessionId: string, model: string): Promise<void> 
 	await session.queryObject.setModel(normalizedModel || undefined);
 	session.model = normalizedModel;
 	touchSession(session);
+	broadcast(session, { type: 'config_change', model: normalizedModel });
 }
 
 export async function shutdownAllSessions(): Promise<void> {
+	// Clear pending reconciliation timers before closing sessions
+	for (const timer of pendingReconciles.values()) {
+		clearTimeout(timer);
+	}
+	pendingReconciles.clear();
+
 	const sessionIds = [...managerState.activeSessions.keys()];
 	await Promise.all(sessionIds.map((sessionId) => closeSession(sessionId)));
 }

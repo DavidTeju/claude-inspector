@@ -8,6 +8,7 @@ import type {
 	SessionCost
 } from '$lib/shared/active-session-types.js';
 import type { ThreadMessage, ToolCall } from '$lib/types.js';
+import { SvelteSet } from 'svelte/reactivity';
 
 export interface ActiveSessionClient {
 	readonly sessionId: string;
@@ -51,12 +52,15 @@ function isoNow(): string {
 	return new Date().toISOString();
 }
 
-export function createActiveSessionConnection(sessionId: string): ActiveSessionClient {
+export function createActiveSessionConnection(
+	sessionId: string,
+	initialMessages?: ThreadMessage[]
+): ActiveSessionClient {
 	// Reactive state
 	let state = $state<ActiveSessionState>('initializing');
 	let model = $state('');
 	let permissionMode = $state<PermissionMode>('default');
-	const messages = $state<ThreadMessage[]>([]);
+	const messages = $state<ThreadMessage[]>(initialMessages ? [...initialMessages] : []);
 	let streamingText = $state('');
 	let streamingThinking = $state('');
 	let streamingToolCalls = $state<ToolCall[]>([]);
@@ -83,8 +87,7 @@ export function createActiveSessionConnection(sessionId: string): ActiveSessionC
 
 	// --- Helpers ---
 
-	// eslint-disable-next-line svelte/prefer-svelte-reactivity -- intentionally non-reactive lookup cache
-	const knownUuids = new Set<string>();
+	const knownUuids = new SvelteSet<string>(initialMessages?.map((m) => m.uuid));
 
 	function upsertMessage(msg: ThreadMessage) {
 		if (knownUuids.has(msg.uuid)) {
@@ -96,7 +99,21 @@ export function createActiveSessionConnection(sessionId: string): ActiveSessionC
 		}
 	}
 
+	function addOptimisticUserMessage(prompt: string, uuid: string) {
+		upsertMessage({
+			uuid,
+			role: 'user',
+			timestamp: isoNow(),
+			textContent: prompt,
+			toolCalls: [],
+			thinkingBlocks: [],
+			rawContent: prompt,
+			model: undefined
+		});
+	}
+
 	function clearStreamingState() {
+		if (!streamingUuid) return;
 		streamingUuid = null;
 		streamingText = '';
 		streamingThinking = '';
@@ -105,8 +122,11 @@ export function createActiveSessionConnection(sessionId: string): ActiveSessionC
 	}
 
 	function flushStreamingToMessage() {
+		const finalizedText = streamingText.trim();
+		const finalizedThinking = streamingThinking.trim();
+
 		if (!streamingUuid) return;
-		if (!streamingText && !streamingThinking && streamingToolCalls.length === 0) {
+		if (!finalizedText && !finalizedThinking && streamingToolCalls.length === 0) {
 			clearStreamingState();
 			return;
 		}
@@ -115,10 +135,10 @@ export function createActiveSessionConnection(sessionId: string): ActiveSessionC
 			uuid: streamingUuid,
 			role: 'assistant',
 			timestamp: isoNow(),
-			textContent: streamingText,
+			textContent: finalizedText,
 			toolCalls: [...streamingToolCalls],
-			thinkingBlocks: streamingThinking ? [streamingThinking] : [],
-			rawContent: streamingText,
+			thinkingBlocks: finalizedThinking ? [finalizedThinking] : [],
+			rawContent: finalizedText,
 			model: streamingModel
 		};
 		upsertMessage(msg);
@@ -129,6 +149,10 @@ export function createActiveSessionConnection(sessionId: string): ActiveSessionC
 		if (uuid !== streamingUuid) {
 			flushStreamingToMessage();
 			streamingUuid = uuid;
+		}
+
+		if (!streamingModel) {
+			streamingModel = model || undefined;
 		}
 	}
 
@@ -143,6 +167,11 @@ export function createActiveSessionConnection(sessionId: string): ActiveSessionC
 
 	function handleStreamingEvent(event: ClientEvent) {
 		switch (event.type) {
+			case 'assistant_text':
+				ensureStreamingTurn(event.uuid);
+				streamingModel = event.model ?? streamingModel;
+				streamingText = event.text;
+				break;
 			case 'assistant_text_delta':
 				ensureStreamingTurn(event.uuid);
 				streamingText += event.delta;
@@ -187,6 +216,7 @@ export function createActiveSessionConnection(sessionId: string): ActiveSessionC
 	function handleSessionStateEvent(event: ClientEvent) {
 		switch (event.type) {
 			case 'state_change':
+				if (state === event.state) break;
 				state = event.state;
 				if (state === 'running') {
 					pendingPermission = null;
@@ -237,7 +267,7 @@ export function createActiveSessionConnection(sessionId: string): ActiveSessionC
 				break;
 			case 'queued_note_sent':
 				upsertMessage({
-					uuid: `note-${event.noteId}`,
+					uuid: event.noteId,
 					role: 'user',
 					timestamp: isoNow(),
 					textContent: event.note,
@@ -255,6 +285,12 @@ export function createActiveSessionConnection(sessionId: string): ActiveSessionC
 		state = event.state;
 		model = event.model;
 		permissionMode = event.permissionMode;
+	}
+
+	function handleConfigChange(event: ClientEvent) {
+		if (event.type !== 'config_change') return;
+		if (event.model !== undefined) model = event.model;
+		if (event.permissionMode !== undefined) permissionMode = event.permissionMode;
 	}
 
 	function handleMessageEvent(event: ClientEvent) {
@@ -279,6 +315,7 @@ export function createActiveSessionConnection(sessionId: string): ActiveSessionC
 		replay_message: handleMessageEvent,
 		user: handleMessageEvent,
 		replay_in_progress: handleReplayInProgress,
+		assistant_text: handleStreamingEvent,
 		assistant_text_delta: handleStreamingEvent,
 		assistant_thinking: handleStreamingEvent,
 		tool_use: handleStreamingEvent,
@@ -294,7 +331,7 @@ export function createActiveSessionConnection(sessionId: string): ActiveSessionC
 		ask_user_question: handleInteractionEvent,
 		queued_note_sent: handleInteractionEvent,
 		heartbeat: resetHeartbeatWatchdog,
-		assistant_text: noop,
+		config_change: handleConfigChange,
 		tool_progress: noop,
 		compact_boundary: noop
 	};
@@ -314,20 +351,24 @@ export function createActiveSessionConnection(sessionId: string): ActiveSessionC
 			if (!chunk.trim()) continue;
 
 			const lines = chunk.split('\n');
-			let eventData = '';
+			const dataLines: string[] = [];
 
 			for (const line of lines) {
 				if (line.startsWith('data: ')) {
-					eventData = line.slice(6);
+					dataLines.push(line.slice(6));
 				}
 			}
 
-			if (!eventData) continue;
+			if (dataLines.length === 0) continue;
+			const eventData = dataLines.join('\n');
 
 			try {
-				events.push(JSON.parse(eventData) as ClientEvent);
-			} catch {
-				// Skip malformed events
+				const parsed: unknown = JSON.parse(eventData);
+				if (parsed && typeof parsed === 'object' && 'type' in parsed) {
+					events.push(parsed as ClientEvent);
+				}
+			} catch (e) {
+				if (import.meta.env.DEV) console.warn('[SSE] Malformed event:', chunk, e);
 			}
 		}
 
@@ -362,65 +403,58 @@ export function createActiveSessionConnection(sessionId: string): ActiveSessionC
 		}
 	}
 
-	async function scheduleReconnect() {
-		if (disposed || retryCount >= MAX_RETRIES) {
-			if (!disposed) {
-				error = 'Connection lost after maximum retries';
-				state = 'error';
-			}
-			return;
-		}
-
-		reconnecting = true;
-		const backoff = Math.min(BASE_BACKOFF_MS * Math.pow(2, retryCount), MAX_BACKOFF_MS);
-		retryCount++;
-		await new Promise((resolve) => setTimeout(resolve, backoff));
-		connect();
-	}
-
 	async function connect() {
-		if (disposed) return;
+		while (!disposed && retryCount < MAX_RETRIES) {
+			abortController?.abort();
+			const controller = new AbortController();
+			abortController = controller;
 
-		abortController?.abort();
-		const controller = new AbortController();
-		abortController = controller;
+			try {
+				const response = await fetch(`/api/session/${sessionId}/stream`, {
+					signal: controller.signal
+				});
 
-		try {
-			const response = await fetch(`/api/session/${sessionId}/stream`, {
-				signal: controller.signal
-			});
+				if (!response.ok || !response.body) {
+					if (response.status === 404) {
+						state = 'closed';
+						connected = false;
+						reconnecting = false;
+						return;
+					}
+					throw new Error(`Stream responded ${response.status}`);
+				}
 
-			if (!response.ok || !response.body) {
-				if (response.status === 404) {
-					state = 'closed';
-					connected = false;
-					reconnecting = false;
+				connected = true;
+				reconnecting = false;
+				retryCount = 0;
+				error = null;
+				resetHeartbeatWatchdog();
+
+				await readStream(response.body);
+			} catch (err: unknown) {
+				if (err instanceof Error && err.name === 'AbortError' && disposed) {
 					return;
 				}
-				throw new Error(`Stream responded ${response.status}`);
 			}
 
-			connected = true;
-			reconnecting = false;
-			retryCount = 0;
-			error = null;
-			resetHeartbeatWatchdog();
-
-			await readStream(response.body);
-		} catch (err: unknown) {
-			if (err instanceof Error && err.name === 'AbortError' && disposed) {
-				return;
-			}
+			// Connection lost — backoff and retry
+			connected = false;
+			cleanupHeartbeat();
+			reconnecting = true;
+			const backoff = Math.min(BASE_BACKOFF_MS * Math.pow(2, retryCount), MAX_BACKOFF_MS);
+			retryCount++;
+			await new Promise((resolve) => setTimeout(resolve, backoff));
 		}
 
-		connected = false;
-		cleanupHeartbeat();
-		await scheduleReconnect();
+		if (!disposed) {
+			error = 'Connection lost after maximum retries';
+			state = 'error';
+		}
 	}
 
 	// --- API actions ---
 
-	async function apiPost(path: string, body?: Record<string, unknown>) {
+	async function apiPost(path: string, body?: Record<string, unknown>): Promise<boolean> {
 		const response = await fetch(`/api/session/${sessionId}/${path}`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -429,22 +463,41 @@ export function createActiveSessionConnection(sessionId: string): ActiveSessionC
 
 		if (!response.ok) {
 			const data = await response.json().catch(() => ({ error: 'Request failed' }));
-			const errorMsg: string = data.error ?? 'Request failed';
-			error = errorMsg;
-			throw new Error(errorMsg);
+			error = data.error ?? 'Request failed';
+			return false;
 		}
+
+		error = null;
+		return true;
 	}
 
 	async function send(prompt: string) {
-		await apiPost('send', { prompt });
+		const uuid = globalThis.crypto.randomUUID();
+		addOptimisticUserMessage(prompt, uuid);
+		await apiPost('send', { prompt, uuid });
 	}
 
 	async function respondPermission(response: PermissionResponse) {
-		await apiPost('permission', response);
+		const ok = await apiPost('permission', response);
+		if (!ok) return;
+		if (pendingPermission?.id === response.toolUseId) {
+			pendingPermission = null;
+		}
+		if (state === 'awaiting_permission') {
+			state = 'running';
+		}
 	}
 
 	async function respondQuestion(answers: Record<string, string | string[]>) {
-		await apiPost('question', { answers });
+		const activeQuestionId = pendingQuestion?.id;
+		const ok = await apiPost('question', { answers });
+		if (!ok) return;
+		if (pendingQuestion?.id === activeQuestionId) {
+			pendingQuestion = null;
+		}
+		if (state === 'awaiting_input') {
+			state = 'running';
+		}
 	}
 
 	async function interrupt() {

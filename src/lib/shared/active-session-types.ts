@@ -71,6 +71,8 @@ export interface SessionCost {
 
 export interface InProgressTurnSnapshot {
 	uuid: string;
+	/** The SDK assistant message UUID — used for messageBuffer/JSONL consistency. */
+	canonicalUuid?: string;
 	streamingText: string;
 	streamingThinking: string;
 	toolCalls: ToolCall[];
@@ -219,6 +221,12 @@ export interface QueuedNoteSentEvent {
 	note: string;
 }
 
+export interface ConfigChangeEvent {
+	type: 'config_change';
+	model?: string;
+	permissionMode?: PermissionMode;
+}
+
 export interface HeartbeatEvent {
 	type: 'heartbeat';
 }
@@ -245,4 +253,5 @@ export type ClientEvent =
 	| ReplayMessageEvent
 	| ReplayInProgressEvent
 	| QueuedNoteSentEvent
+	| ConfigChangeEvent
 	| HeartbeatEvent;
