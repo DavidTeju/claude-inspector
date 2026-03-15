@@ -1,5 +1,8 @@
 <script lang="ts">
-	import { cubicOut, slide } from 'svelte/easing';
+	// eslint-disable-next-line import-x/no-duplicates
+	import { cubicOut } from 'svelte/easing';
+	// eslint-disable-next-line import-x/no-duplicates
+	import { slide } from 'svelte/transition';
 	import type { PermissionRequest } from '$lib/shared/active-session-types.js';
 
 	const MAX_JSON_PREVIEW_LENGTH = 200;

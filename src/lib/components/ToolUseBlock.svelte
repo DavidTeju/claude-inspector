@@ -1,6 +1,9 @@
 <script lang="ts">
 	import { diffLines } from 'diff';
-	import { cubicOut, slide } from 'svelte/easing';
+	// eslint-disable-next-line import-x/no-duplicates
+	import { cubicOut } from 'svelte/easing';
+	// eslint-disable-next-line import-x/no-duplicates
+	import { slide } from 'svelte/transition';
 	import type { ToolCall } from '$lib/types.js';
 
 	const MAX_INLINE_LENGTH = 80;

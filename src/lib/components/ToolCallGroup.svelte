@@ -1,5 +1,8 @@
 <script lang="ts">
-	import { cubicOut, slide } from 'svelte/easing';
+	// eslint-disable-next-line import-x/no-duplicates
+	import { cubicOut } from 'svelte/easing';
+	// eslint-disable-next-line import-x/no-duplicates
+	import { slide } from 'svelte/transition';
 	import type { ToolCall } from '$lib/types.js';
 	import ToolUseBlock from './ToolUseBlock.svelte';
 
