@@ -1,8 +1,8 @@
-import { svelteConfig } from '@davidteju/dev-config/eslint/svelte';
+import { createConfig } from '@davidteju/dev-config/eslint';
 import svelteConf from './svelte.config.js';
 
 export default [
-	...svelteConfig({ svelteConfig: svelteConf }),
+	...(await createConfig({ framework: 'svelte', svelteConfig: svelteConf })),
 	{
 		ignores: ['workspace/**']
 	},
