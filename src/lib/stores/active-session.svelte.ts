@@ -201,17 +201,16 @@ export function createActiveSessionConnection(
 				}
 				break;
 			case 'tool_result': {
+				const resultEntry = { content: event.result, isError: event.isError };
 				const streamingTool = streamingToolCalls.find((t) => t.id === event.toolId);
 				if (streamingTool) {
-					streamingTool.result = event.result;
-					streamingTool.isError = event.isError;
+					streamingTool.result = resultEntry;
 					break;
 				}
 				for (const msg of messages) {
 					const tool = msg.toolCalls.find((t) => t.id === event.toolId);
 					if (tool) {
-						tool.result = event.result;
-						tool.isError = event.isError;
+						tool.result = resultEntry;
 						break;
 					}
 				}

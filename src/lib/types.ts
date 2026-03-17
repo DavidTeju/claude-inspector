@@ -39,33 +39,61 @@ export interface SessionIndex {
 	entries: SessionEntry[];
 }
 
-/** A content block within a Claude message (text, tool_use, tool_result, thinking, or image) */
-export interface ContentBlock {
-	type: 'text' | 'tool_use' | 'tool_result' | 'thinking' | 'image';
-	text?: string;
-	id?: string;
-	name?: string;
-	input?: Record<string, unknown>;
-	tool_use_id?: string;
-	content?: string | ContentBlock[];
-	is_error?: boolean;
-	thinking?: string;
-	signature?: string;
+export interface TextContentBlock {
+	type: 'text';
+	text: string;
+}
+
+export interface ToolUseContentBlock {
+	type: 'tool_use';
+	id: string;
+	name: string;
+	input: Record<string, unknown>;
 	caller?: string;
-	source?: {
+}
+
+export interface ToolResultContentBlock {
+	type: 'tool_result';
+	toolUseId: string;
+	content?: string | ContentBlock[];
+	isError?: boolean;
+}
+
+export interface ThinkingContentBlock {
+	type: 'thinking';
+	thinking: string;
+	signature?: string;
+}
+
+export interface ImageContentBlock {
+	type: 'image';
+	source: {
 		type?: string;
-		media_type?: string;
+		mediaType?: string;
 		data?: string;
 	};
 }
+
+export type ContentBlock =
+	| TextContentBlock
+	| ToolUseContentBlock
+	| ToolResultContentBlock
+	| ThinkingContentBlock
+	| ImageContentBlock;
+
+export interface ToolResultEntry {
+	content: string | ContentBlock[];
+	isError: boolean;
+}
+
+export type ToolResultMap = Map<string, ToolResultEntry>;
 
 /** A paired tool_use call with its corresponding tool_result */
 export interface ToolCall {
 	id: string;
 	name: string;
 	input: Record<string, unknown>;
-	result?: string | ContentBlock[];
-	isError?: boolean;
+	result?: ToolResultEntry;
 }
 
 /** A processed message for display, with extracted text, tool calls, and thinking blocks */

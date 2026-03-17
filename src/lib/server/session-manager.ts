@@ -35,7 +35,7 @@ import type {
 } from '$lib/shared/active-session-types.js';
 import type { ModelOption } from '$lib/shared/models.js';
 import { FALLBACK_MODELS } from '$lib/shared/models.js';
-import type { ContentBlock, ThreadMessage, ToolCall } from '$lib/types.js';
+import type { ThreadMessage, ToolCall, ToolResultEntry, ToolResultMap } from '$lib/types.js';
 import { getErrorMessage } from '$lib/utils.js';
 import {
 	cleanupOrphanedProcesses as cleanupTrackedProcesses,
@@ -44,10 +44,10 @@ import {
 	removeActiveSessionProcess
 } from './active-pids.js';
 import { getConfig } from './config.js';
-import { parseSessionMessages } from './messages.js';
 import { getProjectsDir } from './paths.js';
 import { normalizeProjectId } from './project-id.js';
 import { reconcileProjectNow } from './reconciler.js';
+import { parseSessionMessages, toSharedContent } from './session-adapters.js';
 import { findSessionFile } from './session-discovery.js';
 
 /** File-local constants */
@@ -125,7 +125,7 @@ export interface ActiveSession {
 	inputQueue: AsyncQueue<SDKUserMessage>;
 	queuedContext: string | null;
 	queuedContextId: SDKUserMessage['uuid'] | null;
-	toolResults: Map<string, { content: string | ContentBlock[]; isError: boolean }>;
+	toolResults: ToolResultMap;
 	dangerousPermissionsAllowed: boolean;
 	lastError: string | null;
 	childPid?: number;
@@ -471,8 +471,7 @@ function addOrReplaceMessage(session: ActiveSession, message: ThreadMessage): vo
 function updateToolResultInBuffer(
 	session: ActiveSession,
 	toolId: string,
-	result: string | ContentBlock[],
-	isError: boolean
+	result: ToolResultEntry
 ): boolean {
 	for (let index = session.messageBuffer.length - 1; index >= 0; index -= 1) {
 		const message = session.messageBuffer[index];
@@ -482,7 +481,6 @@ function updateToolResultInBuffer(
 		if (!toolCall) continue;
 
 		toolCall.result = result;
-		toolCall.isError = isError;
 		return true;
 	}
 
@@ -490,7 +488,6 @@ function updateToolResultInBuffer(
 		const toolCall = session.inProgressTurn.toolCalls.find((entry) => entry.id === toolId);
 		if (toolCall) {
 			toolCall.result = result;
-			toolCall.isError = isError;
 			return true;
 		}
 	}
@@ -520,66 +517,6 @@ function hasOnlyToolResults(content: unknown): boolean {
 	);
 }
 
-function toSharedContent(content: unknown): string | ContentBlock[] {
-	if (typeof content === 'string') return content;
-	if (!Array.isArray(content)) return '';
-	return content
-		.map((block) => toSharedContentBlock(block))
-		.filter((block): block is ContentBlock => block !== null);
-}
-
-function toSharedContentBlock(block: unknown): ContentBlock | null {
-	const candidate = asRecord(block);
-	if (!candidate) return null;
-
-	switch (candidate.type) {
-		case 'text':
-			return {
-				type: 'text',
-				text: asString(candidate.text)
-			};
-		case 'tool_use':
-			return {
-				type: 'tool_use',
-				id: asString(candidate.id),
-				name: asString(candidate.name),
-				input: asRecord(candidate.input) ?? {},
-				caller: asString(candidate.caller)
-			};
-		case 'tool_result':
-			return {
-				type: 'tool_result',
-				tool_use_id: asString(candidate.tool_use_id),
-				content:
-					typeof candidate.content === 'string' || Array.isArray(candidate.content)
-						? toSharedContent(candidate.content)
-						: undefined,
-				is_error: candidate.is_error === true
-			};
-		case 'thinking':
-			return {
-				type: 'thinking',
-				thinking: asString(candidate.thinking),
-				signature: asString(candidate.signature)
-			};
-		case 'image': {
-			const source = asRecord(candidate.source);
-			return {
-				type: 'image',
-				source: source
-					? {
-							type: asString(source.type),
-							media_type: asString(source.media_type),
-							data: asString(source.data)
-						}
-					: undefined
-			};
-		}
-		default:
-			return null;
-	}
-}
-
 function toThreadMessageFromUserMessage(
 	message: SDKUserMessage,
 	timestamp: string
@@ -603,45 +540,37 @@ function toThreadMessageFromUserMessage(
 	};
 }
 
+type AssistantContentBlock = SDKAssistantMessage['message']['content'][number];
+
 /** Extract tool calls from an SDK assistant message's content blocks. */
 function extractToolCallsFromContent(
-	toolResultMap: Map<string, { content: string | ContentBlock[]; isError: boolean }>,
-	content: unknown[]
+	toolResultMap: ToolResultMap,
+	content: AssistantContentBlock[]
 ): ToolCall[] {
 	const toolCalls: ToolCall[] = [];
 	for (const block of content) {
-		const candidate = asRecord(block);
-		if (!candidate || candidate.type !== 'tool_use') continue;
+		if (block.type !== 'tool_use') continue;
 
-		const toolId = asString(candidate.id);
-		if (!toolId) continue;
-
-		const priorResult = toolResultMap.get(toolId);
+		const priorResult = toolResultMap.get(block.id);
 		toolCalls.push({
-			id: toolId,
-			name: asString(candidate.name) ?? 'unknown',
-			input: asRecord(candidate.input) ?? {},
-			result: priorResult?.content,
-			isError: priorResult?.isError
+			id: block.id,
+			name: block.name,
+			input: block.input as Record<string, unknown>,
+			result: priorResult
 		});
 		if (priorResult) {
-			toolResultMap.delete(toolId);
+			toolResultMap.delete(block.id);
 		}
 	}
 	return toolCalls;
 }
 
 /** Extract thinking text from an SDK assistant message's content blocks. */
-function extractThinkingTexts(content: unknown[]): string[] {
+function extractThinkingTexts(content: AssistantContentBlock[]): string[] {
 	const thinkingBlocks: string[] = [];
 	for (const block of content) {
-		const candidate = asRecord(block);
-		if (!candidate || candidate.type !== 'thinking') continue;
-
-		const thinking = asString(candidate.thinking);
-		if (thinking) {
-			thinkingBlocks.push(thinking);
-		}
+		if (block.type !== 'thinking') continue;
+		thinkingBlocks.push(block.thinking);
 	}
 	return thinkingBlocks;
 }
@@ -652,9 +581,9 @@ function toThreadMessageFromAssistantMessage(
 	timestamp: string
 ): ThreadMessage | null {
 	const textParts = extractTextParts(message.message.content);
-	const contentBlocks = Array.isArray(message.message.content) ? message.message.content : [];
-	const toolCalls = extractToolCallsFromContent(session.toolResults, contentBlocks as unknown[]);
-	const thinkingBlocks = extractThinkingTexts(contentBlocks as unknown[]);
+	const contentBlocks = message.message.content;
+	const toolCalls = extractToolCallsFromContent(session.toolResults, contentBlocks);
+	const thinkingBlocks = extractThinkingTexts(contentBlocks);
 
 	const textContent = textParts.join('').trim();
 	if (!textContent && toolCalls.length === 0 && thinkingBlocks.length === 0) {
@@ -1140,68 +1069,29 @@ function handleStreamEventMessage(session: ActiveSession, message: SDKStreamEven
 	}
 }
 
-type ClassifiedContentBlock =
-	| { type: 'text'; text: string }
-	| { type: 'thinking'; thinking: string }
-	| { type: 'tool_use'; toolId: string; toolName: string; input: Record<string, unknown> };
-
-/** Classify a raw content block into a typed discriminated object, or null if unrecognised. */
-function classifyContentBlock(block: unknown): ClassifiedContentBlock | null {
-	const candidate = asRecord(block);
-	if (!candidate) return null;
-
-	if (candidate.type === 'text') {
-		const text = asString(candidate.text);
-		return text ? { type: 'text', text } : null;
-	}
-
-	if (candidate.type === 'thinking') {
-		const thinking = asString(candidate.thinking);
-		return thinking ? { type: 'thinking', thinking } : null;
-	}
-
-	if (candidate.type === 'tool_use') {
-		const toolId = asString(candidate.id);
-		if (!toolId) return null;
-		return {
-			type: 'tool_use',
-			toolId,
-			toolName: asString(candidate.name) ?? 'unknown',
-			input: asRecord(candidate.input) ?? {}
-		};
-	}
-
-	return null;
-}
-
 function broadcastAssistantContentBlocks(
 	session: ActiveSession,
 	message: SDKAssistantMessage
 ): void {
-	if (!Array.isArray(message.message.content)) return;
-
 	const broadcastUuid = turnUuid(session, message.uuid);
 	const finalTextBlocks: string[] = [];
 	const finalThinkingBlocks: string[] = [];
 
 	for (const block of message.message.content) {
-		const classified = classifyContentBlock(block);
-		if (!classified) continue;
-
-		switch (classified.type) {
+		switch (block.type) {
 			case 'text':
-				finalTextBlocks.push(classified.text);
+				finalTextBlocks.push(block.text);
 				break;
 			case 'thinking':
-				finalThinkingBlocks.push(classified.thinking);
+				finalThinkingBlocks.push(block.thinking);
 				break;
 			case 'tool_use':
 				broadcast(session, {
 					type: 'tool_use',
 					uuid: broadcastUuid,
-					toolId: classified.toolId,
-					toolName: classified.toolName,
-					input: classified.input
+					toolId: block.id,
+					toolName: block.name,
+					input: block.input as Record<string, unknown>
 				});
 				break;
 		}
@@ -1276,18 +1166,19 @@ function handleUserSdkMessage(
 			const toolId = asString(candidate.tool_use_id);
 			if (!toolId) continue;
 
-			const result = toSharedContent(candidate.content);
+			const content = toSharedContent(candidate.content);
 			const isError = candidate.is_error === true;
-			const attachedToTurn = updateToolResultInBuffer(session, toolId, result, isError);
+			const resultEntry: ToolResultEntry = { content, isError };
+			const attachedToTurn = updateToolResultInBuffer(session, toolId, resultEntry);
 			if (!attachedToTurn) {
-				session.toolResults.set(toolId, { content: result, isError });
+				session.toolResults.set(toolId, resultEntry);
 			} else {
 				session.toolResults.delete(toolId);
 			}
 			broadcast(session, {
 				type: 'tool_result',
 				toolId,
-				result,
+				result: content,
 				isError
 			});
 		}
