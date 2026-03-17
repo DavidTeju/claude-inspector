@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import type { PermissionResponse } from '$lib/shared/active-session-types.js';
 	import type { ActiveSessionClient } from '$lib/stores/active-session.svelte.js';
 	import type { ThreadMessage } from '$lib/types.js';
@@ -54,28 +55,29 @@
 		containerEl?.scrollTo({ top: containerEl.scrollHeight, behavior: 'smooth' });
 	}
 
-	// Auto-scroll when new content arrives and user is near bottom
+	// Reset isNearBottom when the session changes
 	$effect(() => {
 		if (session) {
-			// Live mode: track all streaming state for auto-scroll triggers
-			void session.sessionId;
+			if (session.sessionId !== lastSessionId) {
+				lastSessionId = session.sessionId;
+				isNearBottom = true;
+			}
+		}
+	});
+
+	// Auto-scroll when new content arrives and user is near bottom.
+	// Uses untrack on isNearBottom so scroll-handler changes don't re-trigger this effect.
+	$effect(() => {
+		if (session) {
 			void session.messages;
 			void session.streamingText;
 			void session.streamingThinking;
 			void session.streamingToolCalls.length;
 			void session.pendingPermission;
 			void session.pendingQuestion;
-
-			if (session.sessionId !== lastSessionId) {
-				lastSessionId = session.sessionId;
-				isNearBottom = true;
-			}
-		} else {
-			// Static mode: track message prop for reactivity (e.g. navigation)
-			void staticMessages;
 		}
 
-		if (isNearBottom && containerEl && !scrollPending) {
+		if (untrack(() => isNearBottom) && containerEl && !scrollPending) {
 			scrollPending = true;
 			requestAnimationFrame(() => {
 				containerEl?.scrollTo({ top: containerEl.scrollHeight });
