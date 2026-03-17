@@ -9,7 +9,7 @@
 		type ActiveSessionClient
 	} from '$lib/stores/active-session.svelte.js';
 	import type { ThreadMessage } from '$lib/types.js';
-	import { dirNameToDisplayName } from '$lib/utils.js';
+	import { dirNameToDisplayName, uuid } from '$lib/utils.js';
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
 
@@ -130,7 +130,7 @@
 
 			// Create optimistic user message so it's visible immediately
 			pendingResumeMessage = {
-				uuid: globalThis.crypto.randomUUID(),
+				uuid: uuid(),
 				role: 'user',
 				timestamp: new Date().toISOString(),
 				textContent: prompt,

@@ -10,6 +10,7 @@ import type {
 	SessionCost
 } from '$lib/shared/active-session-types.js';
 import type { ThreadMessage, ToolCall } from '$lib/types.js';
+import { uuid } from '$lib/utils.js';
 
 const SSE_DATA_PREFIX_LENGTH = 'data: '.length;
 
@@ -489,9 +490,9 @@ export function createActiveSessionConnection(
 	}
 
 	async function send(prompt: string) {
-		const uuid = globalThis.crypto.randomUUID();
-		addOptimisticUserMessage(prompt, uuid);
-		await apiPost('send', { prompt, uuid });
+		const messageUuid = uuid();
+		addOptimisticUserMessage(prompt, messageUuid);
+		await apiPost('send', { prompt, uuid: messageUuid });
 	}
 
 	async function respondPermission(response: PermissionResponse) {
