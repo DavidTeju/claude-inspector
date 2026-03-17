@@ -1,15 +1,14 @@
 <script lang="ts">
 	import ProjectCard from '$lib/components/ProjectCard.svelte';
+	import SearchInput from '$lib/components/SearchInput.svelte';
 	import SearchResultCard from '$lib/components/SearchResultCard.svelte';
 	import { STAGGER_BASE_MS, STAGGER_DELAY_MS } from '$lib/constants.js';
 	import type { Project, SearchResult } from '$lib/types.js';
-	import { pluralize } from '$lib/utils.js';
-	import { page } from '$app/state';
-
-	const SEARCH_DEBOUNCE_MS = 300;
+	import { getErrorMessage, pluralize } from '$lib/utils.js';
 
 	const EVENT_PREFIX = 'event: ';
 	const DATA_PREFIX = 'data: ';
+	const RESULTS_PER_PAGE = 20;
 
 	type SearchSortMode = 'relevance' | 'newest' | 'oldest';
 
@@ -72,11 +71,9 @@
 	let results: SearchResult[] = $state([]);
 	let searchSortMode = $state<SearchSortMode>('relevance');
 	let isSearching = $state(false);
+	let searchError = $state<string | null>(null);
 	let abortController: AbortController | null = $state(null);
-	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-	let searchInput: HTMLInputElement;
 	let showResults = $derived(searchQuery.length >= 2);
-	const RESULTS_PER_PAGE = 20;
 	let displayCount = $state(RESULTS_PER_PAGE);
 	let sortedResults = $derived.by(() => {
 		return [...results].sort((a, b) => {
@@ -91,31 +88,6 @@
 	let visibleResults = $derived(sortedResults.slice(0, displayCount));
 	let hasMore = $derived(sortedResults.length > displayCount);
 
-	// Auto-focus the search input on mount, and pick up ?q= from URL
-	$effect(() => {
-		if (searchInput) {
-			searchInput.focus();
-		}
-		const urlQuery = page.url?.searchParams.get('q');
-		if (urlQuery) {
-			searchQuery = urlQuery;
-			executeSearch(urlQuery);
-		}
-	});
-
-	function handleInput() {
-		if (debounceTimer) clearTimeout(debounceTimer);
-
-		if (searchQuery.length < 2) {
-			cancelSearch();
-			return;
-		}
-
-		debounceTimer = setTimeout(() => {
-			executeSearch(searchQuery);
-		}, SEARCH_DEBOUNCE_MS);
-	}
-
 	function cancelSearch() {
 		if (abortController) {
 			abortController.abort();
@@ -123,15 +95,15 @@
 		}
 		results = [];
 		isSearching = false;
-	}
-
-	function clearSearch() {
-		searchQuery = '';
-		cancelSearch();
-		searchInput?.focus();
+		searchError = null;
 	}
 
 	async function executeSearch(query: string) {
+		if (!query || query.length < 2) {
+			cancelSearch();
+			return;
+		}
+
 		if (abortController) {
 			abortController.abort();
 		}
@@ -141,6 +113,7 @@
 		results = [];
 		displayCount = RESULTS_PER_PAGE;
 		isSearching = true;
+		searchError = null;
 
 		try {
 			const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`, {
@@ -149,6 +122,7 @@
 
 			if (!response.ok || !response.body) {
 				isSearching = false;
+				searchError = `Search failed (${response.status})`;
 				return;
 			}
 
@@ -158,8 +132,11 @@
 
 					if (event.type === 'result') {
 						results.push(parsed as SearchResult);
-					} else if (event.type === 'done' || event.type === 'error') {
+					} else if (event.type === 'done') {
 						isSearching = false;
+					} else if (event.type === 'error') {
+						isSearching = false;
+						searchError = parsed.message ?? 'Search encountered an error';
 					}
 				} catch {
 					// Skip malformed event data
@@ -169,13 +146,9 @@
 			if (err instanceof Error && err.name === 'AbortError') {
 				return;
 			}
+			console.error('[search] Search failed:', err);
+			searchError = `Search failed: ${getErrorMessage(err)}`;
 			isSearching = false;
-		}
-	}
-
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Escape') {
-			clearSearch();
 		}
 	}
 </script>
@@ -192,54 +165,17 @@
 		</p>
 	</div>
 
-	<!-- Spotlight search input -->
-	<div class="mb-6">
-		<div class="relative">
-			<svg
-				class="text-text-500 absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="2"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-				/>
-			</svg>
-			<input
-				bind:this={searchInput}
-				bind:value={searchQuery}
-				oninput={handleInput}
-				onkeydown={handleKeydown}
-				type="text"
-				placeholder="Search sessions..."
-				class="input-glow border-surface-800 bg-surface-900 text-text-100 placeholder-text-500 focus:border-accent-500/50 w-full rounded-xl border py-3.5 pr-10 pl-12 text-base transition-colors outline-none"
-			/>
-			{#if searchQuery}
-				<button
-					onclick={clearSearch}
-					class="text-text-500 hover:text-text-300 absolute top-1/2 right-3 -translate-y-1/2"
-					aria-label="Clear search"
-				>
-					<svg
-						class="h-4 w-4"
-						fill="none"
-						viewBox="0 0 24 24"
-						stroke="currentColor"
-						stroke-width="2"
-					>
-						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-					</svg>
-				</button>
-			{/if}
-		</div>
-	</div>
+	<SearchInput bind:query={searchQuery} onSearch={executeSearch} />
 
 	{#if showResults}
 		<!-- Search results -->
 		<div>
+			{#if searchError}
+				<div class="bg-error-500/10 text-error-400 mb-4 rounded-md px-3 py-2 text-center text-xs">
+					{searchError}
+				</div>
+			{/if}
+
 			<div
 				class="text-text-500 mb-4 flex flex-col gap-3 text-xs sm:flex-row sm:items-center sm:justify-between"
 			>
