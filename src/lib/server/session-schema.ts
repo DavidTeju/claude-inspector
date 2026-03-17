@@ -1,5 +1,13 @@
+/**
+ * @module
+ * Normalized schema for Claude session JSONL records. The parser separates
+ * thread records from metadata records and preserves Inspector-specific logic
+ * around hidden `isMeta` user messages.
+ */
+
 type JsonObject = Record<string, unknown>;
 
+/** All normalized record types that may appear in a Claude session JSONL file. */
 export type SessionRecordType =
 	| 'user'
 	| 'assistant'
@@ -219,20 +227,24 @@ export function isThreadRecord(record: ClaudeSessionRecord): record is ThreadRec
 	);
 }
 
+/** Narrows `type: "user"` records to real human/API user turns, excluding tool-result wrappers. */
 export function isUserRecord(record: ClaudeSessionRecord): record is UserRecord {
 	return record.type === 'user' && 'recordKind' in record && record.recordKind === 'user';
 }
 
+/** Narrows `type: "user"` records to tool-result carriers derived from assistant tool calls. */
 export function isToolResultRecord(record: ClaudeSessionRecord): record is ToolResultRecord {
 	return record.type === 'user' && 'recordKind' in record && record.recordKind === 'tool_result';
 }
 
+/** Narrows to the raw API-level `user` envelope before distinguishing user vs tool_result semantics. */
 export function isApiUserRecord(
 	record: ClaudeSessionRecord
 ): record is UserRecord | ToolResultRecord {
 	return record.type === 'user';
 }
 
+/** Narrows to assistant turns that may contain text, thinking, tools, and token usage metadata. */
 export function isAssistantRecord(record: ClaudeSessionRecord): record is AssistantRecord {
 	return record.type === 'assistant';
 }
@@ -247,6 +259,12 @@ export function extractTextFromMessageContent(content: ClaudeMessageContent | un
 		.join('');
 }
 
+/**
+ * Parses raw `type: "user"` JSON into either a user turn or a tool-result carrier.
+ * The `isMeta` and `promptId` checks intentionally hide Claude-injected plumbing
+ * such as skill expansion prompts, plan-mode exit messages, and transcript-only
+ * tool result wrappers while still letting pasted image-only records through.
+ */
 function parseUserRecord(record: JsonObject): UserRecord | ToolResultRecord | null {
 	const base = parseThreadRecordBase(record);
 	const message = parseUserMessage(record.message);
