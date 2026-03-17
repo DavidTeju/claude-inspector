@@ -29,8 +29,11 @@
 	// survives until SvelteKit re-runs the server load with the real isActive flag.
 	let activatedLocally = $state(false);
 
-	// Plain (non-reactive) variable — holds optimistic user message from resume flow.
-	// The $effect picks it up when activatedLocally triggers, includes it in seed messages.
+	// Plain (non-reactive) variable — holds optimistic user message from the idle/closed
+	// resume flow. This still exists even though the server now writes the resumed prompt
+	// into messageBuffer immediately: it covers the short client-side gap between the
+	// successful POST /start response and the first SSE replay snapshot for the reactivated
+	// session. Once replay attaches, client UUID dedup keeps the canonical server message.
 	let pendingResumeMessage: ThreadMessage | null = null;
 
 	// Derive page mode from session state and server data
@@ -75,6 +78,8 @@
 		const shouldConnect = data.isActive || activatedLocally;
 
 		if (shouldConnect) {
+			// If we just resumed locally, seed the connection with the optimistic resume
+			// message so the thread stays populated until replay catches up from the server.
 			const seedMessages = pendingResumeMessage
 				? [...data.messages, pendingResumeMessage]
 				: data.messages;
@@ -152,7 +157,8 @@
 			// Disconnect old connection if any (e.g. session was in 'closed' state)
 			session?.disconnect();
 
-			// Create optimistic user message so it's visible immediately
+			// Create a short-lived optimistic user message for the local resume handoff.
+			// The server-side messageBuffer now guarantees the replay/source-of-truth copy.
 			pendingResumeMessage = {
 				uuid: globalThis.crypto.randomUUID(),
 				role: 'user',
