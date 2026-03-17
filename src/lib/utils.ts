@@ -7,6 +7,39 @@ import {
 	DAYS_PER_WEEK
 } from '$lib/constants.js';
 
+/** Generate a v4 UUID, with fallback for browsers lacking crypto.randomUUID. */
+export function uuid(): string {
+	if (typeof globalThis.crypto?.randomUUID === 'function') {
+		return globalThis.crypto.randomUUID();
+	}
+	return uuidFromBytes();
+}
+
+const UUID_BYTE_COUNT = 16;
+const UUID_VERSION_INDEX = 6;
+const UUID_VARIANT_INDEX = 8;
+const UUID_VERSION_MASK = 0x0f;
+const UUID_VERSION_4 = 0x40;
+const UUID_VARIANT_MASK = 0x3f;
+const UUID_VARIANT_RFC4122 = 0x80;
+const HEX_RADIX = 16;
+const HEX_PAD_LENGTH = 2;
+const UUID_GROUP_1 = 0;
+const UUID_GROUP_2 = 8;
+const UUID_GROUP_3 = 12;
+const UUID_GROUP_4 = 16;
+const UUID_GROUP_5 = 20;
+
+function uuidFromBytes(): string {
+	const bytes = new Uint8Array(UUID_BYTE_COUNT);
+	globalThis.crypto.getRandomValues(bytes);
+	bytes[UUID_VERSION_INDEX] = (bytes[UUID_VERSION_INDEX] & UUID_VERSION_MASK) | UUID_VERSION_4;
+	bytes[UUID_VARIANT_INDEX] =
+		(bytes[UUID_VARIANT_INDEX] & UUID_VARIANT_MASK) | UUID_VARIANT_RFC4122;
+	const hex = [...bytes].map((b) => b.toString(HEX_RADIX).padStart(HEX_PAD_LENGTH, '0')).join('');
+	return `${hex.slice(UUID_GROUP_1, UUID_GROUP_2)}-${hex.slice(UUID_GROUP_2, UUID_GROUP_3)}-${hex.slice(UUID_GROUP_3, UUID_GROUP_4)}-${hex.slice(UUID_GROUP_4, UUID_GROUP_5)}-${hex.slice(UUID_GROUP_5)}`;
+}
+
 /**
  * Converts a Claude project directory name to a human-readable display name.
  * Strips the path-encoded prefix (e.g. "-Users-david-projects-myapp" -> "myapp")
