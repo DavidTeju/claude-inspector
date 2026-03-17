@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
 	import type { PermissionResponse } from '$lib/shared/active-session-types.js';
 	import type { ActiveSessionClient } from '$lib/stores/active-session.svelte.js';
 	import type { ThreadMessage } from '$lib/types.js';
@@ -55,37 +54,45 @@
 		containerEl?.scrollTo({ top: containerEl.scrollHeight, behavior: 'smooth' });
 	}
 
-	// Reset isNearBottom when the session changes
+	// Auto-scroll when new content arrives and user is near bottom.
+	//
+	// IMPORTANT: This must be a post-DOM $effect (not $effect.pre) because the
+	// scroll decision depends on layout geometry that only exists after render.
+	// $effect.pre checks isNearBottom against an empty/stale container, causing
+	// false positives.
+	//
+	// Both branches (session and static) must register reactive dependencies so
+	// the effect re-runs when content changes in either mode. Removing the static
+	// branch breaks idle-session scroll-to-bottom on initial load.
+	//
+	// TODO: Replace this effect-based approach with MutationObserver + ResizeObserver
+	// to decouple scroll behavior from Svelte's reactivity system entirely.
+	// See: https://github.com/DavidTeju/claude-inspector/issues/46
 	$effect(() => {
 		if (session) {
-			if (session.sessionId !== lastSessionId) {
-				lastSessionId = session.sessionId;
-				isNearBottom = true;
-			}
-		}
-	});
-
-	// Auto-scroll when new content arrives and user is near bottom.
-	// Uses $effect.pre to run before DOM update; untrack isolates side-effect reads.
-	$effect.pre(() => {
-		if (session) {
+			void session.sessionId;
 			void session.messages;
 			void session.streamingText;
 			void session.streamingThinking;
 			void session.streamingToolCalls.length;
 			void session.pendingPermission;
 			void session.pendingQuestion;
+
+			if (session.sessionId !== lastSessionId) {
+				lastSessionId = session.sessionId;
+				isNearBottom = true;
+			}
+		} else {
+			void staticMessages;
 		}
 
-		untrack(() => {
-			if (isNearBottom && containerEl && !scrollPending) {
-				scrollPending = true;
-				requestAnimationFrame(() => {
-					containerEl?.scrollTo({ top: containerEl.scrollHeight });
-					scrollPending = false;
-				});
-			}
-		});
+		if (isNearBottom && containerEl && !scrollPending) {
+			scrollPending = true;
+			requestAnimationFrame(() => {
+				containerEl?.scrollTo({ top: containerEl.scrollHeight });
+				scrollPending = false;
+			});
+		}
 	});
 </script>
 
