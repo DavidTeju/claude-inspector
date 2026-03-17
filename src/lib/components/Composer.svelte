@@ -116,12 +116,14 @@
 			}
 			if (e.key === 'Tab') {
 				e.preventDefault();
-				acceptCommand(filteredCommands[selectedIndex]);
+				const cmd = filteredCommands[selectedIndex] ?? filteredCommands[0];
+				if (cmd) acceptCommand(cmd);
 				return;
 			}
 			if (e.key === 'Enter' && !e.shiftKey) {
 				e.preventDefault();
-				acceptCommand(filteredCommands[selectedIndex]);
+				const cmd = filteredCommands[selectedIndex] ?? filteredCommands[0];
+				if (cmd) acceptCommand(cmd);
 				return;
 			}
 			if (e.key === 'Escape') {
