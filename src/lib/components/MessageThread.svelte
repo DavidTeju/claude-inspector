@@ -66,8 +66,8 @@
 	});
 
 	// Auto-scroll when new content arrives and user is near bottom.
-	// Uses untrack on isNearBottom so scroll-handler changes don't re-trigger this effect.
-	$effect(() => {
+	// Uses $effect.pre to run before DOM update; untrack isolates side-effect reads.
+	$effect.pre(() => {
 		if (session) {
 			void session.messages;
 			void session.streamingText;
@@ -77,13 +77,15 @@
 			void session.pendingQuestion;
 		}
 
-		if (untrack(() => isNearBottom) && containerEl && !scrollPending) {
-			scrollPending = true;
-			requestAnimationFrame(() => {
-				containerEl?.scrollTo({ top: containerEl.scrollHeight });
-				scrollPending = false;
-			});
-		}
+		untrack(() => {
+			if (isNearBottom && containerEl && !scrollPending) {
+				scrollPending = true;
+				requestAnimationFrame(() => {
+					containerEl?.scrollTo({ top: containerEl.scrollHeight });
+					scrollPending = false;
+				});
+			}
+		});
 	});
 </script>
 
