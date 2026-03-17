@@ -30,12 +30,24 @@
 
 	let text = $state('');
 	let textareaEl: HTMLTextAreaElement | undefined = $state();
+	let measureEl: HTMLSpanElement | undefined = $state();
 	let selectedIndex = $state(0);
+	let caretLeftPx = $state(0);
 
 	// Slash command autocomplete: active when text starts with "/" and has available commands
 	let slashQuery = $derived(
 		text.startsWith('/') && !text.includes(' ') && !text.includes('\n') ? text.slice(1) : null
 	);
+
+	// Measure caret position using a hidden span that mirrors the textarea font
+	$effect(() => {
+		if (!measureEl || !textareaEl || slashQuery === null) return;
+		const style = getComputedStyle(textareaEl);
+		measureEl.style.font = style.font;
+		measureEl.style.letterSpacing = style.letterSpacing;
+		measureEl.textContent = text;
+		caretLeftPx = measureEl.offsetWidth;
+	});
 
 	let filteredCommands = $derived.by(() => {
 		if (slashQuery === null || slashCommands.length === 0) return [];
@@ -157,10 +169,11 @@
 
 <div class="border-surface-800 bg-surface-900/50 rounded-xl border">
 	<div class="relative">
-		<!-- Slash command popup (above the textarea) -->
+		<!-- Slash command popup (above the textarea, follows cursor) -->
 		{#if showCommandList}
 			<div
-				class="border-surface-700 bg-surface-900 absolute bottom-full left-0 z-20 mb-1 w-full overflow-hidden rounded-lg border shadow-lg"
+				class="border-surface-700 bg-surface-900 absolute bottom-full z-20 mb-1 max-w-xs overflow-hidden rounded-lg border shadow-lg"
+				style="left: {caretLeftPx}px;"
 				role="listbox"
 				aria-label="Slash commands"
 			>
@@ -168,22 +181,29 @@
 					<button
 						role="option"
 						aria-selected={i === selectedIndex}
-						class="flex w-full items-baseline gap-2 px-3 py-2 text-left text-sm transition-colors {i ===
+						class="flex w-full items-baseline gap-2 px-3 py-1.5 text-left text-xs transition-colors {i ===
 						selectedIndex
 							? 'bg-accent-500/15 text-text-100'
 							: 'text-text-300 hover:bg-surface-800'}"
 						onmouseenter={() => (selectedIndex = i)}
 						onclick={() => acceptCommand(cmd)}
 					>
-						<span class="text-accent-400 font-medium">/{cmd.name}</span>
+						<span class="text-accent-400 shrink-0 font-medium">/{cmd.name}</span>
 						{#if cmd.argumentHint}
-							<span class="text-text-600 text-xs">{cmd.argumentHint}</span>
+							<span class="text-text-600 shrink-0">{cmd.argumentHint}</span>
 						{/if}
-						<span class="text-text-500 ml-auto truncate text-xs">{cmd.description}</span>
+						<span class="text-text-500 ml-auto truncate">{cmd.description}</span>
 					</button>
 				{/each}
 			</div>
 		{/if}
+
+		<!-- Hidden span to measure caret position -->
+		<span
+			bind:this={measureEl}
+			class="pointer-events-none invisible absolute top-0 left-4 whitespace-pre text-sm"
+			aria-hidden="true"
+		></span>
 
 		<textarea
 			bind:this={textareaEl}
