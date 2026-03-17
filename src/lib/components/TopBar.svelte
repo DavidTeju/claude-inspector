@@ -48,7 +48,7 @@
 </script>
 
 <header
-	class="border-surface-800 bg-surface-950/88 flex items-center gap-4 border-b px-4 py-4.5 backdrop-blur-md lg:px-6"
+	class="border-surface-800 bg-surface-950/88 flex items-center gap-4 border-b px-4 py-2.5 backdrop-blur-md lg:px-6"
 >
 	{#if !sidebarOpen}
 		<button onclick={onToggleSidebar} class="btn-icon-lg" aria-label="Open sidebar">

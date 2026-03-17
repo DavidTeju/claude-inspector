@@ -1,6 +1,6 @@
 <script lang="ts">
 	const DRAFT_SAVE_DEBOUNCE_MS = 500;
-	const MIN_TEXTAREA_HEIGHT = 44;
+	const MIN_TEXTAREA_HEIGHT = 36;
 	const MAX_TEXTAREA_HEIGHT = 200;
 
 	let {
@@ -88,12 +88,12 @@
 			{placeholder}
 			{disabled}
 			rows="1"
-			class="text-text-100 placeholder-text-500 w-full resize-none bg-transparent px-4 py-3.5 text-base focus:outline-none disabled:opacity-40 supports-[field-sizing:content]:field-sizing-content"
-			style="min-height: 48px; max-height: 200px;"
+			class="text-text-100 placeholder-text-500 w-full resize-none bg-transparent px-4 py-2.5 text-sm focus:outline-none disabled:opacity-40 supports-[field-sizing:content]:field-sizing-content"
+			style="min-height: 36px; max-height: 200px;"
 		></textarea>
 
 		{#if suggestion && !text.trim()}
-			<div class="text-text-700 pointer-events-none absolute top-3.5 left-4 text-base">
+			<div class="text-text-700 pointer-events-none absolute top-2.5 left-4 text-sm">
 				{suggestion}
 				<span class="border-surface-700 text-text-500 ml-2 rounded border px-1 py-0.5 text-[10px]"
 					>Tab</span
@@ -102,7 +102,7 @@
 		{/if}
 	</div>
 
-	<div class="border-surface-800/50 flex items-center justify-between border-t px-3 py-2.5">
+	<div class="border-surface-800/50 flex items-center justify-between border-t px-3 py-1.5">
 		<span class="text-text-700 text-[11px]">
 			{#if isQueuing}
 				Message will be queued

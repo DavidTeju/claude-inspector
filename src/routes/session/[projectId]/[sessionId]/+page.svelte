@@ -243,7 +243,7 @@
 		<!-- Composer (visible for resumable sessions and active sessions) -->
 		{#if showComposer}
 			<div
-				class="border-surface-800 bg-surface-950/88 z-10 flex-shrink-0 border-t p-4 backdrop-blur-sm"
+				class="border-surface-800 bg-surface-950/88 z-10 flex-shrink-0 border-t px-4 py-2 backdrop-blur-sm"
 			>
 				<Composer
 					onSubmit={handleSubmit}

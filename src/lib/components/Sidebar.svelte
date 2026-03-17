@@ -38,9 +38,9 @@
 		lg:transition-all lg:duration-250
 		{open ? 'lg:w-64' : 'lg:w-0 lg:overflow-hidden'}"
 >
-	<div class="border-surface-800 flex items-center justify-between border-b p-4">
+	<div class="border-surface-800 flex items-center justify-between border-b px-4 py-2.5">
 		<a href={resolve('/')} class="min-w-0">
-			<BrandMark compact={true} />
+			<BrandMark />
 		</a>
 		<div class="flex items-center gap-1.5">
 			<button
