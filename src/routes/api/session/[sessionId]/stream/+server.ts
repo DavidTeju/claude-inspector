@@ -45,7 +45,8 @@ export const GET: RequestHandler = async ({ params }) => {
 					state: subscription.snapshot.state,
 					model: subscription.snapshot.model,
 					permissionMode: subscription.snapshot.permissionMode,
-					dangerousPermissionsAllowed: subscription.snapshot.dangerousPermissionsAllowed
+					dangerousPermissionsAllowed: subscription.snapshot.dangerousPermissionsAllowed,
+					error: subscription.snapshot.lastError ?? null
 				})
 			) {
 				unsubscribe();

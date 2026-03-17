@@ -9,7 +9,7 @@
 		type ActiveSessionClient
 	} from '$lib/stores/active-session.svelte.js';
 	import type { ThreadMessage } from '$lib/types.js';
-	import { dirNameToDisplayName, uuid } from '$lib/utils.js';
+	import { dirNameToDisplayName, getErrorMessage, uuid } from '$lib/utils.js';
 	import { browser } from '$app/environment';
 	import { resolve } from '$app/paths';
 
@@ -142,8 +142,9 @@
 
 			// Trigger the $effect to create a new SSE connection
 			activatedLocally = true;
-		} catch {
-			resumeError = 'Failed to resume session';
+		} catch (err: unknown) {
+			console.error('[session] Resume failed:', err);
+			resumeError = `Failed to resume session: ${getErrorMessage(err)}`;
 		} finally {
 			resuming = false;
 		}
