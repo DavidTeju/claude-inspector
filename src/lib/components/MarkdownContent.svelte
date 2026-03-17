@@ -68,6 +68,9 @@
 </div>
 
 <style>
+	.markdown-body {
+		overflow-wrap: anywhere;
+	}
 	.markdown-body :global(p) {
 		margin-bottom: 0.5em;
 		color: var(--color-text-300);
