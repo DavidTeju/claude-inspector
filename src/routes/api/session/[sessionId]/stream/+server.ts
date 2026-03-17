@@ -1,5 +1,5 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { getActiveSession, subscribe } from '$lib/server/session-manager.js';
+import { getActiveSession, getCachedSlashCommands, subscribe } from '$lib/server/session-manager.js';
 import type { ClientEvent } from '$lib/shared/active-session-types.js';
 
 const encoder = new TextEncoder();
@@ -91,6 +91,19 @@ export const GET: RequestHandler = async ({ params }) => {
 				!enqueueEvent(controller, {
 					type: 'ask_user_question',
 					request: subscription.snapshot.pendingQuestion
+				})
+			) {
+				unsubscribe();
+				return;
+			}
+
+			// Send cached slash commands if available
+			const slashCommands = getCachedSlashCommands();
+			if (
+				slashCommands.length > 0 &&
+				!enqueueEvent(controller, {
+					type: 'slash_commands',
+					commands: slashCommands
 				})
 			) {
 				unsubscribe();

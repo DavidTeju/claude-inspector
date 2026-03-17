@@ -7,7 +7,8 @@ import type {
 	PermissionRequest,
 	PermissionResponse,
 	AskUserQuestionRequest,
-	SessionCost
+	SessionCost,
+	SlashCommand
 } from '$lib/shared/active-session-types.js';
 import type { ThreadMessage, ToolCall } from '$lib/types.js';
 
@@ -29,6 +30,7 @@ export interface ActiveSessionClient {
 	readonly cost: SessionCost;
 	readonly error: string | null;
 	readonly promptSuggestion: string;
+	readonly slashCommands: SlashCommand[];
 	readonly dangerousPermissionsAllowed: boolean;
 	readonly connected: boolean;
 	readonly reconnecting: boolean;
@@ -76,6 +78,7 @@ export function createActiveSessionConnection(
 	let cost = $state<SessionCost>({ ...EMPTY_COST });
 	let error = $state<string | null>(null);
 	let promptSuggestion = $state('');
+	let slashCommands = $state<SlashCommand[]>([]);
 	let connected = $state(false);
 	let reconnecting = $state(false);
 
@@ -318,6 +321,11 @@ export function createActiveSessionConnection(
 		streamingModel = snap.model;
 	}
 
+	function handleSlashCommands(event: ClientEvent) {
+		if (event.type !== 'slash_commands') return;
+		slashCommands = event.commands;
+	}
+
 	const noop = () => {};
 
 	const eventHandlers: Record<ClientEvent['type'], (event: ClientEvent) => void> = {
@@ -342,6 +350,7 @@ export function createActiveSessionConnection(
 		queued_note_sent: handleInteractionEvent,
 		heartbeat: resetHeartbeatWatchdog,
 		config_change: handleConfigChange,
+		slash_commands: handleSlashCommands,
 		tool_progress: noop,
 		compact_boundary: noop
 	};
@@ -584,6 +593,9 @@ export function createActiveSessionConnection(
 		},
 		get promptSuggestion() {
 			return promptSuggestion;
+		},
+		get slashCommands() {
+			return slashCommands;
 		},
 		get connected() {
 			return connected;

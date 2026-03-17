@@ -30,7 +30,8 @@ import type {
 	InProgressTurnSnapshot,
 	PermissionRequest,
 	PermissionResponse,
-	SessionCost
+	SessionCost,
+	SlashCommand
 } from '$lib/shared/active-session-types.js';
 import type { ModelOption } from '$lib/shared/models.js';
 import { FALLBACK_MODELS } from '$lib/shared/models.js';
@@ -150,6 +151,12 @@ const cachedModels: ModelOption[] = [...FALLBACK_MODELS];
 
 export function getCachedModels(): ModelOption[] {
 	return [...cachedModels];
+}
+
+let cachedSlashCommands: SlashCommand[] = [];
+
+export function getCachedSlashCommands(): SlashCommand[] {
+	return [...cachedSlashCommands];
 }
 
 const encoder = new TextEncoder();
@@ -874,6 +881,19 @@ async function createQuery(session: ActiveSession, resumeSessionId?: string): Pr
 		})
 		.catch(() => {
 			/* fallback list remains */
+		});
+
+	// Fire-and-forget: cache supported slash commands from the SDK
+	queryObject
+		.supportedCommands()
+		.then((commands) => {
+			if (Array.isArray(commands) && commands.length > 0) {
+				cachedSlashCommands = commands;
+				broadcast(session, { type: 'slash_commands', commands: cachedSlashCommands });
+			}
+		})
+		.catch(() => {
+			/* no slash commands available */
 		});
 
 	return queryObject;

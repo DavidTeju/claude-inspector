@@ -286,6 +286,7 @@
 					{isQueuing}
 					{buttonLabel}
 					suggestion={session?.promptSuggestion ?? ''}
+					slashCommands={session?.slashCommands ?? []}
 					draftKey={`session-${data.sessionId}`}
 				/>
 			</div>
