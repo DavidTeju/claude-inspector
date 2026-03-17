@@ -49,7 +49,7 @@
 	});
 </script>
 
-<div class="max-w-[95%]">
+<div class="max-w-[95%] min-w-0">
 	<div
 		class="border-l-accent-400/30 bg-surface-900/70 rounded-xl rounded-bl-md border-l-2 px-4 py-3"
 	>

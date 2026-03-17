@@ -71,7 +71,7 @@
 </script>
 
 <div
-	class="border-surface-800 bg-surface-900/70 flex items-center gap-3 rounded-xl border px-4 py-2.5"
+	class="border-surface-800 bg-surface-900/70 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 overflow-hidden rounded-xl border px-4 py-2.5"
 >
 	<!-- Title (truncated) -->
 	{#if sessionTitle}
@@ -122,7 +122,7 @@
 
 	<!-- Model display -->
 	{#if model}
-		<span class="text-text-500 font-mono text-xs">{model}</span>
+		<span class="text-text-500 min-w-0 truncate font-mono text-xs">{model}</span>
 	{/if}
 
 	<div class="ml-auto flex items-center gap-2">
