@@ -48,7 +48,7 @@ export interface ThinkingBlock {
 
 export interface ImageBlock {
 	type: 'image';
-	source?: {
+	source: {
 		type?: string;
 		media_type?: string;
 		data?: string;
@@ -501,7 +501,7 @@ function normalizeMessageContent(value: unknown): ClaudeMessageContent {
 		.filter((item): item is ClaudeContentBlock => item !== null);
 }
 
-function normalizeContentBlock(value: unknown): ClaudeContentBlock | null {
+export function normalizeContentBlock(value: unknown): ClaudeContentBlock | null {
 	const block = asObject(value);
 	if (!block) return null;
 
@@ -535,11 +535,11 @@ function normalizeContentBlock(value: unknown): ClaudeContentBlock | null {
 				thinking: asString(block.thinking) ?? '',
 				signature: asString(block.signature)
 			};
-		case 'image':
-			return {
-				type,
-				source: normalizeImageSource(block.source)
-			};
+		case 'image': {
+			const source = normalizeImageSource(block.source);
+			if (!source) return null;
+			return { type, source };
+		}
 		default:
 			return {
 				type: 'unknown',

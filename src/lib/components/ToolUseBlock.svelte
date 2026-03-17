@@ -4,7 +4,7 @@
 	import { cubicOut } from 'svelte/easing';
 	// eslint-disable-next-line import-x/no-duplicates
 	import { slide } from 'svelte/transition';
-	import type { ToolCall } from '$lib/types.js';
+	import type { TextContentBlock, ToolCall } from '$lib/types.js';
 
 	const MAX_INLINE_LENGTH = 80;
 	const MAX_PREVIEW_LENGTH = 60;
@@ -49,15 +49,16 @@
 	});
 
 	let resultText = $derived.by(() => {
-		if (!tool.result) return '(no result)';
-		if (typeof tool.result === 'string') return tool.result;
-		if (Array.isArray(tool.result)) {
-			return tool.result
-				.filter((b) => b.type === 'text' && b.text)
+		const content = tool.result?.content;
+		if (!content) return '(no result)';
+		if (typeof content === 'string') return content;
+		if (Array.isArray(content)) {
+			return content
+				.filter((b): b is TextContentBlock => b.type === 'text')
 				.map((b) => b.text)
 				.join('\n');
 		}
-		return JSON.stringify(tool.result, null, 2);
+		return JSON.stringify(content, null, 2);
 	});
 
 	let editDiff = $derived.by(() => {
@@ -86,7 +87,7 @@
 			<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
 		</svg>
 
-		<span class="font-semibold {tool.isError ? 'text-error-500' : 'text-accent-300'}">
+		<span class="font-semibold {tool.result?.isError ? 'text-error-500' : 'text-accent-300'}">
 			{tool.name}
 		</span>
 
@@ -94,7 +95,7 @@
 			<span class="text-text-500 truncate font-mono text-[11px]">{summary}</span>
 		{/if}
 
-		{#if tool.isError}
+		{#if tool.result?.isError}
 			<span class="text-error-400 bg-error-500/10 ml-auto rounded-full px-2 py-0.5 text-[10px]"
 				>error</span
 			>
@@ -141,14 +142,15 @@
 				{#if tool.result !== undefined}
 					<div>
 						<div
-							class="mb-1 text-[10px] font-semibold tracking-wider uppercase {tool.isError
+							class="mb-1 text-[10px] font-semibold tracking-wider uppercase {tool.result?.isError
 								? 'text-error-500'
 								: 'text-text-500'}"
 						>
-							{tool.isError ? 'Error' : 'Result'}
+							{tool.result?.isError ? 'Error' : 'Result'}
 						</div>
 						<pre
-							class="bg-surface-950 max-h-96 overflow-auto rounded-md p-2 text-[11px] {tool.isError
+							class="bg-surface-950 max-h-96 overflow-auto rounded-md p-2 text-[11px] {tool.result
+								?.isError
 								? 'text-error-400'
 								: 'text-text-300'} font-mono leading-relaxed break-words whitespace-pre-wrap">{resultText}</pre>
 					</div>
@@ -198,7 +200,7 @@
 						)}</pre>
 				{/if}
 
-				{#if tool.isError && tool.result !== undefined}
+				{#if tool.result?.isError}
 					<pre
 						class="text-error-400 mt-1 text-[11px] break-words whitespace-pre-wrap">{resultText}</pre>
 				{/if}
@@ -209,7 +211,7 @@
 						class="bg-surface-950 text-text-300 max-h-96 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">{tool
 							.input.content}</pre>
 				{/if}
-				{#if tool.isError && tool.result !== undefined}
+				{#if tool.result?.isError}
 					<pre
 						class="text-error-400 mt-1 text-[11px] break-words whitespace-pre-wrap">{resultText}</pre>
 				{/if}
@@ -222,7 +224,8 @@
 				{/if}
 				{#if tool.result !== undefined}
 					<pre
-						class="bg-surface-950 max-h-96 overflow-auto rounded-md p-2 text-[11px] {tool.isError
+						class="bg-surface-950 max-h-96 overflow-auto rounded-md p-2 text-[11px] {tool.result
+							?.isError
 							? 'text-error-400'
 							: 'text-text-300'} font-mono leading-relaxed break-words whitespace-pre-wrap">{resultText}</pre>
 				{/if}

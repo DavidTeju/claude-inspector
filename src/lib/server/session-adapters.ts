@@ -1,9 +1,11 @@
-import type { ContentBlock, ThreadMessage, ToolCall } from '../types.js';
+import type { ContentBlock, ThreadMessage, ToolCall, ToolResultMap } from '../types.js';
+import { parseSessionFile } from './session-parser.js';
 import {
 	extractTextFromMessageContent,
 	isApiUserRecord,
 	isAssistantRecord,
 	isUserRecord,
+	normalizeContentBlock,
 	type AssistantRecord,
 	type ClaudeContentBlock,
 	type ClaudeMessageContent,
@@ -13,8 +15,6 @@ import {
 } from './session-schema.js';
 
 type TranscriptRecord = UserRecord | ToolResultRecord | AssistantRecord;
-
-type ToolResultMap = Map<string, { content: string | ContentBlock[]; isError: boolean }>;
 
 function orderRecordsByTree(transcriptRecords: TranscriptRecord[]): TranscriptRecord[] {
 	const byUuid = new Map(transcriptRecords.map((record) => [record.uuid, record]));
@@ -108,10 +108,9 @@ function extractAssistantContentParts(
 				const result = toolResultMap.get(block.id);
 				toolCalls.push({
 					id: block.id,
-					name: block.name || 'unknown',
-					input: block.input || {},
-					result: result?.content,
-					isError: result?.isError
+					name: block.name,
+					input: block.input,
+					result
 				});
 			} else if (block.type === 'thinking' && block.thinking) {
 				thinkingBlocks.push(block.thinking);
@@ -183,6 +182,21 @@ export function toThreadMessages(
 	return messages;
 }
 
+/**
+ * Convert raw content (unknown) to the shared ContentBlock union.
+ * Normalizes through the session-schema parser then maps to camelCase.
+ */
+export function toSharedContent(value: unknown): string | ContentBlock[] {
+	if (typeof value === 'string') return value;
+	if (!Array.isArray(value)) return '';
+
+	return value
+		.map(normalizeContentBlock)
+		.filter((b): b is ClaudeContentBlock => b !== null)
+		.map(toSharedContentBlock)
+		.filter((b): b is ContentBlock => b !== null);
+}
+
 function toSharedToolResultContent(
 	content: string | ClaudeContentBlock[] | undefined
 ): string | ContentBlock[] {
@@ -197,18 +211,21 @@ function toSharedMessageContent(content: ClaudeMessageContent): string | Content
 }
 
 function toSharedContentBlocks(content: ClaudeContentBlock[]): ContentBlock[] {
-	return content
-		.map((block) => toSharedContentBlock(block))
-		.filter((block): block is ContentBlock => block !== null);
+	return content.map(toSharedContentBlock).filter((b): b is ContentBlock => b !== null);
+}
+
+function convertToolResultContent(
+	content: string | ClaudeContentBlock[] | undefined
+): string | ContentBlock[] | undefined {
+	if (typeof content === 'string') return content;
+	if (!Array.isArray(content)) return undefined;
+	return toSharedContentBlocks(content);
 }
 
 function toSharedContentBlock(block: ClaudeContentBlock): ContentBlock | null {
 	switch (block.type) {
 		case 'text':
-			return {
-				type: 'text',
-				text: block.text
-			};
+			return { type: 'text', text: block.text };
 		case 'tool_use':
 			return {
 				type: 'tool_use',
@@ -218,7 +235,12 @@ function toSharedContentBlock(block: ClaudeContentBlock): ContentBlock | null {
 				caller: block.caller
 			};
 		case 'tool_result':
-			return toSharedToolResultBlock(block);
+			return {
+				type: 'tool_result',
+				toolUseId: block.tool_use_id,
+				content: convertToolResultContent(block.content),
+				isError: block.is_error
+			};
 		case 'thinking':
 			return {
 				type: 'thinking',
@@ -228,38 +250,24 @@ function toSharedContentBlock(block: ClaudeContentBlock): ContentBlock | null {
 		case 'image':
 			return {
 				type: 'image',
-				source: block.source
+				source: {
+					type: block.source.type,
+					mediaType: block.source.media_type,
+					data: block.source.data
+				}
 			};
 		default:
 			return null;
 	}
 }
 
-function toSharedToolResultBlock(
-	block: ClaudeContentBlock & { type: 'tool_result' }
-): ContentBlock {
-	if (typeof block.content === 'string') {
-		return {
-			type: 'tool_result',
-			tool_use_id: block.tool_use_id,
-			content: block.content,
-			is_error: block.is_error
-		};
-	}
-
-	if (Array.isArray(block.content)) {
-		return {
-			type: 'tool_result',
-			tool_use_id: block.tool_use_id,
-			content: toSharedContentBlocks(block.content),
-			is_error: block.is_error
-		};
-	}
-
-	return {
-		type: 'tool_result',
-		tool_use_id: block.tool_use_id,
-		content: undefined,
-		is_error: block.is_error
-	};
+/**
+ * Parses a session JSONL file into the compatibility transcript model used by the current UI.
+ */
+export async function parseSessionMessages(
+	filePath: string,
+	options?: { includeSidechain?: boolean }
+): Promise<ThreadMessage[]> {
+	const records = await parseSessionFile(filePath);
+	return toThreadMessages(records, options);
 }

@@ -10,7 +10,7 @@
 
 	let expanded = $state(false);
 
-	let errorCount = $derived(tools.filter((t) => t.isError).length);
+	let errorCount = $derived(tools.filter((t) => t.result?.isError).length);
 
 	let toolSummary = $derived.by(() => {
 		const counts: Record<string, number> = {};
