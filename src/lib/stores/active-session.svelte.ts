@@ -11,6 +11,7 @@ import type {
 	SlashCommand
 } from '$lib/shared/active-session-types.js';
 import type { ThreadMessage, ToolCall } from '$lib/types.js';
+import { uuid } from '$lib/utils.js';
 
 const SSE_DATA_PREFIX_LENGTH = 'data: '.length;
 
@@ -87,6 +88,7 @@ export function createActiveSessionConnection(
 	let heartbeatTimer: ReturnType<typeof setTimeout> | null = null;
 	let retryCount = 0;
 	let disposed = false;
+	let lastConnectionError: unknown = null;
 
 	const HEARTBEAT_TIMEOUT_MS = 45_000;
 	const MAX_RETRIES = 10;
@@ -298,6 +300,9 @@ export function createActiveSessionConnection(
 		model = event.model;
 		permissionMode = event.permissionMode;
 		dangerousPermissionsAllowed = event.dangerousPermissionsAllowed;
+		if (event.error) {
+			error = event.error;
+		}
 	}
 
 	function handleConfigChange(event: ClientEvent) {
@@ -429,6 +434,23 @@ export function createActiveSessionConnection(
 		}
 	}
 
+	function handleConnectionError(err: unknown): 'abort' | 'retry' {
+		if (err instanceof Error && err.name === 'AbortError' && disposed) {
+			return 'abort';
+		}
+		if (import.meta.env.DEV) console.error('[SSE] Connection error:', err);
+		lastConnectionError = err;
+		return 'retry';
+	}
+
+	function handleRetryExhaustion() {
+		if (disposed) return;
+		if (import.meta.env.DEV)
+			console.error('[SSE] Giving up after max retries. Last error:', lastConnectionError);
+		error = 'Connection lost after maximum retries';
+		state = 'error';
+	}
+
 	async function connect() {
 		while (!disposed && retryCount < MAX_RETRIES) {
 			abortController?.abort();
@@ -458,9 +480,7 @@ export function createActiveSessionConnection(
 
 				await readStream(response.body);
 			} catch (err: unknown) {
-				if (err instanceof Error && err.name === 'AbortError' && disposed) {
-					return;
-				}
+				if (handleConnectionError(err) === 'abort') return;
 			}
 
 			// Connection lost — backoff and retry
@@ -472,10 +492,7 @@ export function createActiveSessionConnection(
 			await new Promise((resolve) => setTimeout(resolve, backoff));
 		}
 
-		if (!disposed) {
-			error = 'Connection lost after maximum retries';
-			state = 'error';
-		}
+		handleRetryExhaustion();
 	}
 
 	// --- API actions ---
@@ -498,9 +515,9 @@ export function createActiveSessionConnection(
 	}
 
 	async function send(prompt: string) {
-		const uuid = globalThis.crypto.randomUUID();
-		addOptimisticUserMessage(prompt, uuid);
-		await apiPost('send', { prompt, uuid });
+		const messageUuid = uuid();
+		addOptimisticUserMessage(prompt, messageUuid);
+		await apiPost('send', { prompt, uuid: messageUuid });
 	}
 
 	async function respondPermission(response: PermissionResponse) {

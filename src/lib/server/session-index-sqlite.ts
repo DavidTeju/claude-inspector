@@ -1093,6 +1093,28 @@ export function updateIndexedSessionSummary(
 	}
 }
 
+export function getDistinctToolNames(): string[] {
+	const db = getDatabase();
+	const rows = db
+		.prepare<
+			[],
+			{ tool_name: string }
+		>(`SELECT DISTINCT tool_name FROM session_tools ORDER BY tool_name`)
+		.all();
+	return rows.map((row) => row.tool_name);
+}
+
+export function getDistinctBranches(): string[] {
+	const db = getDatabase();
+	const rows = db
+		.prepare<
+			[],
+			{ git_branch: string }
+		>(`SELECT DISTINCT git_branch FROM sessions WHERE git_branch != '' ORDER BY git_branch`)
+		.all();
+	return rows.map((row) => row.git_branch);
+}
+
 function getDatabase(): SQLite.Database {
 	if (database) return database;
 

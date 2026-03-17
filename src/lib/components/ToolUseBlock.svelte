@@ -131,7 +131,7 @@
 						Input
 					</div>
 					<pre
-						class="bg-surface-950 text-text-300 max-h-64 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed">{JSON.stringify(
+						class="bg-surface-950 text-text-300 max-h-64 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">{JSON.stringify(
 							tool.input,
 							null,
 							2
@@ -156,7 +156,7 @@
 			{:else if viewMode === 'read'}
 				<!-- Read: show file content from result -->
 				<pre
-					class="bg-surface-950 text-text-300 max-h-96 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed">{resultText}</pre>
+					class="bg-surface-950 text-text-300 max-h-96 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">{resultText}</pre>
 			{:else if viewMode === 'edit'}
 				<!-- Edit: show diff -->
 				{#if editDiff.length > 0}
@@ -191,7 +191,7 @@
 					</div>
 				{:else}
 					<pre
-						class="bg-surface-950 text-text-300 max-h-64 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed">{JSON.stringify(
+						class="bg-surface-950 text-text-300 max-h-64 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">{JSON.stringify(
 							tool.input,
 							null,
 							2
@@ -199,23 +199,25 @@
 				{/if}
 
 				{#if tool.isError && tool.result !== undefined}
-					<pre class="text-error-400 mt-1 text-[11px]">{resultText}</pre>
+					<pre
+						class="text-error-400 mt-1 text-[11px] break-words whitespace-pre-wrap">{resultText}</pre>
 				{/if}
 			{:else if viewMode === 'write'}
 				<!-- Write: show file content preview -->
 				{#if typeof tool.input.content === 'string'}
 					<pre
-						class="bg-surface-950 text-text-300 max-h-96 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed">{tool
+						class="bg-surface-950 text-text-300 max-h-96 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">{tool
 							.input.content}</pre>
 				{/if}
 				{#if tool.isError && tool.result !== undefined}
-					<pre class="text-error-400 mt-1 text-[11px]">{resultText}</pre>
+					<pre
+						class="text-error-400 mt-1 text-[11px] break-words whitespace-pre-wrap">{resultText}</pre>
 				{/if}
 			{:else if viewMode === 'bash'}
 				<!-- Bash: show command + output -->
 				{#if typeof tool.input.command === 'string'}
 					<pre
-						class="bg-accent-500/5 border-accent-500/20 text-accent-300 max-h-32 overflow-auto rounded-md border p-2 font-mono text-[11px] leading-relaxed">{tool
+						class="bg-accent-500/5 border-accent-500/20 text-accent-300 max-h-32 overflow-auto rounded-md border p-2 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">{tool
 							.input.command}</pre>
 				{/if}
 				{#if tool.result !== undefined}
@@ -229,7 +231,7 @@
 				<div class="flex items-center gap-2">
 					{#if typeof tool.input.pattern === 'string'}
 						<pre
-							class="bg-accent-500/5 border-accent-500/20 text-accent-300 inline-block rounded border px-2 py-1 font-mono text-[11px]">{tool
+							class="bg-accent-500/5 border-accent-500/20 text-accent-300 inline-block rounded border px-2 py-1 font-mono text-[11px] break-words whitespace-pre-wrap">{tool
 								.input.pattern}</pre>
 					{/if}
 					{#if tool.input.path}

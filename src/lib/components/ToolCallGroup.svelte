@@ -27,7 +27,7 @@
 	<!-- Collapsed: subtle inline summary -->
 	<button
 		onclick={() => (expanded = true)}
-		class="text-text-500 hover:text-text-300 border-surface-800/60 hover:border-surface-700 flex w-full items-center gap-2 rounded-md border border-dashed px-3 py-1.5 text-left transition-colors"
+		class="text-text-500 hover:text-text-300 border-surface-800/60 hover:border-surface-700 flex w-full flex-wrap items-center gap-x-2 gap-y-1 overflow-hidden rounded-md border border-dashed px-3 py-1.5 text-left transition-colors"
 	>
 		<span class="text-[11px]">{tools.length} tool calls</span>
 		<span class="text-text-700 text-[10px]">&mdash;</span>

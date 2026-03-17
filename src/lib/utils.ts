@@ -7,6 +7,39 @@ import {
 	DAYS_PER_WEEK
 } from '$lib/constants.js';
 
+/** Generate a v4 UUID, with fallback for browsers lacking crypto.randomUUID. */
+export function uuid(): string {
+	if (typeof globalThis.crypto?.randomUUID === 'function') {
+		return globalThis.crypto.randomUUID();
+	}
+	return uuidFromBytes();
+}
+
+const UUID_BYTE_COUNT = 16;
+const UUID_VERSION_INDEX = 6;
+const UUID_VARIANT_INDEX = 8;
+const UUID_VERSION_MASK = 0x0f;
+const UUID_VERSION_4 = 0x40;
+const UUID_VARIANT_MASK = 0x3f;
+const UUID_VARIANT_RFC4122 = 0x80;
+const HEX_RADIX = 16;
+const HEX_PAD_LENGTH = 2;
+const UUID_GROUP_1 = 0;
+const UUID_GROUP_2 = 8;
+const UUID_GROUP_3 = 12;
+const UUID_GROUP_4 = 16;
+const UUID_GROUP_5 = 20;
+
+function uuidFromBytes(): string {
+	const bytes = new Uint8Array(UUID_BYTE_COUNT);
+	globalThis.crypto.getRandomValues(bytes);
+	bytes[UUID_VERSION_INDEX] = (bytes[UUID_VERSION_INDEX] & UUID_VERSION_MASK) | UUID_VERSION_4;
+	bytes[UUID_VARIANT_INDEX] =
+		(bytes[UUID_VARIANT_INDEX] & UUID_VARIANT_MASK) | UUID_VARIANT_RFC4122;
+	const hex = [...bytes].map((b) => b.toString(HEX_RADIX).padStart(HEX_PAD_LENGTH, '0')).join('');
+	return `${hex.slice(UUID_GROUP_1, UUID_GROUP_2)}-${hex.slice(UUID_GROUP_2, UUID_GROUP_3)}-${hex.slice(UUID_GROUP_3, UUID_GROUP_4)}-${hex.slice(UUID_GROUP_4, UUID_GROUP_5)}-${hex.slice(UUID_GROUP_5)}`;
+}
+
 /**
  * Converts a Claude project directory name to a human-readable display name.
  * Strips the path-encoded prefix (e.g. "-Users-david-projects-myapp" -> "myapp")
@@ -121,4 +154,78 @@ export function formatRelativeDate(iso: string): string {
 		day: 'numeric',
 		...(includeYear && { year: 'numeric' })
 	});
+}
+
+export interface ParsedFilter {
+	prefix: string;
+	value: string;
+	raw: string;
+}
+
+/** Filter prefixes that require an accompanying value (e.g. `tool:Read`). */
+const VALUE_FILTER_PREFIXES = ['tool:', 'branch:'] as const;
+
+/** Exact-match filters that are recognised as-is (no separate value needed). */
+const EXACT_FILTERS: Record<string, { prefix: string; value: string }> = {
+	'is:error': { prefix: 'is', value: 'error' },
+	'is:subagent': { prefix: 'is', value: 'subagent' },
+	'has:tokens': { prefix: 'has', value: 'tokens' },
+	'has:cost': { prefix: 'has', value: 'cost' },
+	'mode:raw': { prefix: 'mode', value: 'raw' },
+	'debug:raw': { prefix: 'debug', value: 'raw' },
+	'source:raw': { prefix: 'source', value: 'raw' }
+};
+
+/**
+ * Splits a query string into structured filters and remaining free text.
+ * Mirrors the server-side `parseStructuredQuery` logic in `src/lib/server/search.ts`.
+ */
+export function parseClientFilters(text: string): { filters: ParsedFilter[]; freeText: string } {
+	const filters: ParsedFilter[] = [];
+	const freeTokens: string[] = [];
+
+	for (const token of text.trim().split(/\s+/).filter(Boolean)) {
+		const lowerToken = token.toLowerCase();
+
+		const exactMatch = EXACT_FILTERS[lowerToken];
+		if (exactMatch) {
+			filters.push({ prefix: exactMatch.prefix, value: exactMatch.value, raw: token });
+			continue;
+		}
+
+		const matchedPrefix = VALUE_FILTER_PREFIXES.find(
+			(p) => lowerToken.startsWith(p) && token.length > p.length
+		);
+		if (matchedPrefix) {
+			const prefix = matchedPrefix.slice(0, -1); // strip trailing ':'
+			const value = token.slice(matchedPrefix.length);
+			filters.push({ prefix, value, raw: token });
+			continue;
+		}
+
+		freeTokens.push(token);
+	}
+
+	return { filters, freeText: freeTokens.join(' ') };
+}
+
+/**
+ * Joins parsed filters and free text back into a single query string.
+ */
+export function rebuildQuery(filters: ParsedFilter[], freeText: string): string {
+	const parts = filters.map((f) => f.raw);
+	const trimmed = freeText.trim();
+	if (trimmed) {
+		parts.push(trimmed);
+	}
+	return parts.join(' ');
+}
+
+/**
+ * Extracts a human-readable message from an unknown thrown value.
+ */
+export function getErrorMessage(error: unknown): string {
+	if (error instanceof Error) return error.message;
+	if (typeof error === 'string') return error;
+	return 'Unknown error';
 }

@@ -1,16 +1,18 @@
 <script lang="ts">
 	import { formatTime } from '$lib/utils.js';
+	import type { ThreadMessage } from '$lib/types.js';
 
 	let {
 		message
 	}: {
-		message: {
-			uuid: string;
-			timestamp: string;
-			textContent: string;
-			rawContent: string | Array<{ type: string; text?: string }>;
-		};
+		message: ThreadMessage;
 	} = $props();
+
+	let imageBlocks = $derived(
+		Array.isArray(message.rawContent)
+			? message.rawContent.filter((b) => b.type === 'image' && b.source?.data)
+			: []
+	);
 </script>
 
 <div class="flex justify-end">
@@ -21,8 +23,19 @@
 			<span class="text-user-400 text-[10px] font-semibold tracking-wider uppercase">You</span>
 			<span class="text-text-500 text-[10px]">{formatTime(message.timestamp)}</span>
 		</div>
-		<div class="text-text-100 font-mono text-sm leading-relaxed break-words whitespace-pre-wrap">
-			{message.textContent}
-		</div>
+		{#if message.textContent}
+			<div
+				class="text-text-100 font-mono text-sm leading-relaxed break-words whitespace-pre-wrap"
+			>
+				{message.textContent}
+			</div>
+		{/if}
+		{#each imageBlocks as block}
+			<img
+				src="data:{block.source?.media_type};base64,{block.source?.data}"
+				alt="User-submitted screenshot"
+				class="max-w-full rounded-lg"
+			/>
+		{/each}
 	</div>
 </div>

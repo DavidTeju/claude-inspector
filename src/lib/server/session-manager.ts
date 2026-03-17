@@ -36,6 +36,7 @@ import type {
 import type { ModelOption } from '$lib/shared/models.js';
 import { FALLBACK_MODELS } from '$lib/shared/models.js';
 import type { ContentBlock, ThreadMessage, ToolCall } from '$lib/types.js';
+import { getErrorMessage } from '$lib/utils.js';
 import {
 	cleanupOrphanedProcesses as cleanupTrackedProcesses,
 	renameActiveSessionProcess,
@@ -126,6 +127,7 @@ export interface ActiveSession {
 	queuedContextId: SDKUserMessage['uuid'] | null;
 	toolResults: Map<string, { content: string | ContentBlock[]; isError: boolean }>;
 	dangerousPermissionsAllowed: boolean;
+	lastError: string | null;
 	childPid?: number;
 }
 
@@ -177,6 +179,7 @@ interface SessionReplaySnapshot {
 	model: string;
 	permissionMode: PermissionMode;
 	dangerousPermissionsAllowed: boolean;
+	lastError: string | null;
 	messages: ThreadMessage[];
 	inProgress: InProgressTurnSnapshot | null;
 	pendingPermission: PermissionRequest | null;
@@ -387,6 +390,7 @@ function buildReplaySnapshot(session: ActiveSession): SessionReplaySnapshot {
 		model: session.model,
 		permissionMode: session.permissionMode,
 		dangerousPermissionsAllowed: session.dangerousPermissionsAllowed,
+		lastError: session.lastError,
 		messages: structuredClone(session.messageBuffer),
 		inProgress: session.inProgressTurn ? structuredClone(session.inProgressTurn) : null,
 		pendingPermission: session.pendingPermission
@@ -432,6 +436,7 @@ function touchSession(session: ActiveSession): void {
 
 function setSessionState(session: ActiveSession, state: ActiveSessionState, detail?: string): void {
 	session.state = state;
+	session.lastError = state === 'error' && detail ? detail : null;
 	touchSession(session);
 	broadcast(session, {
 		type: 'state_change',
@@ -805,7 +810,8 @@ function createSession(
 		queuedContext: null,
 		queuedContextId: null,
 		toolResults: new Map(),
-		dangerousPermissionsAllowed: permissionMode === 'bypassPermissions'
+		dangerousPermissionsAllowed: permissionMode === 'bypassPermissions',
+		lastError: null
 	};
 }
 
@@ -1050,7 +1056,8 @@ function handleSystemMessage(session: ActiveSession, message: SDKSystemSessionMe
 			state: session.state,
 			model: session.model,
 			permissionMode: session.permissionMode,
-			dangerousPermissionsAllowed: session.dangerousPermissionsAllowed
+			dangerousPermissionsAllowed: session.dangerousPermissionsAllowed,
+			error: session.lastError
 		});
 		return;
 	}
@@ -1418,10 +1425,11 @@ async function consumeQuery(session: ActiveSession, queryObject: Query): Promise
 
 		flushInProgressTurn(session, nowIso());
 		session.queryObject = null;
-		setSessionState(session, 'error', 'query_failed');
+		const errorMessage = getErrorMessage(error);
+		setSessionState(session, 'error', errorMessage);
 		broadcast(session, {
 			type: 'error',
-			message: error instanceof Error ? error.message : 'Unknown session error',
+			message: errorMessage,
 			recoverable: true
 		});
 	}

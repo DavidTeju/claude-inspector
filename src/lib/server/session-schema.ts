@@ -273,9 +273,26 @@ function parseUserRecord(record: JsonObject): UserRecord | ToolResultRecord | nu
 		};
 	}
 
-	// Skill injections (isMeta) are system-generated, not human messages
+	// isMeta marks system-injected user records that aren't direct human input.
+	// Claude Code sets isMeta on: skill expansions (the full prompt text behind
+	// /commit, /simplify, etc.), local-command caveats (XML session preambles),
+	// plan mode exit signals ("Continue from where you left off."), and
+	// user-submitted images (screenshots pasted into the CLI).
+	//
+	// isMeta is NOT part of the SDK's public types — getSessionMessages() hides
+	// all isMeta records. For the Inspector, we let through image-only records
+	// since they're user-submitted content. Everything else is internal plumbing:
+	// skill expansions already show as "Launching skill: X" via their Skill
+	// tool_use block, plan exits are represented by the ExitPlanMode tool call,
+	// and local-command caveats are session infrastructure.
 	if (shared.isMeta) {
-		return { ...shared, recordKind: 'tool_result' };
+		const hasImageContent =
+			Array.isArray(message.content) &&
+			message.content.length > 0 &&
+			message.content.every((block) => block.type === 'image');
+		if (!hasImageContent) {
+			return { ...shared, recordKind: 'tool_result' };
+		}
 	}
 
 	if (
