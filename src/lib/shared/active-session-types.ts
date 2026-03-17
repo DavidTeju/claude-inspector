@@ -97,6 +97,7 @@ export interface InitEvent {
 	model: string;
 	permissionMode: PermissionMode;
 	dangerousPermissionsAllowed: boolean;
+	error: string | null;
 }
 
 export interface UserEvent {

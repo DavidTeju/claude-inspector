@@ -1,4 +1,4 @@
-import type { Handle } from '@sveltejs/kit';
+import type { Handle, HandleServerError } from '@sveltejs/kit';
 import { startReconciliation } from '$lib/server/reconciler.js';
 import { cleanupOrphanedProcesses, shutdownAllSessions } from '$lib/server/session-manager.js';
 
@@ -26,4 +26,14 @@ if (!globalHooksState.__claudeInspectorShutdownRegistered) {
 
 export const handle: Handle = async ({ event, resolve }) => {
 	return resolve(event);
+};
+
+export const handleError: HandleServerError = ({ error, event, status }) => {
+	const method = event.request.method;
+	const path = event.url.pathname;
+	console.error(`[unhandled] ${method} ${path} (${status}):`, error);
+
+	return {
+		message: 'An unexpected error occurred'
+	};
 };

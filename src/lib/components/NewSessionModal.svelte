@@ -4,6 +4,7 @@
 	import { PERMISSION_MODES, PERMISSION_MODE_LABELS } from '$lib/shared/permission-modes.js';
 	import { newSessionModal } from '$lib/stores/new-session-modal.svelte.js';
 	import type { Project } from '$lib/types.js';
+	import { getErrorMessage } from '$lib/utils.js';
 	import Composer from './Composer.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -75,8 +76,9 @@
 			await goto(resolve(`/session/${selectedProject}/${body.sessionId}`), {
 				invalidate: ['app:active-sessions']
 			});
-		} catch {
-			errorMessage = 'Failed to start session';
+		} catch (err: unknown) {
+			console.error('[session] Start failed:', err);
+			errorMessage = `Failed to start session: ${getErrorMessage(err)}`;
 		} finally {
 			isStarting = false;
 		}
