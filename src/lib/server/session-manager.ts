@@ -360,6 +360,19 @@ function createUserMessage(
 	};
 }
 
+function createUserThreadMessage(prompt: string, uuid: string): ThreadMessage {
+	return {
+		uuid,
+		role: 'user',
+		timestamp: nowIso(),
+		textContent: prompt,
+		toolCalls: [],
+		thinkingBlocks: [],
+		rawContent: prompt,
+		model: undefined
+	};
+}
+
 function sendEvent(controller: SessionController, event: ClientEvent): void {
 	controller.enqueue(encoder.encode(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`));
 }
@@ -1475,7 +1488,9 @@ export async function startNewSession(options: {
 	try {
 		session.queryObject = await createQuery(session);
 		void consumeQuery(session, session.queryObject);
-		session.inputQueue.enqueue(createUserMessage(session.sessionId, prompt));
+		const messageUuid = createUuid();
+		session.inputQueue.enqueue(createUserMessage(session.sessionId, prompt, messageUuid));
+		addOrReplaceMessage(session, createUserThreadMessage(prompt, String(messageUuid)));
 	} catch (error) {
 		managerState.activeSessions.delete(session.sessionId);
 		throw error;
@@ -1529,7 +1544,9 @@ export async function resumeSession(options: {
 		session.messageBuffer = await loadSessionHistory(projectId, sessionId);
 		session.queryObject = await createQuery(session, sessionId);
 		void consumeQuery(session, session.queryObject);
-		session.inputQueue.enqueue(createUserMessage(session.sessionId, prompt));
+		const messageUuid = createUuid();
+		session.inputQueue.enqueue(createUserMessage(session.sessionId, prompt, messageUuid));
+		addOrReplaceMessage(session, createUserThreadMessage(prompt, String(messageUuid)));
 	} catch (error) {
 		managerState.activeSessions.delete(session.sessionId);
 		throw error;
@@ -1600,16 +1617,7 @@ export async function sendMessage(
 	const messageUuid = uuid ?? createUuid();
 	session.inputQueue.enqueue(createUserMessage(session.sessionId, normalizedPrompt, messageUuid));
 
-	const userThreadMessage: ThreadMessage = {
-		uuid: String(messageUuid),
-		role: 'user',
-		timestamp: nowIso(),
-		textContent: normalizedPrompt,
-		toolCalls: [],
-		thinkingBlocks: [],
-		rawContent: normalizedPrompt,
-		model: undefined
-	};
+	const userThreadMessage = createUserThreadMessage(normalizedPrompt, String(messageUuid));
 	addOrReplaceMessage(session, userThreadMessage);
 	broadcast(session, { type: 'user', message: userThreadMessage });
 
