@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { tick } from 'svelte';
-	import ActiveMessageThread from '$lib/components/ActiveMessageThread.svelte';
 	import Composer from '$lib/components/Composer.svelte';
 	import MessageThread from '$lib/components/MessageThread.svelte';
 	import SessionControls from '$lib/components/SessionControls.svelte';
@@ -23,7 +21,6 @@
 	let localPermissionMode = $state<PermissionMode>('default');
 	let resumeError = $state<string | null>(null);
 	let resuming = $state(false);
-	let scrollContainerEl: HTMLDivElement | undefined = $state();
 
 	// Local override — set to true after a successful resume so the SSE connection
 	// survives until SvelteKit re-runs the server load with the real isActive flag.
@@ -97,27 +94,6 @@
 	$effect(() => {
 		void data.sessionId;
 		activatedLocally = false;
-	});
-
-	// Scroll to bottom on initial idle load
-	async function scrollToBottom() {
-		await tick();
-		requestAnimationFrame(() => {
-			requestAnimationFrame(() => {
-				scrollContainerEl?.scrollTo({
-					top: scrollContainerEl.scrollHeight,
-					behavior: 'instant'
-				});
-			});
-		});
-	}
-
-	$effect(() => {
-		if (!browser) return;
-		void data.sessionId;
-		if (pageMode === 'idle') {
-			void scrollToBottom();
-		}
 	});
 
 	async function handleSubmit(prompt: string) {
@@ -247,15 +223,7 @@
 		{/if}
 
 		<!-- Message area -->
-		{#if session}
-			<!-- Active/closed: use ActiveMessageThread for scroll + streaming + permissions -->
-			<ActiveMessageThread
-				{session}
-				onPermission={(response) => session?.respondPermission(response)}
-				onQuestion={(answers) => session?.respondQuestion(answers)}
-			/>
-		{:else if pageMode === 'connecting'}
-			<!-- Connecting state -->
+		{#if pageMode === 'connecting'}
 			<div class="flex flex-1 items-center justify-center">
 				<div class="text-text-500 text-center text-sm">
 					<div class="bg-accent-400 mx-auto mb-3 h-2 w-2 animate-pulse rounded-full"></div>
@@ -263,16 +231,12 @@
 				</div>
 			</div>
 		{:else}
-			<!-- Idle: static JSONL messages -->
-			<div class="min-h-0 flex-1 overflow-y-auto" bind:this={scrollContainerEl}>
-				<div class="space-y-6 p-6">
-					{#if data.messages.length > 0}
-						<MessageThread messages={data.messages} />
-					{:else}
-						<div class="text-text-500 py-12 text-center text-sm">No messages in this session.</div>
-					{/if}
-				</div>
-			</div>
+			<MessageThread
+				{session}
+				messages={data.messages}
+				onPermission={(response) => session?.respondPermission(response)}
+				onQuestion={(answers) => session?.respondQuestion(answers)}
+			/>
 		{/if}
 
 		<!-- Composer (visible for resumable sessions and active sessions) -->
