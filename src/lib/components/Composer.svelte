@@ -39,12 +39,17 @@
 		text.startsWith('/') && !text.includes(' ') && !text.includes('\n') ? text.slice(1) : null
 	);
 
-	// Measure caret position using a hidden span that mirrors the textarea font
+	// Copy textarea font to the hidden measurement span once mounted
 	$effect(() => {
-		if (!measureEl || !textareaEl || slashQuery === null) return;
+		if (!measureEl || !textareaEl) return;
 		const style = getComputedStyle(textareaEl);
 		measureEl.style.font = style.font;
 		measureEl.style.letterSpacing = style.letterSpacing;
+	});
+
+	// Measure caret position whenever slash query text changes
+	$effect(() => {
+		if (!measureEl || slashQuery === null) return;
 		measureEl.textContent = text;
 		caretLeftPx = measureEl.offsetWidth;
 	});
