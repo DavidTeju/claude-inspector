@@ -89,7 +89,7 @@
 	bind:this={dialogEl}
 	onclose={handleClose}
 	onclick={handleBackdropClick}
-	class="bg-surface-950 border-surface-800 w-full max-w-xl rounded-2xl border p-0 shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm"
+	class="bg-surface-950 border-surface-800 m-auto w-full max-w-xl rounded-2xl border p-0 shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm"
 >
 	<div class="p-6">
 		<div class="mb-5 flex items-center justify-between">
