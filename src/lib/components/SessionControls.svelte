@@ -8,6 +8,7 @@
 	import { getCyclableModes, PERMISSION_MODE_LABELS } from '$lib/shared/permission-modes.js';
 	import { STATE_COLORS } from '$lib/shared/state-colors.js';
 	import CostDisplay from './CostDisplay.svelte';
+	import { resolve } from '$app/paths';
 
 	const COPY_FEEDBACK_DURATION_MS = 2000;
 
@@ -23,7 +24,13 @@
 		sessionState = 'idle' as ActiveSessionState,
 		cost,
 		onInterrupt,
-		showResumeCommand = true
+		showResumeCommand = true,
+		isSubagent = false,
+		parentSessionId = '',
+		projectId = '',
+		reconnecting = false,
+		error = '',
+		resumeError = ''
 	}: {
 		sessionTitle?: string;
 		sessionId?: string;
@@ -37,6 +44,12 @@
 		cost?: SessionCost;
 		onInterrupt?: () => void;
 		showResumeCommand?: boolean;
+		isSubagent?: boolean;
+		parentSessionId?: string;
+		projectId?: string;
+		reconnecting?: boolean;
+		error?: string;
+		resumeError?: string;
 	} = $props();
 
 	const stateLabels: Record<ActiveSessionState, { label: string; pulse: boolean }> = {
@@ -168,3 +181,33 @@
 		{/if}
 	</div>
 </div>
+
+{#if isSubagent && parentSessionId}
+	<div class="mt-2">
+		<a
+			href={resolve(`/session/${projectId}/${parentSessionId}`)}
+			class="text-accent-400/70 hover:text-accent-400 text-xs transition-colors"
+			>Parent session {parentSessionId.slice(0, SESSION_ID_DISPLAY_LENGTH)}...</a
+		>
+	</div>
+{/if}
+
+{#if reconnecting}
+	<div
+		class="bg-warning-500/10 text-warning-500 mt-2 rounded-md px-3 py-1.5 text-center text-[11px]"
+	>
+		Reconnecting...
+	</div>
+{/if}
+
+{#if error}
+	<div class="bg-error-500/10 text-error-400 mt-2 rounded-md px-3 py-1.5 text-center text-[11px]">
+		{error}
+	</div>
+{/if}
+
+{#if resumeError}
+	<div class="bg-error-500/10 text-error-400 mt-2 rounded-md px-3 py-1.5 text-center text-[11px]">
+		{resumeError}
+	</div>
+{/if}
