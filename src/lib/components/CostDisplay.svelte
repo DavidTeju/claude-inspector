@@ -3,7 +3,8 @@
 
 	const LOW_COST_THRESHOLD = 0.01;
 	const LOW_COST_DECIMALS = 6;
-	const HIGH_COST_DECIMALS = 4;
+	const HIGH_COST_DECIMALS = 3;
+	const COMPACT_THRESHOLD = 1000;
 
 	let { cost }: { cost: SessionCost } = $props();
 
@@ -14,6 +15,15 @@
 		cost.totalUsd < LOW_COST_THRESHOLD
 			? `$${cost.totalUsd.toFixed(LOW_COST_DECIMALS)}`
 			: `$${cost.totalUsd.toFixed(HIGH_COST_DECIMALS)}`
+	);
+
+	let totalTokens = $derived(
+		cost.inputTokens + cost.outputTokens + cost.cacheReadTokens + cost.cacheWriteTokens
+	);
+	let formattedTokens = $derived(
+		totalTokens >= COMPACT_THRESHOLD
+			? `${(totalTokens / COMPACT_THRESHOLD).toFixed(1)}k`
+			: `${totalTokens}`
 	);
 
 	let modelEntries = $derived(Object.entries(cost.modelUsage));
@@ -40,7 +50,8 @@
 		aria-expanded={expanded}
 		class="text-text-500 hover:text-text-300 cursor-pointer font-mono text-[10px] transition-colors"
 	>
-		{formattedTotal}
+		{formattedTotal} <span class="text-text-700">&middot;</span>
+		{formattedTokens} tokens
 	</button>
 
 	{#if expanded}
