@@ -18,8 +18,8 @@ jobs:
       - name: Configure git auth for private deps
         run: |
           git config --global url."https://x-access-token:${{ secrets.GH_PKG_TOKEN }}@github.com/".insteadOf "https://github.com/"
-          git config --global url."https://x-access-token:${{ secrets.GH_PKG_TOKEN }}@github.com/".insteadOf "ssh://git@github.com/"
-          git config --global url."https://x-access-token:${{ secrets.GH_PKG_TOKEN }}@github.com/".insteadOf "git+ssh://git@github.com/"
+          git config --global --add url."https://x-access-token:${{ secrets.GH_PKG_TOKEN }}@github.com/".insteadOf "ssh://git@github.com/"
+          git config --global --add url."https://x-access-token:${{ secrets.GH_PKG_TOKEN }}@github.com/".insteadOf "git+ssh://git@github.com/"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
