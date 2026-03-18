@@ -65,7 +65,7 @@
 	// the effect re-runs when content changes in either mode. Removing the static
 	// branch breaks idle-session scroll-to-bottom on initial load.
 	//
-	// TODO: Replace this effect-based approach with MutationObserver + ResizeObserver
+	// Replace this effect-based approach with MutationObserver + ResizeObserver
 	// to decouple scroll behavior from Svelte's reactivity system entirely.
 	// See: https://github.com/DavidTeju/claude-inspector/issues/46
 	$effect(() => {

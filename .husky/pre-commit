@@ -1,0 +1,2 @@
+npx lint-staged
+npx svelte-check --tsconfig ./tsconfig.json

@@ -54,10 +54,12 @@
 		measureEl.style.letterSpacing = style.letterSpacing;
 	});
 
-	// Measure caret position whenever slash query text changes
+	// Measure caret position whenever slash query text changes.
+	// The span's content is set via template binding; offsetWidth is a plain DOM
+	// property (not tracked by Svelte), so we depend on `text` explicitly.
 	$effect(() => {
 		if (!measureEl || slashQuery === null) return;
-		measureEl.textContent = text;
+		void text;
 		caretLeftPx = measureEl.offsetWidth;
 	});
 
@@ -72,9 +74,7 @@
 	let showCommandList = $derived(filteredCommands.length > 0 && slashQuery !== null && !dismissed);
 
 	// Ghost text: show the completion of the top match
-	let effectiveIndex = $derived(
-		selectedIndex < filteredCommands.length ? selectedIndex : 0
-	);
+	let effectiveIndex = $derived(selectedIndex < filteredCommands.length ? selectedIndex : 0);
 
 	let ghostText = $derived.by(() => {
 		if (!showCommandList || filteredCommands.length === 0) return '';
@@ -121,39 +121,39 @@
 		textareaEl?.focus();
 	}
 
-	function handleKeydown(e: KeyboardEvent) {
-		// Command list navigation
-		if (showCommandList) {
-			if (e.key === 'ArrowUp') {
-				e.preventDefault();
-				selectedIndex =
-					selectedIndex <= 0 ? filteredCommands.length - 1 : selectedIndex - 1;
-				return;
-			}
-			if (e.key === 'ArrowDown') {
-				e.preventDefault();
-				selectedIndex =
-					selectedIndex >= filteredCommands.length - 1 ? 0 : selectedIndex + 1;
-				return;
-			}
-			if (e.key === 'Tab') {
-				e.preventDefault();
-				const cmd = filteredCommands[effectiveIndex];
-				if (cmd) acceptCommand(cmd);
-				return;
-			}
-			if (e.key === 'Enter' && !e.shiftKey) {
-				e.preventDefault();
-				const cmd = filteredCommands[effectiveIndex];
-				if (cmd) acceptCommand(cmd);
-				return;
-			}
-			if (e.key === 'Escape') {
-				e.preventDefault();
-				dismissed = true;
-				return;
-			}
+	function handleCommandListKeydown(e: KeyboardEvent): boolean {
+		if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			selectedIndex = selectedIndex <= 0 ? filteredCommands.length - 1 : selectedIndex - 1;
+			return true;
 		}
+		if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			selectedIndex = selectedIndex >= filteredCommands.length - 1 ? 0 : selectedIndex + 1;
+			return true;
+		}
+		if (e.key === 'Tab') {
+			e.preventDefault();
+			const cmd = filteredCommands[effectiveIndex];
+			if (cmd) acceptCommand(cmd);
+			return true;
+		}
+		if (e.key === 'Enter' && !e.shiftKey) {
+			e.preventDefault();
+			const cmd = filteredCommands[effectiveIndex];
+			if (cmd) acceptCommand(cmd);
+			return true;
+		}
+		if (e.key === 'Escape') {
+			e.preventDefault();
+			dismissed = true;
+			return true;
+		}
+		return false;
+	}
+
+	function handleKeydown(e: KeyboardEvent) {
+		if (showCommandList && handleCommandListKeydown(e)) return;
 
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
@@ -213,9 +213,9 @@
 		<!-- Hidden span to measure caret position -->
 		<span
 			bind:this={measureEl}
-			class="pointer-events-none invisible absolute top-0 left-4 whitespace-pre text-sm"
-			aria-hidden="true"
-		></span>
+			class="pointer-events-none invisible absolute top-0 left-4 text-sm whitespace-pre"
+			aria-hidden="true">{text}</span
+		>
 
 		<textarea
 			bind:this={textareaEl}

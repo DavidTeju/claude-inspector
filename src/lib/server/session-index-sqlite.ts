@@ -1,3 +1,9 @@
+/**
+ * @module
+ * SQLite-backed session index used for project listing, incremental reconciliation,
+ * structured search filters, and lightweight session metadata lookups.
+ */
+
 import { mkdirSync } from 'fs';
 import type { Stats } from 'fs';
 import SQLite from 'better-sqlite3';
@@ -76,11 +82,13 @@ interface IndexedSearchRow {
 	relevance: number;
 }
 
+/** Indexed view of a tool result block before it is paired back onto a tool call. */
 interface ToolResultFact {
 	resultText?: string;
 	isError: boolean;
 }
 
+/** Tool usage fact extracted from assistant content for storage in `session_tools`. */
 interface IndexedToolFact {
 	assistantUuid?: string;
 	toolUseId: string;
@@ -91,6 +99,7 @@ interface IndexedToolFact {
 	isError: boolean;
 }
 
+/** Progress/system event extracted into a queryable row for `session_progress`. */
 interface IndexedProgressFact {
 	recordIndex: number;
 	uuid?: string;
@@ -197,6 +206,12 @@ interface PersistStatements {
 
 let database: SQLite.Database | null = null;
 
+/**
+ * Extracts the interdependent "facts" that power indexing and structured search.
+ * A fact is any derived session signal worth querying later: tool usage/results,
+ * progress events, file-history paths, deduplicated assistant usage stats, and
+ * the text fragments that feed the FTS search document.
+ */
 function collectRecordFacts(records: ParsedSessionRecord[]): RecordFacts {
 	const toolResults = new Map<string, ToolResultFact>();
 	const tools = new Map<string, IndexedToolFact>();
@@ -492,6 +507,11 @@ function buildSearchDocument(
 	};
 }
 
+/**
+ * Builds the enriched SQLite/index payload for one parsed session file.
+ * This combines the lightweight `SessionEntry` metadata with extracted facts,
+ * token totals, search text, and error/compaction flags.
+ */
 export function buildIndexedSessionData(
 	descriptor: SessionFileDescriptor,
 	records: ParsedSessionRecord[],
@@ -551,6 +571,7 @@ export function getIndexedProjectIds(): string[] {
 	return toSqlRows(rows).map((row) => requireString(row, 'id'));
 }
 
+/** Returns all indexed sessions for a project, newest first, from the SQLite `sessions` table. */
 export function getIndexedSessions(projectId: string): SessionEntry[] {
 	const db = getDatabase();
 	const rows = db
@@ -631,6 +652,11 @@ export function getIndexedSessionMeta(
 	};
 }
 
+/**
+ * Searches indexed sessions using structured filters plus optional FTS terms.
+ * Text queries search the combined title/prompt/body/tool/branch/system columns,
+ * while filter-only queries fall back to recency ordering without FTS ranking.
+ */
 export function searchIndexedSessions(
 	query: IndexedSearchQuery,
 	limit = INDEX_BATCH_SIZE
@@ -980,6 +1006,11 @@ function persistSingleSession(
 	);
 }
 
+/**
+ * Persists a project's changed sessions inside one transaction.
+ * Session rows, tool/progress/file facts, reconcile metadata, and the FTS search
+ * document must be updated together so readers never observe a partial index.
+ */
 export function persistProjectIndex(
 	projectId: string,
 	projectPath: string,
@@ -1126,6 +1157,11 @@ function getDatabase(): SQLite.Database {
 	return database;
 }
 
+/**
+ * Ensures the SQLite schema matches the current index version.
+ * The schema stores projects, canonical session metadata, per-session tool/progress/file
+ * facts, reconcile state for incremental refreshes, and an FTS5 table for search.
+ */
 function ensureSchema(db: SQLite.Database): void {
 	const version = db.pragma('user_version', { simple: true });
 	if (

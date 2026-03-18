@@ -5,7 +5,10 @@ import { fileURLToPath } from 'node:url';
 import { afterEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
 
-const PROJECT_FIXTURES_DIR = resolve(fileURLToPath(new URL('.', import.meta.url)), 'fixtures/projects');
+const PROJECT_FIXTURES_DIR = resolve(
+	fileURLToPath(new URL('.', import.meta.url)),
+	'fixtures/projects'
+);
 
 const tempDirectories = new Set<string>();
 
@@ -39,7 +42,10 @@ export function getFixtureJsonlPath(fixtureName: string): string {
 
 	const isJsonlFixtureName = fixtureName.endsWith('.jsonl');
 	const normalizedFixtureName = isJsonlFixtureName ? basename(fixtureName, '.jsonl') : fixtureName;
-	const directPath = resolve(PROJECT_FIXTURES_DIR, isJsonlFixtureName ? fixtureName : `${fixtureName}.jsonl`);
+	const directPath = resolve(
+		PROJECT_FIXTURES_DIR,
+		isJsonlFixtureName ? fixtureName : `${fixtureName}.jsonl`
+	);
 	const matchedPath = statSafe(directPath)
 		? directPath
 		: findFixturePath(PROJECT_FIXTURES_DIR, normalizedFixtureName);
