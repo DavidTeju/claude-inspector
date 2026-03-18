@@ -33,8 +33,13 @@ function findFixturePath(rootDir: string, fixtureName: string): string | null {
 }
 
 export function getFixtureJsonlPath(fixtureName: string): string {
-	const normalizedFixtureName = fixtureName.endsWith('.jsonl') ? basename(fixtureName, '.jsonl') : fixtureName;
-	const directPath = resolve(PROJECT_FIXTURES_DIR, fixtureName.endsWith('.jsonl') ? fixtureName : `${fixtureName}.jsonl`);
+	if (!pathExists(PROJECT_FIXTURES_DIR)) {
+		throw new Error(`Fixture directory "${PROJECT_FIXTURES_DIR}" does not exist`);
+	}
+
+	const isJsonlFixtureName = fixtureName.endsWith('.jsonl');
+	const normalizedFixtureName = isJsonlFixtureName ? basename(fixtureName, '.jsonl') : fixtureName;
+	const directPath = resolve(PROJECT_FIXTURES_DIR, isJsonlFixtureName ? fixtureName : `${fixtureName}.jsonl`);
 	const matchedPath = statSafe(directPath)
 		? directPath
 		: findFixturePath(PROJECT_FIXTURES_DIR, normalizedFixtureName);
@@ -63,6 +68,15 @@ afterEach(() => {
 function statSafe(path: string): boolean {
 	try {
 		return statSync(path).isFile();
+	} catch {
+		return false;
+	}
+}
+
+function pathExists(path: string): boolean {
+	try {
+		statSync(path);
+		return true;
 	} catch {
 		return false;
 	}
