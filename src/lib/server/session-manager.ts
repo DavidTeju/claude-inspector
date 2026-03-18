@@ -1,3 +1,10 @@
+/**
+ * @module
+ * Live session orchestration for Claude Agent SDK queries. This module owns the
+ * in-memory active-session state machine, SSE fan-out, permission/question flows,
+ * and reconciliation triggers for persisted transcript files.
+ */
+
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { open, readdir, stat } from 'node:fs/promises';
@@ -80,18 +87,21 @@ type SessionSubscriber = {
 	replaying: boolean;
 };
 
+/** Minimal async queue abstraction used to feed user turns into the SDK query iterator. */
 interface AsyncQueue<T> {
 	enqueue: (item: T) => void;
 	close: () => void;
 	iterable: AsyncIterable<T>;
 }
 
+/** Pending permission request plus the resolver/timeout that keep the session blocked. */
 interface PendingPermission {
 	request: PermissionRequest;
 	resolve: (result: PermissionResult) => void;
 	timeout: NodeJS.Timeout;
 }
 
+/** Pending AskUserQuestion request plus the raw SDK payload needed to write answers back. */
 interface PendingQuestion {
 	request: AskUserQuestionRequest;
 	rawInput: Record<string, unknown>;
@@ -542,7 +552,11 @@ function toThreadMessageFromUserMessage(
 
 type AssistantContentBlock = SDKAssistantMessage['message']['content'][number];
 
-/** Extract tool calls from an SDK assistant message's content blocks. */
+/**
+ * Extracts assistant tool calls and pairs them with any previously buffered tool results.
+ * Buffered results are deleted after pairing so the same tool_result cannot attach to
+ * multiple assistant messages during replay or streamed updates.
+ */
 function extractToolCallsFromContent(
 	toolResultMap: ToolResultMap,
 	content: AssistantContentBlock[]
@@ -654,7 +668,11 @@ function updateCost(session: ActiveSession, message: SDKResultMessage): void {
 	};
 }
 
-/** Parse a single question option from raw input, returning null if invalid. */
+/**
+ * Parses one AskUserQuestion option from raw SDK input.
+ * Invalid or incomplete options are ignored so malformed question payloads do not
+ * break the entire UI prompt.
+ */
 function parseQuestionOption(
 	optionInput: unknown
 ): { label: string; description?: string; value?: string; preview?: string } | null {
@@ -724,6 +742,12 @@ function normalizeAnswerRecord(answers: unknown): Record<string, string> {
 	return normalized;
 }
 
+/**
+ * Creates the in-memory active-session state machine for a new or resumed query.
+ * Every lifecycle starts in `initializing`, accumulates messages in `messageBuffer`,
+ * and keeps coordination primitives for SSE subscribers, permission requests, and
+ * in-progress streamed assistant output.
+ */
 function createSession(
 	projectId: string,
 	projectPath: string,
@@ -1273,7 +1297,11 @@ function handlePromptSuggestionSdkMessage(
 	});
 }
 
-/** Dispatch a single SDK message to the appropriate handler. */
+/**
+ * Dispatches one SDK message into the active-session state machine.
+ * Each message type updates a different part of the session: lifecycle/config,
+ * streaming assistant output, user/tool events, final results, or rate limits.
+ */
 function dispatchSdkMessage(session: ActiveSession, message: SDKMessage, receivedAt: string): void {
 	switch (message.type) {
 		case 'system':

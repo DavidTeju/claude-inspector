@@ -1,3 +1,9 @@
+/**
+ * @module
+ * Incremental reconciliation between Claude's JSONL session files, the legacy
+ * `sessions-index.json`, and the SQLite-backed search index.
+ */
+
 import { readdir, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { SUMMARY_PROMPT_SLICE_LENGTH } from '../constants.js';
@@ -68,6 +74,11 @@ export async function reconcileProjectNow(projectId: string): Promise<SessionEnt
 	return reconcileProject(projectId, projectDir);
 }
 
+/**
+ * Reconciles every discovered project, then removes stale indexed projects, then
+ * optionally backfills missing summaries. That ordering keeps the caches and DB
+ * aligned before any summary generation runs.
+ */
 async function reconcileAllProjects(): Promise<void> {
 	const projectsDir = getProjectsDir();
 	let dirs: string[];
@@ -115,6 +126,11 @@ async function reconcileAllProjects(): Promise<void> {
 	}
 }
 
+/**
+ * Reconciles one project's session files incrementally using mtime/size checks.
+ * Existing summaries are preserved when a session is re-indexed without a new
+ * summary so user-visible titles are not lost during refreshes.
+ */
 async function reconcileProject(projectId: string, projectDir: string): Promise<SessionEntry[]> {
 	const descriptors = await listProjectSessionFilesInDir(projectId, projectDir);
 	const indexedSessionsByPath = getIndexedSessionsByPath(projectId);
@@ -190,7 +206,11 @@ async function writeSessionIndex(
 	}
 }
 
-/** Generate summaries for sessions that don't have one, using Haiku */
+/**
+ * Generates fallback summaries for sessions that still lack one after indexing.
+ * The loop stops after the first failure because a bad API key or account-wide
+ * Anthropic issue would make subsequent calls fail the same way.
+ */
 async function generateSummaries(
 	projectId: string,
 	entries: SessionEntry[],

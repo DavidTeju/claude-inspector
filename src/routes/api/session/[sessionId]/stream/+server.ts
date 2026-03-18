@@ -1,5 +1,9 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
-import { getActiveSession, getCachedSlashCommands, subscribe } from '$lib/server/session-manager.js';
+import {
+	getActiveSession,
+	getCachedSlashCommands,
+	subscribe
+} from '$lib/server/session-manager.js';
 import type { ClientEvent } from '$lib/shared/active-session-types.js';
 
 const encoder = new TextEncoder();

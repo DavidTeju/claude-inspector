@@ -1,3 +1,9 @@
+/**
+ * @module
+ * Shared formatting and query helpers used by both the UI and the server-side
+ * search/indexing code paths.
+ */
+
 import {
 	MS_PER_MINUTE,
 	MS_PER_HOUR,
@@ -42,7 +48,9 @@ function uuidFromBytes(): string {
 
 /**
  * Converts a Claude project directory name to a human-readable display name.
- * Strips the path-encoded prefix (e.g. "-Users-david-projects-myapp" -> "myapp")
+ * Claude stores projects under mangled path segments (for example
+ * `-Users-david-projects-myapp`); this helper reverses the display-facing part
+ * of that encoding without attempting to reconstruct the original absolute path.
  */
 export function dirNameToDisplayName(dirName: string): string {
 	const name = dirName.startsWith('-') ? dirName.slice(1) : dirName;
@@ -59,6 +67,8 @@ export function dirNameToDisplayName(dirName: string): string {
 
 /**
  * Detects legacy project IDs created by the old cwd double-mangling bug.
+ * These IDs should usually be filtered from lists rather than displayed or
+ * normalized, because they do not map cleanly back to a real Claude project.
  */
 export function isDoubleMangledProjectId(projectId: string): boolean {
 	return projectId.includes('--claude-projects--');
@@ -102,6 +112,8 @@ export function formatTime(iso: string): string {
 
 /**
  * Highlights search terms in text by wrapping matches in <mark> tags.
+ * HTML escaping happens before term replacement so the marked output stays safe
+ * to inject into the DOM while still matching user-visible text.
  */
 export function highlightTerms(text: string, query: string): string {
 	const escapedText = escapeHtml(text);
@@ -178,7 +190,9 @@ const EXACT_FILTERS: Record<string, { prefix: string; value: string }> = {
 
 /**
  * Splits a query string into structured filters and remaining free text.
- * Mirrors the server-side `parseStructuredQuery` logic in `src/lib/server/search.ts`.
+ * Mirrors the server-side `parseStructuredQuery` logic in `src/lib/server/search.ts`,
+ * so any new filter token must be added in both places to keep the UI chips and
+ * the actual search backend in sync.
  */
 export function parseClientFilters(text: string): { filters: ParsedFilter[]; freeText: string } {
 	const filters: ParsedFilter[] = [];

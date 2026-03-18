@@ -2,7 +2,10 @@
 
 ## After every implementation
 
-Before marking a PR ready for review, audit your changes against:
+Before marking a PR ready for review:
+- Include screenshots of the app showing both the before and after state of any visual changes in the PR description.
+- Always include an "after" screenshot of the home screen and the search view, even if there are no visual changes.
+- Audit your changes against:
 - `.github/skills/svelte-best-practices/` — especially runes patterns, $effect pitfalls, keyed each blocks
 - `.github/skills/typescript-best-practices/` — type guards, discriminated unions, no `any`
 
@@ -13,3 +16,7 @@ Reference `.github/skills/fix-at-appropriate-layer/` — display issues belong i
 ## When touching streaming or search
 
 Reference `.github/skills/async-dedup-race-in-streaming-pipelines/` — dedup must be synchronous before async gaps. This project has been bitten by this exact bug.
+
+## When merging or rebasing
+
+Use real git commands (`git merge`, `git rebase`, `git cherry-pick`) to incorporate changes from another branch. Never manually copy file contents and commit — that creates single-parent commits that look like merges but don't actually incorporate the other branch's history, leaving the PR permanently conflicted on GitHub.

@@ -7,12 +7,15 @@
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",
-		"prepare": "svelte-kit sync || echo ''",
+		"prepare": "husky",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",
-		"knip": "knip"
+		"knip": "knip",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"test:coverage": "vitest run --coverage"
 	},
 	"dependencies": {
 		"@anthropic-ai/claude-agent-sdk": "^0.2.75",
@@ -30,11 +33,17 @@
 		"@sveltejs/kit": "^2.50.2",
 		"@sveltejs/vite-plugin-svelte": "^6.2.4",
 		"@tailwindcss/vite": "^4.0.0",
+		"@testing-library/jest-dom": "^6.9.1",
+		"@testing-library/svelte": "^5.3.1",
 		"@types/better-sqlite3": "^7.6.13",
 		"@types/diff": "^7.0.2",
 		"@types/node": "^25.3.0",
+		"@vitest/coverage-v8": "^4.1.0",
 		"eslint": "^10.0.0",
+		"husky": "^9.1.7",
+		"jsdom": "^29.0.0",
 		"knip": "^5.86.0",
+		"lint-staged": "^16.4.0",
 		"prettier": "^3.8.1",
 		"prettier-plugin-svelte": "^3.5.0",
 		"prettier-plugin-tailwindcss": "^0.7.2",
@@ -42,6 +51,7 @@
 		"svelte-check": "^4.3.6",
 		"tailwindcss": "^4.0.0",
 		"typescript": "^5.9.3",
-		"vite": "^7.3.1"
+		"vite": "^7.3.1",
+		"vitest": "^4.1.0"
 	}
 }
