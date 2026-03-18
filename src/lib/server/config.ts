@@ -36,6 +36,9 @@ export async function getConfig(): Promise<AppConfig> {
 export async function saveConfig(config: Partial<AppConfig>): Promise<void> {
 	const current = await getConfig();
 	const merged = { ...current, ...config };
-	await mkdir(CONFIG_DIR, { recursive: true });
-	await writeFile(CONFIG_PATH, JSON.stringify(merged, null, '\t'), 'utf-8');
+	await mkdir(CONFIG_DIR, { recursive: true, mode: 0o700 });
+	await writeFile(CONFIG_PATH, JSON.stringify(merged, null, '\t'), {
+		encoding: 'utf-8',
+		mode: 0o600
+	});
 }
