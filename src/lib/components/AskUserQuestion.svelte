@@ -2,7 +2,6 @@
 	import type { AskUserQuestionRequest } from '$lib/shared/active-session-types.js';
 
 	const OTHER_SENTINEL = '__other__';
-	const PERCENT = 100;
 
 	let {
 		request,
@@ -123,14 +122,17 @@
 <div class="border-l-user-400 bg-user-700/10 rounded-xl border-l-2 px-4 py-3">
 	<!-- Progress indicator for multi-question -->
 	{#if !isSingleQuestion}
-		<div class="mb-3 flex items-center gap-2">
-			<div class="bg-surface-800 h-1 flex-1 overflow-hidden rounded-full">
-				<div
-					class="bg-user-400 h-full rounded-full transition-all duration-300 ease-out"
-					style="width: {((currentPage + 1) / totalPages) * PERCENT}%"
-				></div>
+		<div class="text-text-500 mb-2 flex items-center gap-2 text-[11px]">
+			<span>{currentPage + 1} / {totalPages}</span>
+			<div class="flex gap-1">
+				{#each request.questions as _, i (i)}
+					<span
+						class="inline-block h-1.5 w-1.5 rounded-full transition-colors {i === currentPage
+							? 'bg-user-400'
+							: 'bg-surface-700'}"
+					></span>
+				{/each}
 			</div>
-			<span class="text-text-500 text-[11px] tabular-nums">{currentPage + 1}/{totalPages}</span>
 		</div>
 	{/if}
 
@@ -140,7 +142,7 @@
 		{/if}
 		<div class="text-text-300 mb-2 text-sm">{currentQuestion.question}</div>
 
-		<div class="space-y-1" role={currentQuestion.multiSelect ? 'group' : 'radiogroup'}>
+		<div class="flex flex-wrap gap-1.5" role={currentQuestion.multiSelect ? 'group' : 'radiogroup'}>
 			{#each currentQuestion.options as option (option.label)}
 				{@const value = option.value ?? option.label}
 				{@const selected = isSelected(currentPage, value)}
@@ -151,35 +153,14 @@
 							: selectSingle(currentPage, value)}
 					role={currentQuestion.multiSelect ? 'checkbox' : 'radio'}
 					aria-checked={selected}
-					class="hover:bg-surface-800/30 flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors {selected
-						? 'border-user-400/30 bg-surface-800/50 border'
-						: 'border border-transparent'}"
+					class="cursor-pointer rounded-full border px-3.5 py-1.5 text-sm transition-all {selected
+						? 'border-user-400 bg-user-400/15 text-user-400 shadow-sm'
+						: 'border-surface-700 text-text-300 hover:border-surface-600 hover:bg-surface-800/40'}"
 				>
-					<!-- Radio / Checkbox indicator -->
-					<span
-						class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-{currentQuestion.multiSelect
-							? 'sm'
-							: 'full'} border {selected ? 'border-user-400 bg-user-400' : 'border-surface-600'}"
-					>
-						{#if selected}
-							<svg
-								class="text-surface-950 h-2.5 w-2.5"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="3"
-							>
-								<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-							</svg>
-						{/if}
-					</span>
-
-					<div>
-						<span class="text-text-100 text-sm">{option.label}</span>
-						{#if option.description}
-							<span class="text-text-500 ml-1 text-[10px]">{option.description}</span>
-						{/if}
-					</div>
+					{option.label}
+					{#if option.description}
+						<span class="text-text-500 ml-0.5 text-[10px]">{option.description}</span>
+					{/if}
 				</button>
 			{/each}
 
@@ -193,31 +174,10 @@
 							: selectSingle(currentPage, OTHER_SENTINEL)}
 					role={currentQuestion.multiSelect ? 'checkbox' : 'radio'}
 					aria-checked={otherSelected}
-					class="hover:bg-surface-800/30 flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors {otherSelected
-						? 'border-user-400/30 bg-surface-800/50 border'
-						: 'border border-transparent'}"
+					class="flex cursor-pointer items-center gap-1 rounded-full border px-3.5 py-1.5 text-sm transition-all {otherSelected
+						? 'border-user-400 bg-user-400/15 text-user-400 shadow-sm'
+						: 'border-surface-700 text-text-300 hover:border-surface-600 hover:bg-surface-800/40'}"
 				>
-					<!-- Radio / Checkbox indicator -->
-					<span
-						class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-{currentQuestion.multiSelect
-							? 'sm'
-							: 'full'} border {otherSelected
-							? 'border-user-400 bg-user-400'
-							: 'border-surface-600'}"
-					>
-						{#if otherSelected}
-							<svg
-								class="text-surface-950 h-2.5 w-2.5"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="3"
-							>
-								<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-							</svg>
-						{/if}
-					</span>
-
 					<input
 						type="text"
 						bind:value={otherTexts[currentPage]}
@@ -238,7 +198,7 @@
 								e.preventDefault();
 							}
 						}}
-						class="min-w-0 flex-1 bg-transparent text-sm focus:outline-none {otherSelected
+						class="w-16 min-w-0 bg-transparent text-sm focus:outline-none {otherSelected
 							? 'text-text-100 placeholder-text-500 cursor-text'
 							: 'text-text-500 cursor-pointer line-through'}"
 					/>
