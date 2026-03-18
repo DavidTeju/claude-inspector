@@ -18,7 +18,7 @@ import type {
 	StoredIndexedSession
 } from './session-index-types.js';
 
-const SESSION_INDEX_DB_VERSION = 2;
+const SESSION_INDEX_DB_VERSION = 3;
 const INDEX_BATCH_SIZE = 500;
 
 /**
@@ -104,10 +104,12 @@ interface PersistStatements {
 	deleteTools: SQLite.Statement;
 	deleteProgress: SQLite.Statement;
 	deleteFiles: SQLite.Statement;
+	deleteModels: SQLite.Statement;
 	upsertReconcileState: SQLite.Statement;
 	insertTool: SQLite.Statement;
 	insertProgress: SQLite.Statement;
 	insertFile: SQLite.Statement;
+	insertModel: SQLite.Statement;
 	insertSearch: SQLite.Statement;
 }
 
@@ -242,6 +244,66 @@ export function getIndexedSessionMeta(
 	};
 }
 
+function applyBooleanFilter(
+	filter: 'include' | 'exclude' | null,
+	column: string,
+	whereClauses: string[]
+): void {
+	if (filter === 'include') {
+		whereClauses.push(`${column} = 1`);
+	} else if (filter === 'exclude') {
+		whereClauses.push(`${column} = 0`);
+	}
+}
+
+function buildSearchWhereClauses(query: IndexedSearchQuery): {
+	whereClauses: string[];
+	params: Array<string | number>;
+} {
+	const whereClauses: string[] = [];
+	const params: Array<string | number> = [];
+
+	if (query.projectFilter) {
+		whereClauses.push('s.project_id = ?');
+		params.push(query.projectFilter);
+	}
+
+	for (const project of query.projects) {
+		const op = project.negated ? 'NOT IN' : 'IN';
+		whereClauses.push(
+			`s.project_id ${op} (SELECT id FROM projects WHERE LOWER(display_name) LIKE ?)`
+		);
+		params.push(`%${project.value.toLowerCase()}%`);
+	}
+
+	for (const model of query.models) {
+		const op = model.negated ? 'NOT EXISTS' : 'EXISTS';
+		whereClauses.push(
+			`${op} (
+				SELECT 1 FROM session_models sm
+				WHERE sm.project_id = s.project_id
+				  AND sm.session_id = s.session_id
+				  AND LOWER(sm.model) LIKE ?
+			)`
+		);
+		params.push(`%${model.value.toLowerCase()}%`);
+	}
+
+	applyBooleanFilter(query.errorFilter, 's.has_api_error', whereClauses);
+	applyBooleanFilter(query.subagentFilter, 's.is_subagent', whereClauses);
+
+	if (query.dateAfter) {
+		whereClauses.push('s.modified >= ?');
+		params.push(query.dateAfter);
+	}
+	if (query.dateBefore) {
+		whereClauses.push('s.modified <= ?');
+		params.push(query.dateBefore);
+	}
+
+	return { whereClauses, params };
+}
+
 /**
  * Searches indexed sessions using structured filters plus optional FTS terms.
  * Text queries search the combined title/prompt/body/tool/branch/system columns,
@@ -252,8 +314,7 @@ export function searchIndexedSessions(
 	limit = INDEX_BATCH_SIZE
 ): IndexedSearchSession[] {
 	const db = getDatabase();
-	const whereClauses: string[] = [];
-	const params: Array<string | number> = [];
+	const { whereClauses, params } = buildSearchWhereClauses(query);
 	const searchTextExpression =
 		`TRIM(` +
 		`COALESCE(ss.title_text, '') || ' ' || ` +
@@ -264,47 +325,11 @@ export function searchIndexedSessions(
 		`COALESCE(ss.system_text, '')` +
 		`)`;
 
-	if (query.projectFilter) {
-		whereClauses.push('s.project_id = ?');
-		params.push(query.projectFilter);
-	}
-
-	for (const toolName of query.toolNames) {
-		whereClauses.push(
-			`EXISTS (
-				SELECT 1
-				FROM session_tools st
-				WHERE st.project_id = s.project_id
-				  AND st.session_id = s.session_id
-				  AND LOWER(st.tool_name) LIKE ?
-			)`
-		);
-		params.push(`%${toolName.toLowerCase()}%`);
-	}
-
-	for (const branchTerm of query.branchTerms) {
-		whereClauses.push('LOWER(s.git_branch) LIKE ?');
-		params.push(`%${branchTerm.toLowerCase()}%`);
-	}
-
-	if (query.isErrorOnly) {
-		whereClauses.push('s.has_api_error = 1');
-	}
-
-	if (query.isSubagentOnly) {
-		whereClauses.push('s.is_subagent = 1');
-	}
-
-	if (query.hasTokensOnly) {
-		whereClauses.push(
-			'(s.token_input > 0 OR s.token_output > 0 OR s.token_cache_read > 0 OR s.token_cache_write > 0)'
-		);
-	}
-
 	const baseWhere = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-	if (query.textTerms.length > 0) {
-		const ftsQuery = query.textTerms.map(toFtsTerm).join(' AND ');
+	if (query.textTerms.length > 0 || query.phraseTerms.length > 0) {
+		const ftsTerms = [...query.textTerms.map(toFtsTerm), ...query.phraseTerms.map(toFtsTerm)];
+		const ftsQuery = ftsTerms.join(' AND ');
 		const rows = db
 			.prepare(
 				`SELECT
@@ -353,26 +378,12 @@ export function searchIndexedSessions(
 	return toSqlRows(rows).map((row) => toIndexedSearchSession(row));
 }
 
-export function getDistinctToolNames(): string[] {
+export function getDistinctModels(): string[] {
 	const db = getDatabase();
 	const rows = db
-		.prepare<
-			[],
-			{ tool_name: string }
-		>(`SELECT DISTINCT tool_name FROM session_tools ORDER BY tool_name`)
+		.prepare<[], { model: string }>('SELECT DISTINCT model FROM session_models ORDER BY model')
 		.all();
-	return rows.map((row) => row.tool_name);
-}
-
-export function getDistinctBranches(): string[] {
-	const db = getDatabase();
-	const rows = db
-		.prepare<
-			[],
-			{ git_branch: string }
-		>(`SELECT DISTINCT git_branch FROM sessions WHERE git_branch != '' ORDER BY git_branch`)
-		.all();
-	return rows.map((row) => row.git_branch);
+	return rows.map((r) => r.model);
 }
 
 // ---------------------------------------------------------------------------
@@ -443,6 +454,7 @@ function prepareStatements(db: SQLite.Database): PersistStatements {
 			`DELETE FROM session_progress WHERE project_id = ? AND session_id = ?`
 		),
 		deleteFiles: db.prepare(`DELETE FROM session_files WHERE project_id = ? AND session_id = ?`),
+		deleteModels: db.prepare(`DELETE FROM session_models WHERE project_id = ? AND session_id = ?`),
 		upsertReconcileState: db.prepare(
 			`INSERT INTO reconcile_state (file_path, project_id, session_id, size_bytes, mtime_ms, indexed_at)
 			 VALUES (?, ?, ?, ?, ?, ?)
@@ -486,6 +498,9 @@ function prepareStatements(db: SQLite.Database): PersistStatements {
 				path,
 				kind
 			) VALUES (?, ?, ?, ?, ?)`
+		),
+		insertModel: db.prepare(
+			`INSERT OR IGNORE INTO session_models (project_id, session_id, model) VALUES (?, ?, ?)`
 		),
 		insertSearch: db.prepare(
 			`INSERT INTO session_search (
@@ -557,6 +572,16 @@ function persistSessionFiles(
 	}
 }
 
+function persistSessionModels(
+	stmts: PersistStatements,
+	projectId: string,
+	session: IndexedSessionData
+): void {
+	for (const model of session.models) {
+		stmts.insertModel.run(projectId, session.entry.sessionId, model);
+	}
+}
+
 function persistSingleSession(
 	stmts: PersistStatements,
 	projectId: string,
@@ -595,6 +620,7 @@ function persistSingleSession(
 	stmts.deleteTools.run(projectId, session.entry.sessionId);
 	stmts.deleteProgress.run(projectId, session.entry.sessionId);
 	stmts.deleteFiles.run(projectId, session.entry.sessionId);
+	stmts.deleteModels.run(projectId, session.entry.sessionId);
 	stmts.deleteSearch.run(projectId, session.entry.sessionId);
 
 	stmts.upsertReconcileState.run(
@@ -609,6 +635,7 @@ function persistSingleSession(
 	persistSessionTools(stmts, projectId, session);
 	persistSessionProgress(stmts, projectId, session);
 	persistSessionFiles(stmts, projectId, session);
+	persistSessionModels(stmts, projectId, session);
 
 	stmts.insertSearch.run(
 		projectId,
@@ -760,6 +787,7 @@ function ensureSchema(db: SQLite.Database): void {
 	}
 
 	db.exec(`
+		DROP TABLE IF EXISTS session_models;
 		DROP TABLE IF EXISTS session_files;
 		DROP TABLE IF EXISTS session_progress;
 		DROP TABLE IF EXISTS session_tools;
@@ -869,6 +897,19 @@ function ensureSchema(db: SQLite.Database): void {
 				ON DELETE CASCADE
 		);
 
+		CREATE TABLE session_models (
+			project_id TEXT NOT NULL,
+			session_id TEXT NOT NULL,
+			model TEXT NOT NULL,
+			PRIMARY KEY (project_id, session_id, model),
+			FOREIGN KEY (project_id, session_id)
+				REFERENCES sessions(project_id, session_id)
+				ON DELETE CASCADE
+		);
+
+		CREATE INDEX idx_session_models_model
+			ON session_models(model);
+
 		CREATE VIRTUAL TABLE session_search USING fts5(
 			project_id UNINDEXED,
 			session_id UNINDEXED,
@@ -893,6 +934,7 @@ function hasRequiredSchema(db: SQLite.Database): boolean {
 		'session_tools',
 		'session_progress',
 		'session_files',
+		'session_models',
 		'session_search'
 	];
 

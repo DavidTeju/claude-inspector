@@ -59,6 +59,7 @@ export interface IndexedSessionData {
 	tokenCacheWrite: number;
 	hasApiError: boolean;
 	hasCompaction: boolean;
+	models: string[];
 	tools: IndexedToolFact[];
 	progressEvents: IndexedProgressFact[];
 	fileFacts: IndexedFileFact[];
@@ -84,12 +85,19 @@ export interface IndexedSearchSession extends IndexedSessionMeta {
 	relevance: number;
 }
 
+export interface FilterTerm {
+	value: string;
+	negated: boolean;
+}
+
 export interface IndexedSearchQuery {
 	textTerms: string[];
+	phraseTerms: string[];
 	projectFilter?: string;
-	toolNames: string[];
-	branchTerms: string[];
-	isErrorOnly: boolean;
-	isSubagentOnly: boolean;
-	hasTokensOnly: boolean;
+	projects: FilterTerm[];
+	models: FilterTerm[];
+	errorFilter: 'include' | 'exclude' | null;
+	subagentFilter: 'include' | 'exclude' | null;
+	dateAfter?: string;
+	dateBefore?: string;
 }

@@ -39,6 +39,7 @@ interface ToolResultFact {
 interface RecordFacts {
 	toolResults: Map<string, ToolResultFact>;
 	tools: Map<string, IndexedToolFact>;
+	models: Set<string>;
 	progressEvents: IndexedProgressFact[];
 	fileFacts: IndexedFileFact[];
 	bodyTextParts: string[];
@@ -77,6 +78,7 @@ export function buildIndexedSessionData(
 		...usage,
 		hasApiError: facts.hasApiError,
 		hasCompaction: facts.hasCompaction,
+		models: [...facts.models],
 		tools: [...facts.tools.values()],
 		progressEvents: facts.progressEvents,
 		fileFacts: facts.fileFacts,
@@ -93,6 +95,7 @@ export function buildIndexedSessionData(
 function collectRecordFacts(records: ParsedSessionRecord[]): RecordFacts {
 	const toolResults = new Map<string, ToolResultFact>();
 	const tools = new Map<string, IndexedToolFact>();
+	const models = new Set<string>();
 	const progressEvents: IndexedProgressFact[] = [];
 	const fileFacts: IndexedFileFact[] = [];
 	const bodyTextParts: string[] = [];
@@ -151,6 +154,7 @@ function collectRecordFacts(records: ParsedSessionRecord[]): RecordFacts {
 			tools,
 			toolResults,
 			toolTextParts,
+			models,
 			hasApiError
 		);
 	}
@@ -158,6 +162,7 @@ function collectRecordFacts(records: ParsedSessionRecord[]): RecordFacts {
 	return {
 		toolResults,
 		tools,
+		models,
 		progressEvents,
 		fileFacts,
 		bodyTextParts,
@@ -322,6 +327,7 @@ function collectAssistantFact(
 	tools: Map<string, IndexedToolFact>,
 	toolResults: Map<string, ToolResultFact>,
 	toolTextParts: Set<string>,
+	models: Set<string>,
 	prevApiError: boolean
 ): boolean {
 	const hasApiError =
@@ -331,6 +337,11 @@ function collectAssistantFact(
 	const previousAssistant = latestAssistantRecords.get(assistantMessageKey);
 	if (!previousAssistant || previousAssistant.recordIndex < source.recordIndex) {
 		latestAssistantRecords.set(assistantMessageKey, { record, recordIndex: source.recordIndex });
+	}
+
+	const model = record.message.model;
+	if (typeof model === 'string' && model.length > 0) {
+		models.add(model);
 	}
 
 	const assistantText = extractTextFromMessageContent(record.message.content).trim();

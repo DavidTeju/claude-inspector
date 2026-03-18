@@ -160,35 +160,107 @@ describe('utils', () => {
 
 	describe('client filters', () => {
 		it('extracts value filters, exact filters, and free text', () => {
-			expect(
-				parseClientFilters(
-					'tool:Read is:error has:cost branch:main mode:raw debug:raw source:raw extra words'
-				)
-			).toEqual({
+			expect(parseClientFilters('project:inspector has:error model:opus extra words')).toEqual({
 				filters: [
-					{ prefix: 'tool', value: 'Read', raw: 'tool:Read' },
-					{ prefix: 'is', value: 'error', raw: 'is:error' },
-					{ prefix: 'has', value: 'cost', raw: 'has:cost' },
-					{ prefix: 'branch', value: 'main', raw: 'branch:main' },
-					{ prefix: 'mode', value: 'raw', raw: 'mode:raw' },
-					{ prefix: 'debug', value: 'raw', raw: 'debug:raw' },
-					{ prefix: 'source', value: 'raw', raw: 'source:raw' }
+					{ prefix: 'project', value: 'inspector', raw: 'project:inspector', negated: false },
+					{ prefix: 'has', value: 'error', raw: 'has:error', negated: false },
+					{ prefix: 'model', value: 'opus', raw: 'model:opus', negated: false }
 				],
-				freeText: 'extra words'
+				freeText: 'extra words',
+				rawMode: false,
+				regexMode: false
 			});
+		});
+
+		it('separates mode:raw as rawMode flag, not a filter', () => {
+			const result = parseClientFilters('mode:raw debug:raw source:raw query');
+			expect(result.rawMode).toBe(true);
+			expect(result.filters).toEqual([]);
+			expect(result.freeText).toBe('query');
+		});
+
+		it('separates mode:regex as regexMode flag', () => {
+			const result = parseClientFilters('mode:regex query');
+			expect(result.regexMode).toBe(true);
+			expect(result.filters).toEqual([]);
+		});
+
+		it('handles negated filters', () => {
+			const result = parseClientFilters('-is:subagent -project:inspector');
+			expect(result.filters).toEqual([
+				{ prefix: 'is', value: 'subagent', raw: '-is:subagent', negated: true },
+				{ prefix: 'project', value: 'inspector', raw: '-project:inspector', negated: true }
+			]);
+		});
+
+		it('handles quoted phrases as free text', () => {
+			const result = parseClientFilters('"error handling" has:error');
+			expect(result.filters).toEqual([
+				{ prefix: 'has', value: 'error', raw: 'has:error', negated: false }
+			]);
+			expect(result.freeText).toBe('"error handling"');
+		});
+
+		it('handles is:error as backward-compat alias for has:error', () => {
+			const result = parseClientFilters('is:error');
+			expect(result.filters).toEqual([
+				{ prefix: 'has', value: 'error', raw: 'is:error', negated: false }
+			]);
+		});
+
+		it('handles project: and model: and date: filters', () => {
+			const result = parseClientFilters('project:inspector model:opus date:7d');
+			expect(result.filters).toEqual([
+				{ prefix: 'project', value: 'inspector', raw: 'project:inspector', negated: false },
+				{ prefix: 'model', value: 'opus', raw: 'model:opus', negated: false },
+				{ prefix: 'date', value: '7d', raw: 'date:7d', negated: false }
+			]);
 		});
 
 		it('treats incomplete or unknown filters as free text', () => {
-			expect(parseClientFilters('tool: branch: unknown:value')).toEqual({
+			expect(parseClientFilters('project: unknown:value')).toEqual({
 				filters: [],
-				freeText: 'tool: branch: unknown:value'
+				freeText: 'project: unknown:value',
+				rawMode: false,
+				regexMode: false
 			});
 		});
 
+		it('treats removed filters (tool:, branch:) as free text', () => {
+			const result = parseClientFilters('tool:Read branch:main query');
+			expect(result.filters).toEqual([]);
+			expect(result.freeText).toBe('tool:Read branch:main query');
+		});
+
 		it('round-trips through rebuildQuery', () => {
-			const parsed = parseClientFilters('tool:Read has:tokens free text');
-			expect(rebuildQuery(parsed.filters, parsed.freeText)).toBe('tool:Read has:tokens free text');
+			const parsed = parseClientFilters('project:foo has:error free text');
+			expect(rebuildQuery(parsed.filters, parsed.freeText)).toBe('project:foo has:error free text');
 			expect(rebuildQuery([], '  trimmed text  ')).toBe('trimmed text');
+		});
+
+		it('round-trips negated filters through rebuildQuery', () => {
+			const parsed = parseClientFilters('-project:foo -is:subagent free text');
+			expect(rebuildQuery(parsed.filters, parsed.freeText)).toBe(
+				'-project:foo -is:subagent free text'
+			);
+		});
+
+		it('handles mixed negation, phrases, and filters', () => {
+			const result = parseClientFilters('-project:foo "exact phrase" has:error query');
+			expect(result.filters).toHaveLength(2);
+			expect(result.filters[0]).toEqual({
+				prefix: 'project',
+				value: 'foo',
+				raw: '-project:foo',
+				negated: true
+			});
+			expect(result.filters[1]).toEqual({
+				prefix: 'has',
+				value: 'error',
+				raw: 'has:error',
+				negated: false
+			});
+			expect(result.freeText).toBe('"exact phrase" query');
 		});
 	});
 

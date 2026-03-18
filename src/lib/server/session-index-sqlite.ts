@@ -10,8 +10,7 @@
 export { buildIndexedSessionData } from './session-fact-extraction.js';
 export {
 	deleteIndexedProjects,
-	getDistinctBranches,
-	getDistinctToolNames,
+	getDistinctModels,
 	getIndexedProjectIds,
 	getIndexedProjects,
 	getIndexedSessionMeta,
@@ -23,6 +22,7 @@ export {
 	updateIndexedSessionSummary
 } from './session-index-db.js';
 export type {
+	FilterTerm,
 	IndexedSearchQuery,
 	IndexedSearchSession,
 	IndexedSessionData,
