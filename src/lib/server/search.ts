@@ -1,7 +1,8 @@
 /**
  * @module
- * Session search orchestration. The default path searches the SQLite index first
- * and only uses ripgrep as an explicit raw-mode escape hatch.
+ * Session search orchestration. The default path searches the SQLite index first;
+ * ripgrep remains available as a raw-mode escape hatch and reflects the older
+ * line-oriented search backend.
  */
 
 import { spawn, type ChildProcess } from 'child_process';
@@ -59,8 +60,10 @@ export interface StreamingSearchCallbacks {
 const indexingPromises = new Map<string, Promise<void>>();
 
 /**
- * Extract text content from a parsed JSONL session record.
- * Only returns text from user/assistant messages, filtering out tool_use, tool_result, thinking, etc.
+ * Extracts plain text from a parsed JSONL record for raw line-oriented search.
+ * Only user/assistant text blocks are included here; tool_use, tool_result,
+ * thinking, and other non-text content are intentionally ignored so raw-mode
+ * results stay aligned with the searchable human-readable transcript text.
  */
 function extractTextContent(record: Record<string, unknown>): string | null {
 	const type = record.type as string;
@@ -451,8 +454,9 @@ async function processRawMatch(
 
 /**
  * Legacy ripgrep-based streaming search used only for explicit raw-mode queries.
- * It searches JSONL lines directly, deduplicates sessions after the subprocess
- * exits, and falls back to indexed search if ripgrep cannot be spawned.
+ * It searches JSONL lines directly and deduplicates sessions after the subprocess
+ * exits. If ripgrep cannot be spawned at all, this path degrades back to indexed
+ * search so the request still returns results instead of failing outright.
  */
 function searchSessionsRawStreaming(
 	textTerms: string[],

@@ -227,8 +227,8 @@ function toSharedToolResultContent(
 
 /**
  * Preserves message content in the shared camel-cased format used by the UI.
- * The return type intentionally stays string-or-array because both shapes occur
- * in persisted Claude transcripts and the UI understands both.
+ * Returns `string | ContentBlock[]` to match both shapes found in persisted
+ * Claude transcripts.
  */
 function toSharedMessageContent(content: ClaudeMessageContent): string | ContentBlock[] {
 	if (typeof content === 'string') return content;

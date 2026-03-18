@@ -2,7 +2,8 @@
  * @module
  * Normalized schema for Claude session JSONL records. The parser separates
  * thread records from metadata records and preserves Inspector-specific logic
- * around hidden `isMeta` user messages.
+ * around filtered `isMeta` user messages, including the image-only records that
+ * are still exposed as user-visible turns.
  */
 
 type JsonObject = Record<string, unknown>;
