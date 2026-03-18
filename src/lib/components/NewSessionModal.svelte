@@ -11,15 +11,19 @@
 
 	let {
 		projects,
-		models
+		models,
+		defaultPermissionMode = 'default',
+		defaultModel = ''
 	}: {
 		projects: Project[];
 		models: ModelOption[];
+		defaultPermissionMode?: PermissionMode;
+		defaultModel?: string;
 	} = $props();
 
 	let selectedProject = $state('');
-	let permissionMode = $state<PermissionMode>('default');
-	let selectedModel = $state('');
+	let permissionMode = $state<PermissionMode>(defaultPermissionMode);
+	let selectedModel = $state(defaultModel);
 	let isStarting = $state(false);
 	let errorMessage = $state<string | null>(null);
 
@@ -112,7 +116,9 @@
 					>Project</label
 				>
 				{#if projects.length === 0}
-					<p class="text-text-500 border-surface-800 bg-surface-900 rounded-md border px-3 py-2.5 text-sm">
+					<p
+						class="text-text-500 border-surface-800 bg-surface-900 rounded-md border px-3 py-2.5 text-sm"
+					>
 						No projects found. Start a Claude session in a project directory first.
 					</p>
 				{:else}

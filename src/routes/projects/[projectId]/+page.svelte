@@ -133,7 +133,9 @@
 					<tr>
 						<td colspan="5" class="text-text-500 px-3 py-12 text-center">
 							<p class="text-sm">No sessions found for this project.</p>
-							<p class="mt-1 text-xs">Start a new Claude session in this project directory to see it here.</p>
+							<p class="mt-1 text-xs">
+								Start a new Claude session in this project directory to see it here.
+							</p>
 						</td>
 					</tr>
 				{/each}
