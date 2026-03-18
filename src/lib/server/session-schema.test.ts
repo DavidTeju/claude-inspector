@@ -150,6 +150,28 @@ describe('server/session-schema', () => {
 			});
 		});
 
+		it('treats image-only meta records without promptId as tool results', () => {
+			expect(
+				parseSessionRecordValue({
+					...createThreadRecordBase(),
+					type: 'user',
+					message: {
+						content: [
+							{
+								type: 'image',
+								source: { type: 'base64', media_type: 'image/png', data: 'abc123' }
+							}
+						]
+					},
+					isMeta: true
+				})
+			).toMatchObject({
+				type: 'user',
+				recordKind: 'tool_result',
+				isMeta: true
+			});
+		});
+
 		it('hides non-image meta records and promptless user records as tool results', () => {
 			expect(
 				parseSessionRecordValue({
@@ -346,6 +368,18 @@ describe('server/session-schema', () => {
 				tool_use_id: 'tool-1',
 				content: [{ type: 'text', text: 'done' }],
 				is_error: true
+			});
+			expect(
+				normalizeContentBlock({
+					type: 'tool_result',
+					tool_use_id: 'tool-1',
+					content: 'text result'
+				})
+			).toEqual({
+				type: 'tool_result',
+				tool_use_id: 'tool-1',
+				content: 'text result',
+				is_error: undefined
 			});
 			expect(normalizeContentBlock({ type: 'thinking', thinking: 'pondering' })).toEqual({
 				type: 'thinking',

@@ -11,10 +11,37 @@ import {
 	parseClientFilters,
 	parseSearchTerms,
 	pluralize,
-	rebuildQuery
+	rebuildQuery,
+	uuid
 } from './utils.js';
 
 describe('utils', () => {
+	describe('uuid', () => {
+		afterEach(() => {
+			vi.unstubAllGlobals();
+		});
+
+		it('uses crypto.randomUUID when available', () => {
+			vi.stubGlobal('crypto', {
+				getRandomValues: globalThis.crypto.getRandomValues.bind(globalThis.crypto),
+				randomUUID: () => '123e4567-e89b-42d3-a456-426614174000'
+			});
+
+			expect(uuid()).toBe('123e4567-e89b-42d3-a456-426614174000');
+		});
+
+		it('generates an RFC 4122 v4 UUID when randomUUID is unavailable', () => {
+			vi.stubGlobal('crypto', {
+				getRandomValues: (bytes: Uint8Array) => {
+					bytes.set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+					return bytes;
+				}
+			});
+
+			expect(uuid()).toBe('00010203-0405-4607-8809-0a0b0c0d0e0f');
+		});
+	});
+
 	describe('dirNameToDisplayName', () => {
 		it('strips a projects prefix and keeps the trailing project name', () => {
 			expect(dirNameToDisplayName('-Users-david-projects-myapp')).toBe('myapp');
@@ -27,6 +54,10 @@ describe('utils', () => {
 		it('handles empty and already-readable names', () => {
 			expect(dirNameToDisplayName('')).toBe('');
 			expect(dirNameToDisplayName('project')).toBe('project');
+		});
+
+		it('falls back to replacing dashes with slashes', () => {
+			expect(dirNameToDisplayName('some-random-path')).toBe('some/random/path');
 		});
 	});
 
@@ -45,7 +76,7 @@ describe('utils', () => {
 			expect(parseSearchTerms('Hello WORLD search')).toEqual(['hello', 'world', 'search']);
 		});
 
-		it('keeps quoted segments as split terms and drops single-character tokens', () => {
+		it('splits on whitespace and drops single-character tokens', () => {
 			expect(parseSearchTerms('"Quoted phrase" x go')).toEqual(['"quoted', 'phrase"', 'go']);
 		});
 
@@ -91,23 +122,8 @@ describe('utils', () => {
 
 		it('formats same-year dates without the year and older dates with the year', () => {
 			expect(formatDate('')).toBe('');
-			expect(formatDate('2025-03-04T09:05:00')).toBe(
-				new Date('2025-03-04T09:05:00').toLocaleDateString('en-US', {
-					month: 'short',
-					day: 'numeric',
-					hour: '2-digit',
-					minute: '2-digit'
-				})
-			);
-			expect(formatDate('2024-03-04T09:05:00')).toBe(
-				new Date('2024-03-04T09:05:00').toLocaleDateString('en-US', {
-					month: 'short',
-					day: 'numeric',
-					year: 'numeric',
-					hour: '2-digit',
-					minute: '2-digit'
-				})
-			);
+			expect(formatDate('2025-03-04T09:05:00')).toBe('Mar 4, 09:05 AM');
+			expect(formatDate('2024-03-04T09:05:00')).toBe('Mar 4, 2024, 09:05 AM');
 		});
 
 		it('formats relative times across all display branches', () => {
@@ -116,19 +132,8 @@ describe('utils', () => {
 			expect(formatRelativeDate('2025-06-15T11:55:00')).toBe('5m ago');
 			expect(formatRelativeDate('2025-06-15T09:00:00')).toBe('3h ago');
 			expect(formatRelativeDate('2025-06-11T12:00:00')).toBe('4d ago');
-			expect(formatRelativeDate('2025-06-05T12:00:00')).toBe(
-				new Date('2025-06-05T12:00:00').toLocaleDateString('en-US', {
-					month: 'short',
-					day: 'numeric'
-				})
-			);
-			expect(formatRelativeDate('2024-12-31T12:00:00')).toBe(
-				new Date('2024-12-31T12:00:00').toLocaleDateString('en-US', {
-					month: 'short',
-					day: 'numeric',
-					year: 'numeric'
-				})
-			);
+			expect(formatRelativeDate('2025-06-05T12:00:00')).toBe('Jun 5');
+			expect(formatRelativeDate('2024-12-31T12:00:00')).toBe('Dec 31, 2024');
 		});
 	});
 
@@ -146,7 +151,7 @@ describe('utils', () => {
 			expect(highlightTerms('<tag>', 'missing')).toBe('&lt;tag&gt;');
 		});
 
-		it('applies terms sequentially for overlapping matches', () => {
+		it('applies terms sequentially so earlier terms take precedence', () => {
 			expect(highlightTerms('foobar', 'foo foobar')).toBe(
 				'<mark class="search-highlight">foo</mark>bar'
 			);

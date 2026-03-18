@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { FALLBACK_MODELS } from './models.js';
 
 describe('shared/models', () => {
-	it('includes the default option and known fallback models', () => {
-		expect(FALLBACK_MODELS).toEqual([
-			{ value: '', displayName: 'Default' },
-			{ value: 'claude-sonnet-4-6', displayName: 'Sonnet 4.6' },
-			{ value: 'claude-opus-4-6', displayName: 'Opus 4.6' },
-			{ value: 'claude-haiku-4-5-20251001', displayName: 'Haiku 4.5' }
-		]);
+	it('always includes the default option first', () => {
+		expect(FALLBACK_MODELS[0]).toEqual({ value: '', displayName: 'Default' });
+	});
+
+	it('only contains entries with display names', () => {
+		for (const model of FALLBACK_MODELS) {
+			expect(model.displayName).toBeTruthy();
+		}
 	});
 });

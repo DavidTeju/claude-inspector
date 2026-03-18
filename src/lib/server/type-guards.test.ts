@@ -17,9 +17,12 @@ describe('server/type-guards', () => {
 	describe('asOptionalString', () => {
 		it('returns trimmed strings', () => {
 			expect(asOptionalString('  value  ')).toBe('value');
+			expect(asOptionalString('  ')).toBe('');
+			expect(asOptionalString('')).toBe('');
 		});
 
 		it('returns undefined for non-string values', () => {
+			expect(asOptionalString(undefined)).toBeUndefined();
 			expect(asOptionalString(123)).toBeUndefined();
 			expect(asOptionalString(null)).toBeUndefined();
 		});
