@@ -1,3 +1,9 @@
+/**
+ * @module
+ * Session-level metadata extraction used when building lightweight index entries
+ * from full JSONL transcripts.
+ */
+
 import { MAX_PROMPT_PREVIEW_LENGTH } from '../constants.js';
 import type { SessionEntry } from '../types.js';
 import type { SessionFileDescriptor } from './session-discovery.js';
@@ -43,6 +49,12 @@ function extractTimestamps(records: ParsedSessionRecord[]): TimestampInfo {
 	return { created, modified, gitBranch };
 }
 
+/**
+ * Extracts display-facing session metadata from the parsed record stream.
+ * Assistant messages are deduplicated by message ID/UUID so retries and replayed
+ * records do not inflate counts, while metadata records can still override the
+ * last prompt, custom title, and native summary.
+ */
 function extractContent(records: ParsedSessionRecord[]): ContentInfo {
 	let firstPrompt = '';
 	let lastPrompt = '';
@@ -78,6 +90,7 @@ function extractContent(records: ParsedSessionRecord[]): ContentInfo {
 	return { firstPrompt, lastPrompt, customTitle, nativeSummary, messageCount };
 }
 
+/** Mutable accumulator used while walking records to derive one `SessionEntry` summary. */
 interface ContentAccumulator {
 	getFirstPrompt: () => string;
 	setFirstPrompt: (v: string) => void;
@@ -137,6 +150,11 @@ function extractContentFromRecord(record: ClaudeSessionRecord, acc: ContentAccum
 	extractMetadataContent(record, acc);
 }
 
+/**
+ * Builds a `SessionEntry` from one discovered JSONL file.
+ * Sessions with no prompt, summary, or message count are dropped so empty or
+ * malformed transcripts do not pollute the project index.
+ */
 export function extractSessionEntry(
 	descriptor: SessionFileDescriptor,
 	records: ParsedSessionRecord[],
