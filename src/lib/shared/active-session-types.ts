@@ -1,3 +1,9 @@
+/**
+ * @module
+ * Shared protocol types for active Claude SDK sessions, including the server's
+ * SSE event contract and the client-visible session state machine.
+ */
+
 import type {
 	ModelUsage,
 	PermissionMode as SDKPermissionMode,
@@ -10,6 +16,18 @@ export type PermissionMode = SDKPermissionMode;
 
 export type { SlashCommand };
 
+/**
+ * Lifecycle states for a live SDK-backed session.
+ * - `initializing`: session object exists but the SDK has not emitted init yet
+ * - `running`: actively processing tool/model output
+ * - `awaiting_permission`: blocked on a permission prompt
+ * - `awaiting_input`: blocked on AskUserQuestion UI input
+ * - `rate_limited`: Claude rejected execution due to quota/rate limits
+ * - `compacting`: Claude is compacting the conversation state
+ * - `idle`: ready for the next user turn
+ * - `error`: stream/query failed and requires recovery
+ * - `closed`: session has been shut down and will not emit more events
+ */
 export type ActiveSessionState =
 	| 'initializing'
 	| 'running'
@@ -74,7 +92,7 @@ export interface SessionCost {
 
 export interface InProgressTurnSnapshot {
 	uuid: string;
-	/** The SDK assistant message UUID — used for messageBuffer/JSONL consistency. */
+	/** The final SDK assistant UUID stored in JSONL, used so replay dedup matches persisted history. */
 	canonicalUuid?: string;
 	streamingText: string;
 	streamingThinking: string;

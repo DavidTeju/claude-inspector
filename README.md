@@ -14,22 +14,43 @@ A local web UI for browsing, searching, and interacting with your [Claude Code](
 - **Session list** — sortable table per project with summaries, first prompts, message counts, and git branches
 - **Light/dark theme** — toggle between light and dark modes, or follow system preference
 
-## Quick Start
+## Installation
+
+Requires [Node.js](https://nodejs.org/) 20+ and [Claude Code](https://docs.anthropic.com/en/docs/claude-code) sessions in `~/.claude/`.
+
+### npx (no install)
 
 ```sh
+npx claude-inspector
+```
+
+### Global install
+
+```sh
+npm install -g claude-inspector
+claude-inspector
+```
+
+Open [http://localhost:5174](http://localhost:5174).
+
+### Environment variables
+
+| Variable           | Default     | Description                        |
+| ------------------ | ----------- | ---------------------------------- |
+| `PORT`             | `5174`      | Server port                        |
+| `HOST`             | `localhost` | Server host                        |
+| `CLAUDE_DATA_PATH` | `~/.claude` | Path to Claude Code data directory |
+
+## Development
+
+```sh
+git clone https://github.com/DavidTeju/claude-inspector.git
+cd claude-inspector
 npm install
 npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173).
-
-## Configuration
-
-By default, reads data from `~/.claude/`. Override with the `CLAUDE_DATA_PATH` environment variable:
-
-```sh
-CLAUDE_DATA_PATH=/path/to/claude/data npm run dev
-```
 
 ### Optional: Session summaries
 
@@ -142,6 +163,9 @@ npm run preview      # Preview production build
 npm run check        # TypeScript checking
 npm run lint         # ESLint
 npm run lint:fix     # ESLint with auto-fix
+npm run test         # Run Vitest once
+npm run test:watch   # Run Vitest in watch mode
+npm run test:coverage # Run Vitest with coverage
 ```
 
 ## License

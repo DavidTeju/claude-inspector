@@ -1,14 +1,22 @@
+/**
+ * @module
+ * File-system discovery for Claude session transcripts, including the nested
+ * subagent directory layout and route-safe session ID encoding.
+ */
+
 import type { Dirent } from 'fs';
 import { readdir } from 'fs/promises';
 import path from 'path';
 
+/** Separator used to encode `parent/subagent child` relationships into a single route ID. */
 const SUBAGENT_ROUTE_MARKER = '~subagent~';
 
+/** Describes one JSONL session file as both a disk path and an Inspector route target. */
 export interface SessionFileDescriptor {
 	projectId: string;
 	/** Raw JSONL filename without extension. */
 	sessionId: string;
-	/** Route-safe identifier used in URLs and cache keys. */
+	/** Route-safe identifier used in URLs and cache keys (`parent~subagent~child` for subagents). */
 	routeId: string;
 	fullPath: string;
 	relativePath: string;
@@ -21,6 +29,11 @@ export async function listProjectSessionFiles(projectId: string): Promise<Sessio
 	return listProjectSessionFilesInDir(projectId, path.join(getProjectsDir(), projectId));
 }
 
+/**
+ * Lists top-level session files plus one level of `parent/subagents/*.jsonl` children.
+ * Other nested directories are ignored because subagent sessions only live under
+ * their parent session's dedicated `subagents` directory.
+ */
 export async function listProjectSessionFilesInDir(
 	projectId: string,
 	projectDir: string
@@ -73,6 +86,10 @@ export async function listProjectSessionFilesInDir(
 	return descriptors.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
 }
 
+/**
+ * Resolves a session reference back to a file using the safest match order:
+ * route ID first, then relative path, then raw session ID if and only if it is unique.
+ */
 export async function findSessionFile(
 	projectId: string,
 	sessionReference: string
@@ -93,6 +110,11 @@ export async function findSessionFile(
 	return sessionIdMatches.length === 1 ? sessionIdMatches[0] : null;
 }
 
+/**
+ * Builds the normalized descriptor for a discovered JSONL file.
+ * Subagent children keep their raw filename as `sessionId` but receive a
+ * route-safe `parent~subagent~child` ID for URLs and cache keys.
+ */
 function buildDescriptor(
 	projectId: string,
 	projectDir: string,

@@ -1,3 +1,9 @@
+/**
+ * @module
+ * Tracks spawned Claude child processes in a small JSON file so stale PIDs can
+ * be cleaned up safely across reloads and process restarts.
+ */
+
 import { execFile as execFileCallback } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -16,6 +22,11 @@ interface ActivePidEntry {
 
 let pidFileQueue: Promise<void> = Promise.resolve();
 
+/**
+ * Serializes PID file reads and writes through a promise chain.
+ * This lightweight lock avoids concurrent JSON overwrites without introducing a
+ * separate mutex implementation or another dependency.
+ */
 function withPidFileLock<T>(operation: () => Promise<T>): Promise<T> {
 	const next = pidFileQueue.then(operation, operation);
 	pidFileQueue = next.then(
@@ -138,6 +149,11 @@ export async function renameActiveSessionProcess(
 	});
 }
 
+/**
+ * Removes PID entries whose process no longer exists or whose PID was reused.
+ * Both the process start time and command signature must match before an entry
+ * is considered safe to keep.
+ */
 export async function cleanupOrphanedProcesses(): Promise<number> {
 	return withPidFileLock(async () => {
 		const entries = await readEntriesUnlocked();

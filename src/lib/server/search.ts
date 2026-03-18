@@ -1,3 +1,10 @@
+/**
+ * @module
+ * Session search orchestration. The default path searches the SQLite index first;
+ * ripgrep remains available as a raw-mode escape hatch and reflects the older
+ * line-oriented search backend.
+ */
+
 import { spawn, type ChildProcess } from 'child_process';
 import { readdir, stat } from 'fs/promises';
 import path from 'path';
@@ -53,8 +60,10 @@ export interface StreamingSearchCallbacks {
 const indexingPromises = new Map<string, Promise<void>>();
 
 /**
- * Extract text content from a parsed JSONL session record.
- * Only returns text from user/assistant messages, filtering out tool_use, tool_result, thinking, etc.
+ * Extracts plain text from a parsed JSONL record for raw line-oriented search.
+ * Only user/assistant text blocks are included here; tool_use, tool_result,
+ * thinking, and other non-text content are intentionally ignored so raw-mode
+ * results stay aligned with the searchable human-readable transcript text.
  */
 function extractTextContent(record: Record<string, unknown>): string | null {
 	const type = record.type as string;
@@ -87,6 +96,11 @@ function extractTextContent(record: Record<string, unknown>): string | null {
 	return null;
 }
 
+/**
+ * Parses free text plus filter tokens from the search box.
+ * Keep this in sync with `parseClientFilters()` so the client-side filter chips
+ * represent the exact same grammar that the server executes.
+ */
 function parseStructuredQuery(query: string): ParsedSearchQuery {
 	const textParts: string[] = [];
 	const toolNames: string[] = [];
@@ -172,6 +186,11 @@ function toIndexedSearchQuery(
 	};
 }
 
+/**
+ * Builds one preview snippet around a matched term.
+ * The window is intentionally asymmetric so users get slightly more context
+ * after the match than before it.
+ */
 function createSnippet(text: string, term: string): string {
 	const normalized = text.replace(/\n/g, ' ').trim();
 	if (!normalized) return '';
@@ -210,6 +229,11 @@ function createSnippets(searchText: string, terms: string[]): string[] {
 	return snippets;
 }
 
+/**
+ * Ensures a project's SQLite index exists before querying it.
+ * The promise map deduplicates concurrent callers so search requests do not
+ * race each other into redundant reconciliation work.
+ */
 async function ensureProjectIndexed(projectId: string): Promise<void> {
 	const pending = indexingPromises.get(projectId);
 	if (pending) {
@@ -262,6 +286,11 @@ function toSearchResult(result: IndexedSearchSession, terms: string[]): SearchRe
 	};
 }
 
+/**
+ * Streams indexed matches to the caller while preserving synchronous dedupe.
+ * Emitted-session tracking must happen inline with `onResult` so concurrent raw
+ * fallback work cannot double-publish the same session.
+ */
 async function emitIndexedMatches(
 	query: ParsedSearchQuery,
 	projectFilter: string | undefined,
@@ -297,7 +326,9 @@ async function emitIndexedMatches(
 }
 
 /**
- * Parse a file path relative to the projects directory into project/session identifiers.
+ * Parses a ripgrep relative path into project/session identifiers.
+ * Subagent sessions are encoded as `parentSessionId~subagent~childSessionId`
+ * to match the route IDs produced by session discovery.
  */
 function parseSessionPath(relPath: string): { projectId: string; sessionId: string } | null {
 	const parts = relPath.split('/');
@@ -356,8 +387,9 @@ function parseRecordLine(lineText: string): string | null {
 }
 
 /**
- * Compute a relevance score by checking how many search terms appear
- * in the session's first prompt and summary.
+ * Computes the lightweight raw-search relevance score.
+ * Prompt matches count double so the first user intent outranks equivalent
+ * summary-only hits when the ripgrep fallback path is used.
  */
 function computeRelevance(
 	terms: string[],
@@ -373,6 +405,11 @@ function computeRelevance(
 	return relevance;
 }
 
+/**
+ * Converts a ripgrep line match into a deduplicated SearchResult.
+ * This is intentionally async because it may need indexed metadata or a file
+ * stat fallback before the result can be emitted.
+ */
 async function processRawMatch(
 	match: RgMatch,
 	terms: string[],
@@ -415,6 +452,12 @@ async function processRawMatch(
 	return true;
 }
 
+/**
+ * Legacy ripgrep-based streaming search used only for explicit raw-mode queries.
+ * It searches JSONL lines directly and deduplicates sessions after the subprocess
+ * exits. If ripgrep cannot be spawned at all, this path degrades back to indexed
+ * search so the request still returns results instead of failing outright.
+ */
 function searchSessionsRawStreaming(
 	textTerms: string[],
 	callbacks: StreamingSearchCallbacks,
@@ -523,8 +566,10 @@ function searchSessionsRawStreaming(
 }
 
 /**
- * SQLite-first streaming search. Use `debug:raw`, `mode:raw`, or `source:raw`
- * in the query as an escape hatch to force the legacy ripgrep path.
+ * Main streaming search entry point.
+ * SQLite results are preferred because they understand structured filters and
+ * session-level metadata; `debug:raw`, `mode:raw`, or `source:raw` force the
+ * legacy ripgrep path for text-only troubleshooting.
  */
 export function searchSessionsStreaming(
 	query: string,
