@@ -1,5 +1,5 @@
 import { error } from '@sveltejs/kit';
-import { HTTP_NOT_FOUND } from '$lib/constants.js';
+import { HTTP_BAD_REQUEST, HTTP_NOT_FOUND } from '$lib/constants.js';
 import { normalizeProjectId } from '$lib/server/project-id.js';
 import { parseSessionMessages } from '$lib/server/session-adapters.js';
 import { findSessionFile } from '$lib/server/session-discovery.js';
@@ -71,7 +71,7 @@ async function loadSessionData(projectId: string, sessionId: string) {
 
 export const load: PageServerLoad = async ({ params }) => {
 	const projectId = normalizeProjectId(params.projectId);
-	if (!projectId) throw error(400, 'Invalid project ID');
+	if (!projectId) throw error(HTTP_BAD_REQUEST, 'Invalid project ID');
 
 	try {
 		const data = await loadSessionData(projectId, params.sessionId);
