@@ -1,5 +1,14 @@
+/**
+ * @module
+ * Normalized schema for Claude session JSONL records. The parser separates
+ * thread records from metadata records and preserves Inspector-specific logic
+ * around filtered `isMeta` user messages, including the image-only records that
+ * are still exposed as user-visible turns.
+ */
+
 type JsonObject = Record<string, unknown>;
 
+/** All normalized record types that may appear in a Claude session JSONL file. */
 export type SessionRecordType =
 	| 'user'
 	| 'assistant'
@@ -55,12 +64,20 @@ export interface ImageBlock {
 	};
 }
 
+/** Catch-all raw block preserved when Claude introduces transcript variants the app does not yet understand. */
 export interface UnknownContentBlock {
 	type: 'unknown';
 	originalType: string;
 	payload: JsonObject;
 }
 
+/**
+ * Schema-layer content block union that mirrors the JSONL transcript on disk.
+ * It keeps Claude's raw field names (for example `tool_use_id`, `is_error`,
+ * and `media_type`) and includes `UnknownContentBlock` so parsing/indexing stay
+ * forward-compatible before the adapter layer maps known variants to the UI's
+ * normalized `ContentBlock` union.
+ */
 export type ClaudeContentBlock =
 	| TextBlock
 	| ToolUseBlock
@@ -69,6 +86,7 @@ export type ClaudeContentBlock =
 	| ImageBlock
 	| UnknownContentBlock;
 
+/** Raw Claude message content exactly as preserved by the normalized schema layer. */
 export type ClaudeMessageContent = string | ClaudeContentBlock[];
 
 export interface UserMessage {
@@ -219,20 +237,24 @@ export function isThreadRecord(record: ClaudeSessionRecord): record is ThreadRec
 	);
 }
 
+/** Narrows `type: "user"` records to real human/API user turns, excluding tool-result wrappers. */
 export function isUserRecord(record: ClaudeSessionRecord): record is UserRecord {
 	return record.type === 'user' && 'recordKind' in record && record.recordKind === 'user';
 }
 
+/** Narrows `type: "user"` records to tool-result carriers derived from assistant tool calls. */
 export function isToolResultRecord(record: ClaudeSessionRecord): record is ToolResultRecord {
 	return record.type === 'user' && 'recordKind' in record && record.recordKind === 'tool_result';
 }
 
+/** Narrows to the raw API-level `user` envelope before distinguishing user vs tool_result semantics. */
 export function isApiUserRecord(
 	record: ClaudeSessionRecord
 ): record is UserRecord | ToolResultRecord {
 	return record.type === 'user';
 }
 
+/** Narrows to assistant turns that may contain text, thinking, tools, and token usage metadata. */
 export function isAssistantRecord(record: ClaudeSessionRecord): record is AssistantRecord {
 	return record.type === 'assistant';
 }
@@ -247,6 +269,12 @@ export function extractTextFromMessageContent(content: ClaudeMessageContent | un
 		.join('');
 }
 
+/**
+ * Parses raw `type: "user"` JSON into either a user turn or a tool-result carrier.
+ * The `isMeta` and `promptId` checks intentionally hide Claude-injected plumbing
+ * such as skill expansion prompts, plan-mode exit messages, and transcript-only
+ * tool result wrappers while still letting pasted image-only records through.
+ */
 function parseUserRecord(record: JsonObject): UserRecord | ToolResultRecord | null {
 	const base = parseThreadRecordBase(record);
 	const message = parseUserMessage(record.message);

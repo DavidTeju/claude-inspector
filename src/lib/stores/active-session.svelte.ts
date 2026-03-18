@@ -1,3 +1,9 @@
+/**
+ * @module
+ * Client-side active-session store that consumes the server's SSE protocol and
+ * reconstructs a reactive session state machine for the UI.
+ */
+
 import { SvelteSet } from 'svelte/reactivity';
 import { HTTP_NOT_FOUND, MS_PER_SECOND } from '$lib/constants.js';
 import type {
@@ -15,6 +21,11 @@ import { uuid } from '$lib/utils.js';
 
 const SSE_DATA_PREFIX_LENGTH = 'data: '.length;
 
+/**
+ * Client-facing contract exposed by the active-session store.
+ * It combines reactive session state with imperative actions for sending turns
+ * and responding to permission/question prompts.
+ */
 export interface ActiveSessionClient {
 	readonly sessionId: string;
 	readonly state: ActiveSessionState;
@@ -59,6 +70,12 @@ function isoNow(): string {
 	return new Date().toISOString();
 }
 
+/**
+ * Creates a reactive SSE-backed client for one active session.
+ * The connection replays buffered history first, then merges streaming assistant
+ * deltas, tool events, permission prompts, and reconnect attempts into a single
+ * client-facing state machine.
+ */
 export function createActiveSessionConnection(
 	sessionId: string,
 	initialMessages?: ThreadMessage[]
@@ -175,6 +192,7 @@ export function createActiveSessionConnection(
 
 	// --- Event sub-handlers (split to keep cyclomatic complexity manageable) ---
 
+	/** Applies assistant/tool streaming events to the transient in-progress turn buffer. */
 	function handleStreamingEvent(event: ClientEvent) {
 		switch (event.type) {
 			case 'assistant_text':
@@ -229,6 +247,7 @@ export function createActiveSessionConnection(
 		return resetsIn ? `Rate limited. Resets in ${resetsIn}s` : 'Rate limited';
 	}
 
+	/** Updates coarse session status such as lifecycle state, cost, rate limits, and errors. */
 	function handleSessionStateEvent(event: ClientEvent) {
 		switch (event.type) {
 			case 'state_change':
@@ -265,6 +284,7 @@ export function createActiveSessionConnection(
 		}
 	}
 
+	/** Handles permission/question flows and queued-note echoes that require user interaction. */
 	function handleInteractionEvent(event: ClientEvent) {
 		switch (event.type) {
 			case 'permission_request':
