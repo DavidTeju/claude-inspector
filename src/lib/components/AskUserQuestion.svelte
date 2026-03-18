@@ -148,7 +148,9 @@
 				{@const selected = isSelected(currentPage, value)}
 				<button
 					onclick={() =>
-						currentQuestion.multiSelect ? toggleMulti(currentPage, value) : selectSingle(currentPage, value)}
+						currentQuestion.multiSelect
+							? toggleMulti(currentPage, value)
+							: selectSingle(currentPage, value)}
 					role={currentQuestion.multiSelect ? 'checkbox' : 'radio'}
 					aria-checked={selected}
 					class="hover:bg-surface-800/30 flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors {selected
@@ -258,7 +260,13 @@
 					? 'border-surface-800 text-surface-700 cursor-not-allowed'
 					: 'border-surface-700 text-text-300 hover:bg-surface-800/50 cursor-pointer'}"
 			>
-				<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+				<svg
+					class="h-3.5 w-3.5"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
+				>
 					<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
 				</svg>
 			</button>
@@ -293,7 +301,13 @@
 					? 'border-surface-800 text-surface-700 cursor-not-allowed'
 					: 'border-surface-700 text-text-300 hover:bg-surface-800/50 cursor-pointer'}"
 			>
-				<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+				<svg
+					class="h-3.5 w-3.5"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
+				>
 					<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
 				</svg>
 			</button>
