@@ -32,12 +32,22 @@
 	let textareaEl: HTMLTextAreaElement | undefined = $state();
 	let measureEl: HTMLSpanElement | undefined = $state();
 	let selectedIndex = $state(0);
+	let dismissed = $state(false);
 	let caretLeftPx = $state(0);
 
 	// Slash command autocomplete: active when text starts with "/" and has available commands
 	let slashQuery = $derived(
 		text.startsWith('/') && !text.includes(' ') && !text.includes('\n') ? text.slice(1) : null
 	);
+
+	// Reset dismissed flag when the query changes (user types more)
+	let prevSlashQuery: string | null = null;
+	$effect(() => {
+		if (slashQuery !== prevSlashQuery) {
+			prevSlashQuery = slashQuery;
+			dismissed = false;
+		}
+	});
 
 	// Copy textarea font to the hidden measurement span once mounted
 	$effect(() => {
@@ -62,23 +72,21 @@
 			.slice(0, MAX_VISIBLE_COMMANDS);
 	});
 
-	let showCommandList = $derived(filteredCommands.length > 0 && slashQuery !== null);
+	let showCommandList = $derived(filteredCommands.length > 0 && slashQuery !== null && !dismissed);
 
 	// Ghost text: show the completion of the top match
+	let effectiveIndex = $derived(
+		selectedIndex < filteredCommands.length ? selectedIndex : 0
+	);
+
 	let ghostText = $derived.by(() => {
 		if (!showCommandList || filteredCommands.length === 0) return '';
-		const match = filteredCommands[selectedIndex] ?? filteredCommands[0];
+		const match = filteredCommands[effectiveIndex];
 		if (!match) return '';
-		const remaining = match.name.slice(slashQuery!.length);
+		const remaining = match.name.slice(slashQuery?.length ?? 0);
 		if (!remaining) return '';
 		const hint = match.argumentHint ? ` ${match.argumentHint}` : '';
 		return remaining + hint;
-	});
-
-	// Reset selected index when filtered commands change
-	$effect(() => {
-		void filteredCommands;
-		selectedIndex = 0;
 	});
 
 	// Load draft then persist changes — single effect avoids mount race
@@ -133,19 +141,19 @@
 			}
 			if (e.key === 'Tab') {
 				e.preventDefault();
-				const cmd = filteredCommands[selectedIndex] ?? filteredCommands[0];
+				const cmd = filteredCommands[effectiveIndex];
 				if (cmd) acceptCommand(cmd);
 				return;
 			}
 			if (e.key === 'Enter' && !e.shiftKey) {
 				e.preventDefault();
-				const cmd = filteredCommands[selectedIndex] ?? filteredCommands[0];
+				const cmd = filteredCommands[effectiveIndex];
 				if (cmd) acceptCommand(cmd);
 				return;
 			}
 			if (e.key === 'Escape') {
 				e.preventDefault();
-				text = '';
+				dismissed = true;
 				return;
 			}
 		}
@@ -179,15 +187,17 @@
 			<div
 				class="border-surface-700 bg-surface-900 absolute bottom-full z-20 mb-1 max-w-xs overflow-hidden rounded-lg border shadow-lg"
 				style="left: {caretLeftPx}px;"
+				id="slash-command-listbox"
 				role="listbox"
 				aria-label="Slash commands"
 			>
 				{#each filteredCommands as cmd, i (cmd.name)}
 					<button
+						id="slash-cmd-{i}"
 						role="option"
-						aria-selected={i === selectedIndex}
+						aria-selected={i === effectiveIndex}
 						class="flex w-full items-baseline gap-2 px-3 py-1.5 text-left text-xs transition-colors {i ===
-						selectedIndex
+						effectiveIndex
 							? 'bg-accent-500/15 text-text-100'
 							: 'text-text-300 hover:bg-surface-800'}"
 						onmouseenter={() => (selectedIndex = i)}
@@ -217,6 +227,10 @@
 			{placeholder}
 			{disabled}
 			rows="1"
+			role="combobox"
+			aria-controls="slash-command-listbox"
+			aria-expanded={showCommandList}
+			aria-activedescendant={showCommandList ? `slash-cmd-${effectiveIndex}` : undefined}
 			class="text-text-100 placeholder-text-500 w-full resize-none bg-transparent px-4 py-2.5 text-sm focus:outline-none disabled:opacity-40 supports-[field-sizing:content]:field-sizing-content"
 			style="min-height: 36px; max-height: 200px;"
 		></textarea>
