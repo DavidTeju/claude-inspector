@@ -1,7 +1,10 @@
 <script lang="ts">
+	import type { SlashCommand } from '$lib/shared/active-session-types.js';
+
 	const DRAFT_SAVE_DEBOUNCE_MS = 500;
 	const MIN_TEXTAREA_HEIGHT = 36;
 	const MAX_TEXTAREA_HEIGHT = 200;
+	const MAX_VISIBLE_COMMANDS = 8;
 
 	let {
 		onSubmit,
@@ -10,7 +13,8 @@
 		draftKey = 'composer-draft',
 		suggestion = '',
 		isQueuing = false,
-		buttonLabel = ''
+		buttonLabel = '',
+		slashCommands = []
 	}: {
 		onSubmit: (text: string) => void;
 		disabled?: boolean;
@@ -19,12 +23,68 @@
 		suggestion?: string;
 		isQueuing?: boolean;
 		buttonLabel?: string;
+		slashCommands?: SlashCommand[];
 	} = $props();
 
 	let resolvedButtonLabel = $derived(buttonLabel || (isQueuing ? 'Queue' : 'Send'));
 
 	let text = $state('');
 	let textareaEl: HTMLTextAreaElement | undefined = $state();
+	let measureEl: HTMLSpanElement | undefined = $state();
+	let selectedIndex = $state(0);
+	let dismissed = $state(false);
+	let caretLeftPx = $state(0);
+
+	// Slash command autocomplete: active when text starts with "/" and has available commands
+	let slashQuery = $derived(
+		text.startsWith('/') && !text.includes(' ') && !text.includes('\n') ? text.slice(1) : null
+	);
+
+	// Reset dismissed flag when the query changes (user types more)
+	$effect(() => {
+		void slashQuery;
+		dismissed = false;
+	});
+
+	// Copy textarea font to the hidden measurement span once mounted
+	$effect(() => {
+		if (!measureEl || !textareaEl) return;
+		const style = getComputedStyle(textareaEl);
+		measureEl.style.font = style.font;
+		measureEl.style.letterSpacing = style.letterSpacing;
+	});
+
+	// Measure caret position whenever slash query text changes
+	$effect(() => {
+		if (!measureEl || slashQuery === null) return;
+		measureEl.textContent = text;
+		caretLeftPx = measureEl.offsetWidth;
+	});
+
+	let filteredCommands = $derived.by(() => {
+		if (slashQuery === null || slashCommands.length === 0) return [];
+		const q = slashQuery.toLowerCase();
+		return slashCommands
+			.filter((cmd) => cmd.name.toLowerCase().startsWith(q))
+			.slice(0, MAX_VISIBLE_COMMANDS);
+	});
+
+	let showCommandList = $derived(filteredCommands.length > 0 && slashQuery !== null && !dismissed);
+
+	// Ghost text: show the completion of the top match
+	let effectiveIndex = $derived(
+		selectedIndex < filteredCommands.length ? selectedIndex : 0
+	);
+
+	let ghostText = $derived.by(() => {
+		if (!showCommandList || filteredCommands.length === 0) return '';
+		const match = filteredCommands[effectiveIndex];
+		if (!match) return '';
+		const remaining = match.name.slice(slashQuery?.length ?? 0);
+		if (!remaining) return '';
+		const hint = match.argumentHint ? ` ${match.argumentHint}` : '';
+		return remaining + hint;
+	});
 
 	// Load draft then persist changes — single effect avoids mount race
 	let draftInitialized = false;
@@ -56,7 +116,45 @@
 		textareaEl.style.height = `${Math.min(Math.max(textareaEl.scrollHeight, MIN_TEXTAREA_HEIGHT), MAX_TEXTAREA_HEIGHT)}px`;
 	});
 
+	function acceptCommand(cmd: SlashCommand) {
+		text = `/${cmd.name} `;
+		textareaEl?.focus();
+	}
+
 	function handleKeydown(e: KeyboardEvent) {
+		// Command list navigation
+		if (showCommandList) {
+			if (e.key === 'ArrowUp') {
+				e.preventDefault();
+				selectedIndex =
+					selectedIndex <= 0 ? filteredCommands.length - 1 : selectedIndex - 1;
+				return;
+			}
+			if (e.key === 'ArrowDown') {
+				e.preventDefault();
+				selectedIndex =
+					selectedIndex >= filteredCommands.length - 1 ? 0 : selectedIndex + 1;
+				return;
+			}
+			if (e.key === 'Tab') {
+				e.preventDefault();
+				const cmd = filteredCommands[effectiveIndex];
+				if (cmd) acceptCommand(cmd);
+				return;
+			}
+			if (e.key === 'Enter' && !e.shiftKey) {
+				e.preventDefault();
+				const cmd = filteredCommands[effectiveIndex];
+				if (cmd) acceptCommand(cmd);
+				return;
+			}
+			if (e.key === 'Escape') {
+				e.preventDefault();
+				dismissed = true;
+				return;
+			}
+		}
+
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
 			submit();
@@ -81,6 +179,44 @@
 
 <div class="border-surface-800 bg-surface-900/50 rounded-xl border">
 	<div class="relative">
+		<!-- Slash command popup (above the textarea, follows cursor) -->
+		{#if showCommandList}
+			<div
+				class="border-surface-700 bg-surface-900 absolute bottom-full z-20 mb-1 max-w-xs overflow-hidden rounded-lg border shadow-lg"
+				style="left: {caretLeftPx}px;"
+				id="slash-command-listbox"
+				role="listbox"
+				aria-label="Slash commands"
+			>
+				{#each filteredCommands as cmd, i (cmd.name)}
+					<button
+						id="slash-cmd-{i}"
+						role="option"
+						aria-selected={i === effectiveIndex}
+						class="flex w-full items-baseline gap-2 px-3 py-1.5 text-left text-xs transition-colors {i ===
+						effectiveIndex
+							? 'bg-accent-500/15 text-text-100'
+							: 'text-text-300 hover:bg-surface-800'}"
+						onmouseenter={() => (selectedIndex = i)}
+						onclick={() => acceptCommand(cmd)}
+					>
+						<span class="text-accent-400 shrink-0 font-medium">/{cmd.name}</span>
+						{#if cmd.argumentHint}
+							<span class="text-text-600 shrink-0">{cmd.argumentHint}</span>
+						{/if}
+						<span class="text-text-500 ml-auto truncate">{cmd.description}</span>
+					</button>
+				{/each}
+			</div>
+		{/if}
+
+		<!-- Hidden span to measure caret position -->
+		<span
+			bind:this={measureEl}
+			class="pointer-events-none invisible absolute top-0 left-4 whitespace-pre text-sm"
+			aria-hidden="true"
+		></span>
+
 		<textarea
 			bind:this={textareaEl}
 			bind:value={text}
@@ -88,11 +224,23 @@
 			{placeholder}
 			{disabled}
 			rows="1"
+			role="combobox"
+			aria-controls="slash-command-listbox"
+			aria-expanded={showCommandList}
+			aria-activedescendant={showCommandList ? `slash-cmd-${effectiveIndex}` : undefined}
 			class="text-text-100 placeholder-text-500 w-full resize-none bg-transparent px-4 py-2.5 text-sm focus:outline-none disabled:opacity-40 supports-[field-sizing:content]:field-sizing-content"
 			style="min-height: 36px; max-height: 200px;"
 		></textarea>
 
-		{#if suggestion && !text.trim()}
+		<!-- Ghost text for slash command completion -->
+		{#if ghostText}
+			<div class="pointer-events-none absolute top-2.5 left-4 text-sm">
+				<span class="invisible">{text}</span><span class="text-text-700">{ghostText}</span>
+				<span class="border-surface-700 text-text-500 ml-1 rounded border px-1 py-0.5 text-[10px]"
+					>Tab</span
+				>
+			</div>
+		{:else if suggestion && !text.trim()}
 			<div class="text-text-700 pointer-events-none absolute top-2.5 left-4 text-sm">
 				{suggestion}
 				<span class="border-surface-700 text-text-500 ml-2 rounded border px-1 py-0.5 text-[10px]"

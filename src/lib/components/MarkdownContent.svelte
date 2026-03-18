@@ -128,4 +128,40 @@
 		color: var(--color-text-100);
 		font-weight: 600;
 	}
+	.markdown-body :global(table) {
+		width: 100%;
+		border-collapse: separate;
+		border-spacing: 0;
+		margin-bottom: 0.75em;
+		font-size: 0.85em;
+		border: 1px solid var(--color-surface-700);
+		border-radius: 0.5rem;
+		overflow: hidden;
+	}
+	.markdown-body :global(th),
+	.markdown-body :global(td) {
+		padding: 0.4em 0.75em;
+		border-bottom: 1px solid var(--color-surface-700);
+		border-right: 1px solid var(--color-surface-700);
+		text-align: left;
+	}
+	.markdown-body :global(th:last-child),
+	.markdown-body :global(td:last-child) {
+		border-right: none;
+	}
+	.markdown-body :global(tr:last-child td) {
+		border-bottom: none;
+	}
+	.markdown-body :global(th) {
+		background: var(--color-surface-800);
+		color: var(--color-accent-300);
+		font-weight: 600;
+		border-bottom: 1.5px solid var(--color-surface-600);
+	}
+	.markdown-body :global(td) {
+		color: var(--color-text-300);
+	}
+	.markdown-body :global(tr:nth-child(even) td) {
+		background: var(--color-surface-800);
+	}
 </style>

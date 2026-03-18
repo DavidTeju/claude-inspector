@@ -1,6 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { HTTP_NOT_FOUND } from '$lib/constants.js';
-import { parseSessionMessages } from '$lib/server/messages.js';
+import { parseSessionMessages } from '$lib/server/session-adapters.js';
 import { findSessionFile } from '$lib/server/session-discovery.js';
 import { getIndexedSessionMeta } from '$lib/server/session-index-sqlite.js';
 import { getActiveSession } from '$lib/server/session-manager.js';
