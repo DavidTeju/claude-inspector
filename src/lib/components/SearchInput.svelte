@@ -31,7 +31,17 @@
 	let dynamicBranches: string[] = $state([]);
 	let dynamicFetched = $state(false);
 	let cursorAtEnd = $state(true);
-	let dropdownLeft = $state(0);
+	let dropdownLeft = $derived.by(() => {
+		// inputText drives measureEl's width via measureText, but getBoundingClientRect()
+		// isn't reactive — reading inputText here triggers recomputation when it changes.
+		const _ = inputText;
+		if (!showAutocomplete || !measureEl || !containerEl) return 0;
+
+		const containerRect = containerEl.getBoundingClientRect();
+		const measureRect = measureEl.getBoundingClientRect();
+		const left = measureRect.right - containerRect.left;
+		return Math.max(0, Math.min(left, containerRect.width - DROPDOWN_MIN_WIDTH));
+	});
 
 	interface FilterSuggestion {
 		raw: string;
@@ -84,17 +94,6 @@
 
 	$effect(() => {
 		inputEl?.focus();
-	});
-
-	// Position dropdown after DOM flush so measureEl dimensions are current
-	$effect(() => {
-		void inputText;
-		if (showAutocomplete && measureEl && containerEl) {
-			const containerRect = containerEl.getBoundingClientRect();
-			const measureRect = measureEl.getBoundingClientRect();
-			const left = measureRect.right - containerRect.left;
-			dropdownLeft = Math.max(0, Math.min(left, containerRect.width - DROPDOWN_MIN_WIDTH));
-		}
 	});
 
 	function updateCursorAtEnd() {
