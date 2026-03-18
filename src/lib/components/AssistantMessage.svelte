@@ -65,18 +65,18 @@
 			<span class="text-text-500 text-[10px]">{formatTime(message.timestamp)}</span>
 		</div>
 
-		{#each renderItems as item, i (i)}
-			{#if item.kind === 'thinking'}
-				<ThinkingBlock content={item.content} />
-			{:else if item.kind === 'text'}
-				<div class="prose-invert text-sm leading-relaxed {i > 0 ? 'mt-3' : ''}">
-					<MarkdownContent content={item.content} />
-				</div>
-			{:else if item.kind === 'tools'}
-				<div class="mt-3">
+		<div class="space-y-3">
+			{#each renderItems as item, i (i)}
+				{#if item.kind === 'thinking'}
+					<ThinkingBlock content={item.content} />
+				{:else if item.kind === 'text'}
+					<div class="prose-invert text-sm leading-relaxed">
+						<MarkdownContent content={item.content} />
+					</div>
+				{:else if item.kind === 'tools'}
 					<ToolCallGroup tools={item.tools} />
-				</div>
-			{/if}
-		{/each}
+				{/if}
+			{/each}
+		</div>
 	</div>
 </div>

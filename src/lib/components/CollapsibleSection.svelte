@@ -9,25 +9,23 @@
 		header,
 		children,
 		defaultExpanded = false,
-		containerClass = '',
-		buttonClass = '',
+		accentClass = '',
 		bodyClass = ''
 	}: {
 		header: Snippet;
 		children: Snippet;
 		defaultExpanded?: boolean;
-		containerClass?: string;
-		buttonClass?: string;
+		accentClass?: string;
 		bodyClass?: string;
 	} = $props();
 
 	let expanded = $state(defaultExpanded);
 </script>
 
-<div class={containerClass}>
+<div class="bg-surface-850/50 rounded-md border-l-2 {accentClass}">
 	<button
 		onclick={() => (expanded = !expanded)}
-		class="flex w-full items-center gap-2 text-left text-xs transition-colors {buttonClass}"
+		class="hover:bg-surface-800/30 flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors"
 	>
 		<svg
 			class="text-text-500 h-3 w-3 flex-shrink-0 transition-transform duration-200 {expanded
@@ -45,7 +43,10 @@
 	</button>
 
 	{#if expanded}
-		<div transition:slide={{ duration: 250, easing: cubicOut }} class={bodyClass}>
+		<div
+			transition:slide={{ duration: 250, easing: cubicOut }}
+			class="border-surface-800/40 border-t px-3 py-2 {bodyClass}"
+		>
 			{@render children()}
 		</div>
 	{/if}

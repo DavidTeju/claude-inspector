@@ -40,30 +40,34 @@
 			<span class="bg-accent-400 h-1.5 w-1.5 animate-pulse rounded-full"></span>
 		</div>
 
-		<!-- Thinking -->
-		{#if thinking}
-			<ThinkingBlock content={thinking} />
-		{/if}
+		<div class="space-y-3">
+			<!-- Thinking -->
+			{#if thinking}
+				<ThinkingBlock content={thinking} />
+			{/if}
 
-		<!-- Rendered complete paragraphs -->
-		{#if splitContent.complete}
-			<div class="prose-invert text-sm leading-relaxed">
-				<MarkdownContent content={splitContent.complete} />
-			</div>
-		{/if}
+			<!-- Text content: complete paragraphs + trailing cursor are one visual block -->
+			{#if splitContent.complete || splitContent.trailing || text?.trim()}
+				<div>
+					{#if splitContent.complete}
+						<div class="prose-invert text-sm leading-relaxed">
+							<MarkdownContent content={splitContent.complete} />
+						</div>
+					{/if}
+					{#if splitContent.trailing || (!splitContent.complete && text?.trim())}
+						<div
+							class="text-text-300 text-sm leading-relaxed {splitContent.complete ? 'mt-1' : ''}"
+						>
+							{splitContent.trailing}<span class="animate-blink text-accent-400">&#x258A;</span>
+						</div>
+					{/if}
+				</div>
+			{/if}
 
-		<!-- Trailing text with blinking cursor -->
-		{#if splitContent.trailing || (!splitContent.complete && text?.trim())}
-			<div class="text-text-300 text-sm leading-relaxed {splitContent.complete ? 'mt-1' : ''}">
-				{splitContent.trailing}<span class="animate-blink text-accent-400">&#x258A;</span>
-			</div>
-		{/if}
-
-		<!-- In-progress tool calls -->
-		{#if toolCalls.length > 0}
-			<div class="mt-3">
+			<!-- In-progress tool calls -->
+			{#if toolCalls.length > 0}
 				<ToolCallGroup tools={toolCalls} />
-			</div>
-		{/if}
+			{/if}
+		</div>
 	</div>
 </div>
