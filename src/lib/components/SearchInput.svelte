@@ -34,7 +34,7 @@
 	let dropdownLeft = $derived.by(() => {
 		// inputText drives measureEl's width via measureText, but getBoundingClientRect()
 		// isn't reactive — reading inputText here triggers recomputation when it changes.
-		const _ = inputText;
+		void inputText;
 		if (!showAutocomplete || !measureEl || !containerEl) return 0;
 
 		const containerRect = containerEl.getBoundingClientRect();
