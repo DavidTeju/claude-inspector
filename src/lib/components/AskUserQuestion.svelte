@@ -33,21 +33,28 @@
 		return answer === value;
 	}
 
+	function resolveAnswer(
+		answer: string | string[] | undefined,
+		otherText: string | undefined,
+		multiSelect: boolean
+	): string | string[] | undefined {
+		if (multiSelect && Array.isArray(answer)) {
+			if (answer.includes(OTHER_SENTINEL)) {
+				const filtered = answer.filter((v) => v !== OTHER_SENTINEL);
+				return otherText ? [...filtered, otherText] : filtered;
+			}
+			return answer;
+		}
+		if (answer === OTHER_SENTINEL) return otherText ?? '';
+		return answer;
+	}
+
 	function handleSubmit() {
 		const result: Record<string, string | string[]> = {};
 		for (let i = 0; i < request.questions.length; i++) {
 			const q = request.questions[i];
-			let answer = answers[i];
 			const otherText = otherTexts[i]?.trim();
-
-			if (q.multiSelect && Array.isArray(answer)) {
-				if (answer.includes(OTHER_SENTINEL)) {
-					const filtered = answer.filter((v) => v !== OTHER_SENTINEL);
-					answer = otherText ? [...filtered, otherText] : filtered;
-				}
-			} else if (answer === OTHER_SENTINEL) {
-				answer = otherText ?? '';
-			}
+			const answer = resolveAnswer(answers[i], otherText, q.multiSelect ?? false);
 
 			if (
 				answer !== undefined &&
@@ -166,9 +173,11 @@
 							onclick={(e) => {
 								e.stopPropagation();
 								if (!otherSelected) {
-									question.multiSelect
-										? toggleMulti(qi, OTHER_SENTINEL)
-										: selectSingle(qi, OTHER_SENTINEL);
+									if (question.multiSelect) {
+										toggleMulti(qi, OTHER_SENTINEL);
+									} else {
+										selectSingle(qi, OTHER_SENTINEL);
+									}
 								}
 							}}
 							onkeydown={(e) => {
@@ -179,7 +188,7 @@
 							}}
 							class="min-w-0 flex-1 bg-transparent text-sm focus:outline-none {otherSelected
 								? 'text-text-100 placeholder-text-500 cursor-text'
-								: 'cursor-pointer text-text-500 line-through'}"
+								: 'text-text-500 cursor-pointer line-through'}"
 						/>
 					</button>
 				{/if}
