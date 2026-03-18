@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { AskUserQuestionRequest } from '$lib/shared/active-session-types.js';
 
+	const OTHER_SENTINEL = '__other__';
+
 	let {
 		request,
 		onSubmit
@@ -36,17 +38,22 @@
 		for (let i = 0; i < request.questions.length; i++) {
 			const q = request.questions[i];
 			let answer = answers[i];
-			const other = otherTexts[i]?.trim();
+			const otherText = otherTexts[i]?.trim();
 
-			if (other) {
-				if (q.multiSelect && Array.isArray(answer)) {
-					answer = [...answer, other];
-				} else {
-					answer = other;
+			if (q.multiSelect && Array.isArray(answer)) {
+				if (answer.includes(OTHER_SENTINEL)) {
+					const filtered = answer.filter((v) => v !== OTHER_SENTINEL);
+					answer = otherText ? [...filtered, otherText] : filtered;
 				}
+			} else if (answer === OTHER_SENTINEL) {
+				answer = otherText ?? '';
 			}
 
-			if (answer !== undefined && !(Array.isArray(answer) && answer.length === 0)) {
+			if (
+				answer !== undefined &&
+				answer !== '' &&
+				!(Array.isArray(answer) && answer.length === 0)
+			) {
 				result[q.question] = answer;
 			}
 		}
@@ -54,9 +61,17 @@
 	}
 
 	let hasAnyAnswer = $derived(
-		Object.values(answers).some((a) =>
-			Array.isArray(a) ? a.length > 0 : a !== undefined && a !== ''
-		) || Object.values(otherTexts).some((t) => t?.trim())
+		request.questions.some((q, i) => {
+			const answer = answers[i];
+			const otherText = otherTexts[i]?.trim();
+			if (Array.isArray(answer)) {
+				const nonOtherCount = answer.filter((v) => v !== OTHER_SENTINEL).length;
+				if (nonOtherCount > 0) return true;
+				return answer.includes(OTHER_SENTINEL) && !!otherText;
+			}
+			if (answer === OTHER_SENTINEL) return !!otherText;
+			return answer !== undefined && answer !== '';
+		})
 	);
 </script>
 
@@ -109,16 +124,64 @@
 					</button>
 				{/each}
 
-				<!-- Other text input — only for non-binary questions -->
+				<!-- Other option — only for non-binary questions -->
 				{#if question.options.length > 2}
-					<div class="mt-2">
+					{@const otherSelected = isSelected(qi, OTHER_SENTINEL)}
+					<button
+						onclick={() =>
+							question.multiSelect
+								? toggleMulti(qi, OTHER_SENTINEL)
+								: selectSingle(qi, OTHER_SENTINEL)}
+						role={question.multiSelect ? 'checkbox' : 'radio'}
+						aria-checked={otherSelected}
+						class="hover:bg-surface-800/30 flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors {otherSelected
+							? 'border-user-400/30 bg-surface-800/50 border'
+							: 'border border-transparent'}"
+					>
+						<!-- Radio / Checkbox indicator -->
+						<span
+							class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-{question.multiSelect
+								? 'sm'
+								: 'full'} border {otherSelected
+								? 'border-user-400 bg-user-400'
+								: 'border-surface-600'}"
+						>
+							{#if otherSelected}
+								<svg
+									class="text-surface-950 h-2.5 w-2.5"
+									fill="none"
+									viewBox="0 0 24 24"
+									stroke="currentColor"
+									stroke-width="3"
+								>
+									<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+								</svg>
+							{/if}
+						</span>
+
 						<input
 							type="text"
 							bind:value={otherTexts[qi]}
 							placeholder="Other..."
-							class="border-surface-700 bg-surface-900 text-text-100 placeholder-text-500 w-full rounded-md border px-3 py-1.5 text-sm focus:outline-none"
+							onclick={(e) => {
+								e.stopPropagation();
+								if (!otherSelected) {
+									question.multiSelect
+										? toggleMulti(qi, OTHER_SENTINEL)
+										: selectSingle(qi, OTHER_SENTINEL);
+								}
+							}}
+							onkeydown={(e) => {
+								if (e.key === 'Enter') {
+									e.stopPropagation();
+									e.preventDefault();
+								}
+							}}
+							class="min-w-0 flex-1 bg-transparent text-sm focus:outline-none {otherSelected
+								? 'text-text-100 placeholder-text-500 cursor-text'
+								: 'cursor-pointer text-text-500 line-through'}"
 						/>
-					</div>
+					</button>
 				{/if}
 			</div>
 		</div>
