@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { filterPresets } from '$lib/stores/filter-presets.svelte.js';
 	import { parseClientFilters, rebuildQuery, type ParsedFilter } from '$lib/utils.js';
 	import FilterPill from './FilterPill.svelte';
 	import FilterPopover from './FilterPopover.svelte';
@@ -19,6 +20,8 @@
 	const initialParsed = query ? parseClientFilters(query) : null;
 	let activeFilters: ParsedFilter[] = $state(initialParsed?.filters ?? []);
 	let inputText = $state(initialParsed?.freeText ?? '');
+	let rawMode = $state(initialParsed?.rawMode ?? false);
+	let regexMode = $state(initialParsed?.regexMode ?? false);
 	let showPopover = $state(false);
 	let showAutocomplete = $state(false);
 	let autocompleteIndex = $state(0);
@@ -27,11 +30,15 @@
 	let measureEl: HTMLElement | undefined = $state(undefined);
 	let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let suggestions: FilterSuggestion[] = $state([]);
-	let dynamicTools: string[] = $state([]);
-	let dynamicBranches: string[] = $state([]);
+	let dynamicValues: Record<string, string[]> = $state({
+		project: [],
+		model: []
+	});
 	let dynamicFetched = $state(false);
 	let cursorAtEnd = $state(true);
 	let dropdownLeft = $state(0);
+	let showPresetSave = $state(false);
+	let presetName = $state('');
 
 	interface FilterSuggestion {
 		raw: string;
@@ -40,21 +47,26 @@
 	}
 
 	const STATIC_SUGGESTIONS: FilterSuggestion[] = [
-		{ raw: 'is:error', label: 'is:error', description: 'Sessions with API errors' },
+		{ raw: 'has:error', label: 'has:error', description: 'Sessions with API errors' },
 		{ raw: 'is:subagent', label: 'is:subagent', description: 'Subagent sessions' },
-		{ raw: 'has:cost', label: 'has:cost', description: 'Sessions with token usage' },
-		{ raw: 'mode:raw', label: 'mode:raw', description: 'Full-text search mode' }
+		{ raw: 'mode:raw', label: 'mode:raw', description: 'Full-text search mode' },
+		{ raw: 'mode:regex', label: 'mode:regex', description: 'Regex search mode' }
 	];
 
 	const PREFIX_SUGGESTIONS: FilterSuggestion[] = [
-		{ raw: 'tool:', label: 'tool:', description: 'Filter by tool name' },
-		{ raw: 'branch:', label: 'branch:', description: 'Filter by git branch' }
+		{ raw: 'project:', label: 'project:', description: 'Filter by project' },
+		{ raw: 'model:', label: 'model:', description: 'Filter by AI model' },
+		{ raw: 'date:', label: 'date:', description: 'Filter by date' }
 	];
 
 	const ALL_SUGGESTIONS = [...STATIC_SUGGESTIONS, ...PREFIX_SUGGESTIONS];
 
 	function filtersMatch(a: ParsedFilter, b: ParsedFilter): boolean {
-		return a.prefix === b.prefix && a.value.toLowerCase() === b.value.toLowerCase();
+		return (
+			a.prefix === b.prefix &&
+			a.value.toLowerCase() === b.value.toLowerCase() &&
+			a.negated === b.negated
+		);
 	}
 
 	function addFilterIfNew(filter: ParsedFilter) {
@@ -63,15 +75,26 @@
 		}
 	}
 
+	const DYNAMIC_PREFIXES = new Set(['project', 'model']);
+
+	function absorbModes(parsed: ReturnType<typeof parseClientFilters>) {
+		if (parsed.rawMode) rawMode = true;
+		if (parsed.regexMode) regexMode = true;
+	}
+
 	let ghostText = $derived.by(() => {
 		if (!cursorAtEnd || !inputText) return '';
 		const words = inputText.split(/\s+/);
 		const currentWord = words[words.length - 1]?.toLowerCase() || '';
 		if (!currentWord || currentWord.includes(':')) return '';
 
+		const isNeg = currentWord.startsWith('-');
+		const matchWord = isNeg ? currentWord.slice(1) : currentWord;
+		if (!matchWord) return '';
+
 		for (const s of ALL_SUGGESTIONS) {
-			if (s.raw.startsWith(currentWord) && s.raw !== currentWord) {
-				return s.raw.slice(currentWord.length);
+			if (s.raw.startsWith(matchWord) && s.raw !== matchWord) {
+				return s.raw.slice(matchWord.length);
 			}
 		}
 		return '';
@@ -80,6 +103,12 @@
 	let measureText = $derived.by(() => {
 		const lastSpaceIdx = inputText.lastIndexOf(' ');
 		return lastSpaceIdx >= 0 ? inputText.slice(0, lastSpaceIdx + 1) : '';
+	});
+
+	let searchModeLabel = $derived.by(() => {
+		if (regexMode) return 'REGEX';
+		if (rawMode) return 'RAW';
+		return '';
 	});
 
 	$effect(() => {
@@ -102,7 +131,10 @@
 	}
 
 	function emitQuery() {
-		const rebuilt = rebuildQuery(activeFilters, inputText);
+		const modeParts: string[] = [];
+		if (rawMode) modeParts.push('mode:raw');
+		if (regexMode) modeParts.push('mode:regex');
+		const rebuilt = rebuildQuery(activeFilters, [...modeParts, inputText].join(' ').trim());
 		query = rebuilt;
 
 		if (debounceTimer) clearTimeout(debounceTimer);
@@ -131,6 +163,7 @@
 			for (const filter of parsed.filters) {
 				addFilterIfNew(filter);
 			}
+			absorbModes(parsed);
 			const remaining = [parsed.freeText, trailingWord].filter(Boolean).join(' ');
 			inputText = remaining;
 		}
@@ -150,8 +183,8 @@
 		const words = inputText.split(/\s+/);
 		const lastWord = words[words.length - 1];
 
-		// Complete filters (e.g. "is:error") get promoted to pills;
-		// prefix-only (e.g. "tool:") stays as text so the value dropdown appears
+		// Complete filters (e.g. "has:error") get promoted to pills;
+		// prefix-only (e.g. "project:") stays as text so the value dropdown appears
 		if (lastWord && !lastWord.endsWith(':')) {
 			const parsed = parseClientFilters(lastWord);
 			if (parsed.filters.length > 0) {
@@ -161,6 +194,7 @@
 				words.pop();
 				inputText = words.length > 0 ? words.join(' ') + ' ' : '';
 			}
+			absorbModes(parsed);
 		}
 
 		updateAutocomplete();
@@ -228,6 +262,7 @@
 		if (parsed.filters.length > 0) {
 			addFilterIfNew(parsed.filters[0]);
 		}
+		absorbModes(parsed);
 
 		const words = inputText.split(/\s+/);
 		words.pop();
@@ -238,43 +273,60 @@
 		inputEl?.focus();
 	}
 
-	function matchStaticByPrefixAndValue(prefix: string, currentWord: string): FilterSuggestion[] {
+	function matchStaticByPrefixAndValue(
+		prefix: string,
+		currentWord: string,
+		negPrefix = ''
+	): FilterSuggestion[] {
 		return STATIC_SUGGESTIONS.filter(
 			(s) => s.raw.startsWith(`${prefix}:`) && s.raw.toLowerCase().includes(currentWord)
+		).map((s) =>
+			negPrefix
+				? {
+						raw: `${negPrefix}${s.raw}`,
+						label: `${negPrefix}${s.label}`,
+						description: s.description
+					}
+				: s
 		);
 	}
 
-	function matchDynamicValues(
-		prefix: string,
-		partial: string,
-		values: string[]
-	): FilterSuggestion[] {
-		return values
-			.filter((v) => v.toLowerCase().includes(partial))
-			.map((v) => ({
-				raw: `${prefix}:${v}`,
-				label: `${prefix}:${v}`,
-				description: `Filter by ${prefix}`
-			}));
-	}
+	const DATE_HINTS = [
+		{ value: 'today', description: 'Today' },
+		{ value: '7d', description: 'Last 7 days' },
+		{ value: '30d', description: 'Last 30 days' }
+	];
 
 	function matchPrefixedToken(currentWord: string): FilterSuggestion[] {
-		const colonIdx = currentWord.indexOf(':');
-		const prefix = currentWord.slice(0, colonIdx);
-		const partial = currentWord.slice(colonIdx + 1);
+		const negated = currentWord.startsWith('-');
+		const stripped = negated ? currentWord.slice(1) : currentWord;
+		const colonIdx = stripped.indexOf(':');
+		if (colonIdx < 0) return [];
+		const prefix = stripped.slice(0, colonIdx);
+		const partial = stripped.slice(colonIdx + 1);
+		const negPrefix = negated ? '-' : '';
 
 		if (prefix === 'is' || prefix === 'has' || prefix === 'mode') {
-			return matchStaticByPrefixAndValue(prefix, currentWord);
+			return matchStaticByPrefixAndValue(prefix, stripped, negPrefix);
 		}
 
-		if (prefix === 'tool') {
+		if (DYNAMIC_PREFIXES.has(prefix)) {
 			fetchDynamicSuggestions();
-			return matchDynamicValues('tool', partial, dynamicTools);
+			return (dynamicValues[prefix] ?? [])
+				.filter((v) => v.toLowerCase().includes(partial))
+				.map((v) => ({
+					raw: `${negPrefix}${prefix}:${v}`,
+					label: `${negPrefix}${prefix}:${v}`,
+					description: `${negated ? 'Exclude' : 'Filter by'} ${prefix}`
+				}));
 		}
 
-		if (prefix === 'branch') {
-			fetchDynamicSuggestions();
-			return matchDynamicValues('branch', partial, dynamicBranches);
+		if (prefix === 'date') {
+			return DATE_HINTS.filter((h) => h.value.includes(partial)).map((h) => ({
+				raw: `date:${h.value}`,
+				label: `date:${h.value}`,
+				description: h.description
+			}));
 		}
 
 		return [];
@@ -286,7 +338,8 @@
 		const words = inputText.split(/\s+/);
 		const currentWord = words[words.length - 1]?.toLowerCase() || '';
 
-		if (!currentWord || !currentWord.includes(':')) {
+		const wordForMatch = currentWord.startsWith('-') ? currentWord.slice(1) : currentWord;
+		if (!currentWord || !wordForMatch.includes(':')) {
 			showAutocomplete = false;
 			suggestions = [];
 			return;
@@ -304,9 +357,9 @@
 		dynamicFetched = true;
 		fetch('/api/filter-suggestions')
 			.then((r) => r.json())
-			.then((data: { tools: string[]; branches: string[] }) => {
-				dynamicTools = data.tools;
-				dynamicBranches = data.branches;
+			.then((data: { projects: string[]; models: string[] }) => {
+				dynamicValues.project = data.projects;
+				dynamicValues.model = data.models;
 				updateAutocomplete();
 			})
 			.catch((err) => {
@@ -319,6 +372,14 @@
 		activeFilters.splice(index, 1);
 		emitQuery();
 		inputEl?.focus();
+	}
+
+	function toggleFilterNegation(index: number) {
+		const filter = activeFilters[index];
+		const negated = !filter.negated;
+		const raw = negated ? `-${filter.prefix}:${filter.value}` : `${filter.prefix}:${filter.value}`;
+		activeFilters[index] = { ...filter, negated, raw };
+		emitQuery();
 	}
 
 	function toggleFilterFromPopover(filter: ParsedFilter) {
@@ -334,14 +395,37 @@
 	function clearSearch() {
 		activeFilters = [];
 		inputText = '';
+		rawMode = false;
+		regexMode = false;
 		query = '';
 		showAutocomplete = false;
 		showPopover = false;
+		showPresetSave = false;
 		onSearch('');
 		inputEl?.focus();
 	}
 
-	let hasContent = $derived(activeFilters.length > 0 || inputText.length > 0);
+	function savePreset() {
+		const name = presetName.trim();
+		if (!name) return;
+		filterPresets.save(name, query);
+		showPresetSave = false;
+		presetName = '';
+	}
+
+	function loadPreset(presetQuery: string) {
+		const parsed = parseClientFilters(presetQuery);
+		activeFilters = parsed.filters;
+		inputText = parsed.freeText;
+		rawMode = parsed.rawMode;
+		regexMode = parsed.regexMode;
+		emitQuery();
+		showPopover = false;
+	}
+
+	let hasContent = $derived(
+		activeFilters.length > 0 || inputText.length > 0 || rawMode || regexMode
+	);
 </script>
 
 <div bind:this={containerEl} class="relative mb-6">
@@ -365,8 +449,22 @@
 			/>
 		</svg>
 
-		{#each activeFilters as filter, i (filter.raw)}
-			<FilterPill prefix={filter.prefix} value={filter.value} onremove={() => removeFilter(i)} />
+		{#if searchModeLabel}
+			<span
+				class="shrink-0 rounded border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wider text-amber-400"
+			>
+				{searchModeLabel}
+			</span>
+		{/if}
+
+		{#each activeFilters as filter, i (filter.raw + i)}
+			<FilterPill
+				prefix={filter.prefix}
+				value={filter.value}
+				negated={filter.negated}
+				onremove={() => removeFilter(i)}
+				ontogglenegation={() => toggleFilterNegation(i)}
+			/>
 		{/each}
 
 		<div class="relative min-w-[120px] flex-1">
@@ -407,6 +505,23 @@
 			>
 		</div>
 
+		{#if hasContent}
+			<button
+				onclick={() => (showPresetSave = !showPresetSave)}
+				class="text-text-500 hover:text-text-300 shrink-0 transition-colors"
+				aria-label="Save preset"
+				title="Save filter preset"
+			>
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+					/>
+				</svg>
+			</button>
+		{/if}
+
 		<button
 			onclick={() => (showPopover = !showPopover)}
 			class={`shrink-0 rounded-md p-1.5 transition-colors ${
@@ -436,6 +551,26 @@
 		{/if}
 	</div>
 
+	{#if showPresetSave}
+		<div
+			class="border-surface-800 bg-surface-900 absolute top-full right-16 z-50 mt-1 flex items-center gap-2 rounded-lg border p-2 shadow-lg"
+		>
+			<input
+				bind:value={presetName}
+				type="text"
+				placeholder="Preset name..."
+				class="border-surface-800 bg-surface-950 text-text-100 placeholder-text-500 focus:border-accent-500/50 w-40 rounded-md border px-2 py-1 text-xs outline-none"
+				onkeydown={(e) => e.key === 'Enter' && savePreset()}
+			/>
+			<button
+				onclick={savePreset}
+				class="bg-accent-500/10 text-accent-300 hover:bg-accent-500/20 rounded-md px-2 py-1 text-xs transition-colors"
+			>
+				Save
+			</button>
+		</div>
+	{/if}
+
 	{#if showAutocomplete && suggestions.length > 0}
 		<div
 			class="border-surface-800 bg-surface-900 absolute z-50 mt-1 overflow-hidden rounded-lg border shadow-lg"
@@ -464,6 +599,7 @@
 			{activeFilters}
 			onToggleFilter={toggleFilterFromPopover}
 			onClose={() => (showPopover = false)}
+			onLoadPreset={loadPreset}
 		/>
 	{/if}
 </div>

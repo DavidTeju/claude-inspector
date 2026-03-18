@@ -63,11 +63,7 @@
 	});
 </script>
 
-<CollapsibleSection
-	containerClass="border-l-accent-300/50 bg-surface-850/80 rounded-md border-l-2"
-	buttonClass="hover:bg-surface-800/30 px-3 py-2"
-	bodyClass="border-surface-800/50 space-y-2 border-t px-3 py-2"
->
+<CollapsibleSection accentClass="border-l-accent-300/50" bodyClass="space-y-2">
 	{#snippet header()}
 		<span class="font-semibold {tool.result?.isError ? 'text-error-500' : 'text-accent-300'}">
 			{tool.name}

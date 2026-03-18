@@ -9,8 +9,10 @@ import { spawn, type ChildProcess } from 'child_process';
 import { readdir, stat } from 'fs/promises';
 import path from 'path';
 import { rgPath } from '@vscode/ripgrep';
+import { parseDateFilter } from '$lib/shared/date-filter.js';
+import { tokenizeQuery } from '$lib/shared/query-tokenizer.js';
 import type { SearchResult } from '$lib/types.js';
-import { dirNameToDisplayName, parseSearchTerms } from '$lib/utils.js';
+import { dirNameToDisplayName, parseSearchTerms, RAW_MODE_TOKENS } from '$lib/utils.js';
 import { getProjectsDir } from './paths.js';
 import { normalizeProjectId } from './project-id.js';
 import { reconcileProjectNow } from './reconciler.js';
@@ -20,6 +22,7 @@ import {
 	type IndexedSearchQuery,
 	type IndexedSearchSession
 } from './session-index-sqlite.js';
+import type { FilterTerm } from './session-index-types.js';
 
 const PREVIEW_MAX_LENGTH = 150;
 const CONTEXT_BEFORE_LENGTH = 60;
@@ -37,14 +40,18 @@ interface RgMatch {
 	lineText: string;
 }
 
+type IncludeExcludeFilter = 'include' | 'exclude' | null;
+
 interface ParsedSearchQuery {
 	textTerms: string[];
-	toolNames: string[];
-	branchTerms: string[];
-	isErrorOnly: boolean;
-	isSubagentOnly: boolean;
-	hasTokensOnly: boolean;
+	phraseTerms: string[];
+	projects: FilterTerm[];
+	models: FilterTerm[];
+	errorFilter: IncludeExcludeFilter;
+	subagentFilter: IncludeExcludeFilter;
+	dateFilter: { after: string; before: string } | null;
 	rawMode: boolean;
+	regexMode: boolean;
 }
 
 export interface SearchHandle {
@@ -96,6 +103,26 @@ function extractTextContent(record: Record<string, unknown>): string | null {
 	return null;
 }
 
+/** Value-prefix filters recognised by the structured query parser. */
+const VALUE_PREFIX_TARGETS = ['project:', 'model:'] as const;
+
+/** Tries to match a token against value-prefix filters (tool:, branch:, etc.). */
+function matchValuePrefix(
+	body: string,
+	lowerBody: string,
+	negated: boolean,
+	collectors: Record<string, FilterTerm[]>
+): boolean {
+	for (const prefix of VALUE_PREFIX_TARGETS) {
+		if (lowerBody.startsWith(prefix) && body.length > prefix.length) {
+			const key = prefix.slice(0, -1); // 'tool:' → 'tool'
+			collectors[key].push({ value: body.slice(prefix.length), negated });
+			return true;
+		}
+	}
+	return false;
+}
+
 /**
  * Parses free text plus filter tokens from the search box.
  * Keep this in sync with `parseClientFilters()` so the client-side filter chips
@@ -103,72 +130,79 @@ function extractTextContent(record: Record<string, unknown>): string | null {
  */
 function parseStructuredQuery(query: string): ParsedSearchQuery {
 	const textParts: string[] = [];
-	const toolNames: string[] = [];
-	const branchTerms: string[] = [];
-	let isErrorOnly = false;
-	let isSubagentOnly = false;
-	let hasTokensOnly = false;
+	const phraseTerms: string[] = [];
+	const collectors: Record<string, FilterTerm[]> = {
+		project: [],
+		model: []
+	};
+	let errorFilter: IncludeExcludeFilter = null;
+	let subagentFilter: IncludeExcludeFilter = null;
+	let dateFilter: { after: string; before: string } | null = null;
 	let rawMode = false;
+	let regexMode = false;
 
-	for (const token of query.trim().split(/\s+/).filter(Boolean)) {
-		const lowerToken = token.toLowerCase();
-
-		if (lowerToken.startsWith('tool:') && token.length > 'tool:'.length) {
-			toolNames.push(token.slice('tool:'.length));
+	for (const token of tokenizeQuery(query)) {
+		if (token.quoted) {
+			phraseTerms.push(token.body);
 			continue;
 		}
 
-		if (lowerToken.startsWith('branch:') && token.length > 'branch:'.length) {
-			branchTerms.push(token.slice('branch:'.length));
-			continue;
-		}
+		const lowerBody = token.body.toLowerCase();
 
-		if (lowerToken === 'is:error') {
-			isErrorOnly = true;
-			continue;
-		}
-
-		if (lowerToken === 'is:subagent') {
-			isSubagentOnly = true;
-			continue;
-		}
-
-		if (lowerToken === 'has:tokens' || lowerToken === 'has:cost') {
-			hasTokensOnly = true;
-			continue;
-		}
-
-		if (lowerToken === 'debug:raw' || lowerToken === 'mode:raw' || lowerToken === 'source:raw') {
+		if (!token.negated && RAW_MODE_TOKENS.has(lowerBody)) {
 			rawMode = true;
 			continue;
 		}
+		if (!token.negated && lowerBody === 'mode:regex') {
+			regexMode = true;
+			continue;
+		}
 
-		textParts.push(token);
+		if (matchValuePrefix(token.body, lowerBody, token.negated, collectors)) continue;
+
+		if (lowerBody.startsWith('date:') && token.body.length > 'date:'.length) {
+			const parsed = parseDateFilter(token.body.slice('date:'.length));
+			if (parsed) dateFilter = parsed;
+			continue;
+		}
+
+		if (lowerBody === 'has:error' || lowerBody === 'is:error') {
+			errorFilter = token.negated ? 'exclude' : 'include';
+			continue;
+		}
+		if (lowerBody === 'is:subagent') {
+			subagentFilter = token.negated ? 'exclude' : 'include';
+			continue;
+		}
+
+		textParts.push(token.body);
 	}
 
 	return {
 		textTerms: parseSearchTerms(textParts.join(' ')),
-		toolNames,
-		branchTerms,
-		isErrorOnly,
-		isSubagentOnly,
-		hasTokensOnly,
-		rawMode
+		phraseTerms,
+		projects: collectors.project,
+		models: collectors.model,
+		errorFilter,
+		subagentFilter,
+		dateFilter,
+		rawMode,
+		regexMode
 	};
 }
 
 function hasStructuredFilters(query: ParsedSearchQuery): boolean {
 	return (
-		query.toolNames.length > 0 ||
-		query.branchTerms.length > 0 ||
-		query.isErrorOnly ||
-		query.isSubagentOnly ||
-		query.hasTokensOnly
+		query.projects.length > 0 ||
+		query.models.length > 0 ||
+		query.errorFilter !== null ||
+		query.subagentFilter !== null ||
+		query.dateFilter !== null
 	);
 }
 
 function hasSearchIntent(query: ParsedSearchQuery): boolean {
-	return query.textTerms.length > 0 || hasStructuredFilters(query);
+	return query.textTerms.length > 0 || query.phraseTerms.length > 0 || hasStructuredFilters(query);
 }
 
 function toIndexedSearchQuery(
@@ -177,12 +211,14 @@ function toIndexedSearchQuery(
 ): IndexedSearchQuery {
 	return {
 		textTerms: query.textTerms,
+		phraseTerms: query.phraseTerms,
 		projectFilter,
-		toolNames: query.toolNames,
-		branchTerms: query.branchTerms,
-		isErrorOnly: query.isErrorOnly,
-		isSubagentOnly: query.isSubagentOnly,
-		hasTokensOnly: query.hasTokensOnly
+		projects: query.projects,
+		models: query.models,
+		errorFilter: query.errorFilter,
+		subagentFilter: query.subagentFilter,
+		dateAfter: query.dateFilter?.after,
+		dateBefore: query.dateFilter?.before
 	};
 }
 
@@ -314,7 +350,7 @@ async function emitIndexedMatches(
 		if (emittedSessions.has(dedupeKey)) continue;
 		emittedSessions.add(dedupeKey);
 
-		callbacks.onResult(toSearchResult(result, query.textTerms));
+		callbacks.onResult(toSearchResult(result, [...query.textTerms, ...query.phraseTerms]));
 		emitted += 1;
 
 		if (emitted % SEARCH_BATCH_SIZE === 0) {
@@ -461,7 +497,8 @@ async function processRawMatch(
 function searchSessionsRawStreaming(
 	textTerms: string[],
 	callbacks: StreamingSearchCallbacks,
-	projectFilter?: string
+	projectFilter?: string,
+	regexMode = false
 ): SearchHandle | null {
 	if (textTerms.length === 0) {
 		callbacks.onDone(0);
@@ -472,7 +509,7 @@ function searchSessionsRawStreaming(
 	const searchPath = projectFilter ? path.join(projectsDir, projectFilter) : projectsDir;
 	const rgArgs = [
 		'--json',
-		'--fixed-strings',
+		...(regexMode ? [] : ['--fixed-strings']),
 		'--ignore-case',
 		'--max-count',
 		'5',
@@ -490,12 +527,14 @@ function searchSessionsRawStreaming(
 			const emitted = await emitIndexedMatches(
 				{
 					textTerms,
-					toolNames: [],
-					branchTerms: [],
-					isErrorOnly: false,
-					isSubagentOnly: false,
-					hasTokensOnly: false,
-					rawMode: true
+					phraseTerms: [],
+					projects: [],
+					models: [],
+					errorFilter: null,
+					subagentFilter: null,
+					dateFilter: null,
+					rawMode: true,
+					regexMode: false
 				},
 				projectFilter,
 				new Set<string>(),
@@ -591,11 +630,16 @@ export function searchSessionsStreaming(
 	}
 
 	if (
-		parsedQuery.rawMode &&
+		(parsedQuery.rawMode || parsedQuery.regexMode) &&
 		parsedQuery.textTerms.length > 0 &&
 		!hasStructuredFilters(parsedQuery)
 	) {
-		return searchSessionsRawStreaming(parsedQuery.textTerms, callbacks, safeProjectFilter);
+		return searchSessionsRawStreaming(
+			parsedQuery.textTerms,
+			callbacks,
+			safeProjectFilter,
+			parsedQuery.regexMode
+		);
 	}
 
 	const cancelled = { value: false };
