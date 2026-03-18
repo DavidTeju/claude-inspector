@@ -1,7 +1,10 @@
 /**
  * @module
  * Adapters that convert normalized session-schema records into the shared
- * transcript model consumed by the current Inspector UI.
+ * transcript model consumed by the current Inspector UI. This is the bridge
+ * between the raw schema-layer `ClaudeContentBlock` types that mirror JSONL on
+ * disk and the frontend `ContentBlock` union that uses camelCase Inspector
+ * field names and omits unknown block variants.
  */
 
 import type { ContentBlock, ThreadMessage, ToolCall, ToolResultMap } from '../types.js';
@@ -204,7 +207,8 @@ export function toThreadMessages(
 
 /**
  * Convert raw content (unknown) to the shared ContentBlock union.
- * Normalizes through the session-schema parser then maps to camelCase.
+ * Normalizes through the session-schema parser, then maps known
+ * `ClaudeContentBlock` variants into the frontend `ContentBlock` union.
  */
 export function toSharedContent(value: unknown): string | ContentBlock[] {
 	if (typeof value === 'string') return value;
@@ -249,8 +253,10 @@ function convertToolResultContent(
 
 /**
  * Maps one normalized schema-layer content block into the shared UI union.
- * Unknown block variants return null so forward-compatible parser output does not
- * break transcript rendering when Claude introduces new block types.
+ * This is the snake_case-to-camelCase bridge between `ClaudeContentBlock` and
+ * `ContentBlock`. Unknown block variants return null so forward-compatible
+ * parser output does not break transcript rendering when Claude introduces new
+ * block types before the UI adds support for them.
  */
 function toSharedContentBlock(block: ClaudeContentBlock): ContentBlock | null {
 	switch (block.type) {

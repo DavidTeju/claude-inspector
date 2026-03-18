@@ -92,7 +92,11 @@ export interface ImageContentBlock {
 	};
 }
 
-/** Discriminated union of all normalized content block variants used by the Inspector UI. */
+/**
+ * Discriminated union of normalized content block variants used by the Inspector UI.
+ * Unlike `ClaudeContentBlock` in `session-schema.ts`, this app-facing union uses
+ * Inspector camelCase field names and excludes unknown/raw-only variants.
+ */
 export type ContentBlock =
 	| TextContentBlock
 	| ToolUseContentBlock

@@ -64,12 +64,20 @@ export interface ImageBlock {
 	};
 }
 
+/** Catch-all raw block preserved when Claude introduces transcript variants the app does not yet understand. */
 export interface UnknownContentBlock {
 	type: 'unknown';
 	originalType: string;
 	payload: JsonObject;
 }
 
+/**
+ * Schema-layer content block union that mirrors the JSONL transcript on disk.
+ * It keeps Claude's raw field names (for example `tool_use_id`, `is_error`,
+ * and `media_type`) and includes `UnknownContentBlock` so parsing/indexing stay
+ * forward-compatible before the adapter layer maps known variants to the UI's
+ * normalized `ContentBlock` union.
+ */
 export type ClaudeContentBlock =
 	| TextBlock
 	| ToolUseBlock
@@ -78,6 +86,7 @@ export type ClaudeContentBlock =
 	| ImageBlock
 	| UnknownContentBlock;
 
+/** Raw Claude message content exactly as preserved by the normalized schema layer. */
 export type ClaudeMessageContent = string | ClaudeContentBlock[];
 
 export interface UserMessage {
