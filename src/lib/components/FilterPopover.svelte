@@ -24,8 +24,8 @@
 	}
 
 	const FILTER_SECTIONS: FilterSectionConfig[] = [
-		{ prefix: 'project', label: 'Project', placeholder: 'Filter projects...' },
-		{ prefix: 'model', label: 'Model', placeholder: 'Filter models...' }
+		{ prefix: 'project', label: 'Project', placeholder: 'search projects...' },
+		{ prefix: 'model', label: 'Model', placeholder: 'search models...' }
 	];
 
 	const BOOLEAN_FILTERS: Array<{ prefix: string; value: string; label: string }> = [
@@ -52,15 +52,17 @@
 		return match.negated ? 'exclude' : 'include';
 	}
 
-	const FILTER_STATE_CLASSES: Record<string, string> = {
+	const TOGGLE_CLASSES: Record<string, string> = {
 		include: 'border-accent-500/50 bg-accent-500/10 text-accent-300',
 		exclude: 'border-red-500/30 bg-red-500/10 text-red-400',
 		off: 'border-surface-800 bg-surface-900/50 text-text-500 hover:border-surface-700 hover:text-text-100'
 	};
 
-	function stateToClass(state: 'include' | 'exclude' | 'off'): string {
-		return FILTER_STATE_CLASSES[state];
-	}
+	const LIST_ITEM_CLASSES: Record<string, string> = {
+		include: 'bg-accent-500/10 text-accent-300',
+		exclude: 'bg-red-500/10 text-red-400',
+		off: 'text-text-500 hover:bg-surface-800/50 hover:text-text-100'
+	};
 
 	function cycleFilter(prefix: string, value: string) {
 		const state = filterState(prefix, value);
@@ -104,7 +106,7 @@
 {#snippet filterSection(config: FilterSectionConfig)}
 	{@const data = sectionData[config.prefix]}
 	{@const filtered = filteredItems(config.prefix)}
-	<div class="mb-4">
+	<div class="border-surface-800/50 mb-4 rounded-lg border p-2.5">
 		<span class="section-label mb-2 block">{config.label}</span>
 		<input
 			bind:value={data.search}
@@ -112,14 +114,16 @@
 			placeholder={config.placeholder}
 			class="border-surface-800 bg-surface-950 text-text-100 placeholder-text-500 focus:border-accent-500/50 mb-2 w-full rounded-lg border px-3 py-1.5 text-xs transition-colors outline-none"
 		/>
-		<div class="max-h-32 space-y-0.5 overflow-y-auto">
+		<div
+			class="border-surface-800/30 bg-surface-950/50 max-h-32 space-y-0.5 overflow-y-auto rounded border"
+		>
 			{#each filtered as item (item)}
 				{@const state = filterState(config.prefix, item)}
 				<button
 					onclick={() => cycleFilter(config.prefix, item)}
-					class="w-full rounded-md px-2.5 py-1 text-left text-xs transition-colors {stateToClass(
+					class="w-full rounded-md px-2.5 py-1 text-left text-xs transition-colors {LIST_ITEM_CLASSES[
 						state
-					)}"
+					]}"
 				>
 					{state === 'exclude' ? 'NOT ' : ''}{item}
 				</button>
@@ -145,7 +149,7 @@
 		<div class="flex flex-wrap gap-1.5">
 			{#each BOOLEAN_FILTERS as bf (bf.prefix + bf.value)}
 				{@const state = filterState(bf.prefix, bf.value)}
-				{@const stateClass = stateToClass(state)}
+				{@const stateClass = TOGGLE_CLASSES[state]}
 				<button
 					onclick={() => cycleFilter(bf.prefix, bf.value)}
 					class="rounded-md border px-2.5 py-1 text-xs transition-colors {stateClass}"
