@@ -277,6 +277,7 @@
 		{:else}
 			<button
 				onclick={goNext}
+				aria-label="Next question"
 				class="bg-user-500 text-surface-950 hover:bg-user-400 cursor-pointer rounded-lg px-4 py-2 text-[11px] font-semibold transition-colors"
 			>
 				Next
