@@ -142,6 +142,9 @@ npm run preview      # Preview production build
 npm run check        # TypeScript checking
 npm run lint         # ESLint
 npm run lint:fix     # ESLint with auto-fix
+npm run test         # Run Vitest once
+npm run test:watch   # Run Vitest in watch mode
+npm run test:coverage # Run Vitest with coverage
 ```
 
 ## License
