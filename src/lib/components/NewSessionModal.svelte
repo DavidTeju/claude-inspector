@@ -116,7 +116,9 @@
 					>Project</label
 				>
 				{#if projects.length === 0}
-					<p class="text-text-500 border-surface-800 bg-surface-900 rounded-md border px-3 py-2.5 text-sm">
+					<p
+						class="text-text-500 border-surface-800 bg-surface-900 rounded-md border px-3 py-2.5 text-sm"
+					>
 						No projects found. Start a Claude session in a project directory first.
 					</p>
 				{:else}

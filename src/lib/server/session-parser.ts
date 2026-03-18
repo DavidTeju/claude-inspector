@@ -1,10 +1,16 @@
+/**
+ * @module
+ * Streaming JSONL parser for Claude session transcripts.
+ */
+
 import { createReadStream } from 'fs';
 import { createInterface } from 'readline';
 import { parseSessionRecordValue, type ParsedSessionRecord } from './session-schema.js';
 
 /**
  * Stream-parse a session JSONL file into normalized raw records.
- * Malformed lines are skipped so one bad record does not poison the whole session.
+ * Malformed lines are skipped so one bad record does not poison the whole session,
+ * and `recordIndex` tracks only successfully parsed records for downstream facts/indexing.
  */
 export async function parseSessionFile(filePath: string): Promise<ParsedSessionRecord[]> {
 	const records: ParsedSessionRecord[] = [];
