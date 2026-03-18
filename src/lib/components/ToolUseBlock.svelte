@@ -1,17 +1,18 @@
 <script lang="ts">
-	import { diffLines } from 'diff';
-	// eslint-disable-next-line import-x/no-duplicates
-	import { cubicOut } from 'svelte/easing';
-	// eslint-disable-next-line import-x/no-duplicates
-	import { slide } from 'svelte/transition';
 	import type { TextContentBlock, ToolCall } from '$lib/types.js';
+	import CollapsibleSection from './CollapsibleSection.svelte';
+	import BashView from './tool-views/BashView.svelte';
+	import EditView from './tool-views/EditView.svelte';
+	import RawJsonView from './tool-views/RawJsonView.svelte';
+	import ReadView from './tool-views/ReadView.svelte';
+	import SearchView from './tool-views/SearchView.svelte';
+	import WriteView from './tool-views/WriteView.svelte';
 
 	const MAX_INLINE_LENGTH = 80;
 	const MAX_PREVIEW_LENGTH = 60;
 
 	let { tool }: { tool: ToolCall } = $props();
 
-	let expanded = $state(false);
 	let showRaw = $state(false);
 
 	type ViewMode = 'read' | 'edit' | 'bash' | 'write' | 'glob' | 'grep' | 'generic';
@@ -60,33 +61,10 @@
 		}
 		return JSON.stringify(content, null, 2);
 	});
-
-	let editDiff = $derived.by(() => {
-		if (viewMode !== 'edit') return [];
-		const oldStr = tool.input.old_string;
-		const newStr = tool.input.new_string;
-		if (typeof oldStr !== 'string' || typeof newStr !== 'string') return [];
-		return diffLines(oldStr, newStr);
-	});
 </script>
 
-<div class="border-l-accent-300/50 bg-surface-850/80 rounded-md border-l-2">
-	<button
-		onclick={() => (expanded = !expanded)}
-		class="hover:bg-surface-800/30 flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors"
-	>
-		<svg
-			class="text-text-500 h-3 w-3 flex-shrink-0 transition-transform duration-200 {expanded
-				? 'rotate-90'
-				: ''}"
-			fill="none"
-			viewBox="0 0 24 24"
-			stroke="currentColor"
-			stroke-width="2"
-		>
-			<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-		</svg>
-
+<CollapsibleSection accentClass="border-l-accent-300/50" bodyClass="space-y-2">
+	{#snippet header()}
 		<span class="font-semibold {tool.result?.isError ? 'text-error-500' : 'text-accent-300'}">
 			{tool.name}
 		</span>
@@ -100,152 +78,36 @@
 				>error</span
 			>
 		{/if}
-	</button>
+	{/snippet}
 
-	{#if expanded}
-		<div
-			transition:slide={{ duration: 250, easing: cubicOut }}
-			class="border-surface-800/50 space-y-2 border-t px-3 py-2"
-		>
-			<!-- Badges + Raw toggle -->
-			<div class="flex items-center gap-2">
-				{#if viewMode !== 'generic'}
-					<button
-						onclick={() => (showRaw = !showRaw)}
-						class="text-text-500 hover:text-text-300 text-[10px] transition-colors"
-					>
-						{showRaw ? 'View formatted' : 'View raw'}
-					</button>
-				{/if}
-				{#if viewMode === 'edit' && tool.input.replace_all}
-					<span
-						class="bg-accent-500/10 text-accent-300 rounded px-1.5 py-0.5 text-[9px] font-medium"
-						>replace_all</span
-					>
-				{/if}
-			</div>
+	<!-- Badges + Raw toggle -->
+	<div class="flex items-center gap-2">
+		{#if viewMode !== 'generic'}
+			<button
+				onclick={() => (showRaw = !showRaw)}
+				class="text-text-500 hover:text-text-300 text-[10px] transition-colors"
+			>
+				{showRaw ? 'View formatted' : 'View raw'}
+			</button>
+		{/if}
+		{#if viewMode === 'edit' && tool.input.replace_all}
+			<span class="bg-accent-500/10 text-accent-300 rounded px-1.5 py-0.5 text-[9px] font-medium"
+				>replace_all</span
+			>
+		{/if}
+	</div>
 
-			{#if showRaw || viewMode === 'generic'}
-				<!-- Raw JSON view -->
-				<div>
-					<div class="text-text-500 mb-1 text-[10px] font-semibold tracking-wider uppercase">
-						Input
-					</div>
-					<pre
-						class="bg-surface-950 text-text-300 max-h-64 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">{JSON.stringify(
-							tool.input,
-							null,
-							2
-						)}</pre>
-				</div>
-
-				{#if tool.result !== undefined}
-					<div>
-						<div
-							class="mb-1 text-[10px] font-semibold tracking-wider uppercase {tool.result?.isError
-								? 'text-error-500'
-								: 'text-text-500'}"
-						>
-							{tool.result?.isError ? 'Error' : 'Result'}
-						</div>
-						<pre
-							class="bg-surface-950 max-h-96 overflow-auto rounded-md p-2 text-[11px] {tool.result
-								?.isError
-								? 'text-error-400'
-								: 'text-text-300'} font-mono leading-relaxed break-words whitespace-pre-wrap">{resultText}</pre>
-					</div>
-				{/if}
-			{:else if viewMode === 'read'}
-				<!-- Read: show file content from result -->
-				<pre
-					class="bg-surface-950 text-text-300 max-h-96 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">{resultText}</pre>
-			{:else if viewMode === 'edit'}
-				<!-- Edit: show diff -->
-				{#if editDiff.length > 0}
-					<div class="bg-surface-950 max-h-96 overflow-auto rounded-md font-mono text-[11px]">
-						{#each editDiff as change, ci (ci)}
-							{@const lines = change.value.replace(/\n$/, '').split('\n')}
-							{#each lines as line, li (li)}
-								{#if change.removed}
-									<div class="bg-error-500/10 text-error-400 flex">
-										<span class="text-error-400/50 w-6 flex-shrink-0 pr-1 text-right select-none"
-											>&minus;</span
-										>
-										<span class="pl-1 break-words whitespace-pre-wrap">{line}</span>
-									</div>
-								{:else if change.added}
-									<div class="bg-success-500/10 text-success-500 flex">
-										<span class="text-success-500/50 w-6 flex-shrink-0 pr-1 text-right select-none"
-											>+</span
-										>
-										<span class="pl-1 break-words whitespace-pre-wrap">{line}</span>
-									</div>
-								{:else}
-									<div class="text-text-500 flex">
-										<span class="text-text-700 w-6 flex-shrink-0 pr-1 text-right select-none"
-											>&nbsp;</span
-										>
-										<span class="pl-1 break-words whitespace-pre-wrap">{line}</span>
-									</div>
-								{/if}
-							{/each}
-						{/each}
-					</div>
-				{:else}
-					<pre
-						class="bg-surface-950 text-text-300 max-h-64 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">{JSON.stringify(
-							tool.input,
-							null,
-							2
-						)}</pre>
-				{/if}
-
-				{#if tool.result?.isError}
-					<pre
-						class="text-error-400 mt-1 text-[11px] break-words whitespace-pre-wrap">{resultText}</pre>
-				{/if}
-			{:else if viewMode === 'write'}
-				<!-- Write: show file content preview -->
-				{#if typeof tool.input.content === 'string'}
-					<pre
-						class="bg-surface-950 text-text-300 max-h-96 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">{tool
-							.input.content}</pre>
-				{/if}
-				{#if tool.result?.isError}
-					<pre
-						class="text-error-400 mt-1 text-[11px] break-words whitespace-pre-wrap">{resultText}</pre>
-				{/if}
-			{:else if viewMode === 'bash'}
-				<!-- Bash: show command + output -->
-				{#if typeof tool.input.command === 'string'}
-					<pre
-						class="bg-accent-500/5 border-accent-500/20 text-accent-300 max-h-32 overflow-auto rounded-md border p-2 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">{tool
-							.input.command}</pre>
-				{/if}
-				{#if tool.result !== undefined}
-					<pre
-						class="bg-surface-950 max-h-96 overflow-auto rounded-md p-2 text-[11px] {tool.result
-							?.isError
-							? 'text-error-400'
-							: 'text-text-300'} font-mono leading-relaxed break-words whitespace-pre-wrap">{resultText}</pre>
-				{/if}
-			{:else if viewMode === 'glob' || viewMode === 'grep'}
-				<!-- Glob/Grep: show pattern + matches -->
-				<div class="flex items-center gap-2">
-					{#if typeof tool.input.pattern === 'string'}
-						<pre
-							class="bg-accent-500/5 border-accent-500/20 text-accent-300 inline-block rounded border px-2 py-1 font-mono text-[11px] break-words whitespace-pre-wrap">{tool
-								.input.pattern}</pre>
-					{/if}
-					{#if tool.input.path}
-						<span class="text-text-500 font-mono text-[10px]">in {tool.input.path}</span>
-					{/if}
-				</div>
-				{#if tool.result !== undefined}
-					<pre
-						class="bg-surface-950 text-text-300 max-h-96 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">{resultText}</pre>
-				{/if}
-			{/if}
-		</div>
+	{#if showRaw || viewMode === 'generic'}
+		<RawJsonView {tool} {resultText} />
+	{:else if viewMode === 'read'}
+		<ReadView {resultText} />
+	{:else if viewMode === 'edit'}
+		<EditView {tool} {resultText} />
+	{:else if viewMode === 'write'}
+		<WriteView {tool} {resultText} />
+	{:else if viewMode === 'bash'}
+		<BashView {tool} {resultText} />
+	{:else if viewMode === 'glob' || viewMode === 'grep'}
+		<SearchView {tool} {resultText} />
 	{/if}
-</div>
+</CollapsibleSection>

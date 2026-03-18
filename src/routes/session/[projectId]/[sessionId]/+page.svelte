@@ -11,7 +11,6 @@
 	import type { ThreadMessage } from '$lib/types.js';
 	import { dirNameToDisplayName, getErrorMessage, uuid } from '$lib/utils.js';
 	import { browser } from '$app/environment';
-	import { resolve } from '$app/paths';
 
 	let { data } = $props();
 
@@ -180,6 +179,7 @@
 			<SessionControls
 				{sessionTitle}
 				sessionId={data.sessionId}
+				projectId={data.projectId}
 				model={displayModel}
 				messageCount={session ? session.messages.length : data.messages.length}
 				permissionMode={currentPermissionMode}
@@ -190,44 +190,13 @@
 				cost={session?.cost}
 				onInterrupt={() => session?.interrupt()}
 				showResumeCommand={canResume}
+				isSubagent={data.isSubagent}
+				parentSessionId={data.parentSessionId}
+				reconnecting={session?.reconnecting ?? false}
+				error={session?.error ?? ''}
+				resumeError={resumeError ?? ''}
 			/>
 		</div>
-
-		<!-- Subagent link -->
-		{#if data.isSubagent && data.parentSessionId}
-			<div class="px-6 pt-2">
-				<a
-					href={resolve(`/session/${data.projectId}/${data.parentSessionId}`)}
-					class="text-accent-400/70 hover:text-accent-400 text-xs transition-colors"
-					>Parent session {data.parentSessionId.slice(0, SESSION_ID_DISPLAY_LENGTH)}...</a
-				>
-			</div>
-		{/if}
-
-		<!-- Connection status banners -->
-		{#if session?.reconnecting}
-			<div
-				class="bg-warning-500/10 text-warning-500 mx-4 mt-2 rounded-md px-3 py-1.5 text-center text-[11px]"
-			>
-				Reconnecting...
-			</div>
-		{/if}
-
-		{#if session?.error}
-			<div
-				class="bg-error-500/10 text-error-400 mx-4 mt-2 rounded-md px-3 py-1.5 text-center text-[11px]"
-			>
-				{session.error}
-			</div>
-		{/if}
-
-		{#if resumeError}
-			<div
-				class="bg-error-500/10 text-error-400 mx-4 mt-2 rounded-md px-3 py-1.5 text-center text-[11px]"
-			>
-				{resumeError}
-			</div>
-		{/if}
 
 		<!-- Message area -->
 		{#if pageMode === 'connecting'}
