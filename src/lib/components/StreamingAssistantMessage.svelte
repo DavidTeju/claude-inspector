@@ -17,7 +17,7 @@
 	} = $props();
 
 	let splitContent = $derived.by(() => {
-		if (!text) return { complete: '', trailing: '' };
+		if (!text?.trim()) return { complete: '', trailing: '' };
 		const lastNewline = text.lastIndexOf('\n');
 		if (lastNewline === -1) return { complete: '', trailing: text };
 		return {
@@ -53,7 +53,7 @@
 		{/if}
 
 		<!-- Trailing text with blinking cursor -->
-		{#if splitContent.trailing || (!splitContent.complete && text)}
+		{#if splitContent.trailing || (!splitContent.complete && text?.trim())}
 			<div class="text-text-300 text-sm leading-relaxed {splitContent.complete ? 'mt-1' : ''}">
 				{splitContent.trailing}<span class="animate-blink text-accent-400">&#x258A;</span>
 			</div>
