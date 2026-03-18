@@ -3,8 +3,9 @@
 ## After every implementation
 
 Before marking a PR ready for review:
-- Include screenshots of the app showing both the before and after state of any visual changes in the PR description.
-- Always include an "after" screenshot of the home screen and the search view, even if there are no visual changes.
+
+- Include extensive screenshots of the app showing both the before and after state of any visual changes in the PR description. This should/must cover all affected screens and cases
+- [Important] Always include an "after" screenshot of the home screen and the search view, even if there are no visual changes.
 - Audit your changes against:
 - `.github/skills/svelte-best-practices/` — especially runes patterns, $effect pitfalls, keyed each blocks
 - `.github/skills/typescript-best-practices/` — type guards, discriminated unions, no `any`
