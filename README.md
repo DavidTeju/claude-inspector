@@ -78,81 +78,14 @@ Add an Anthropic API key in Settings to auto-generate short titles for sessions 
 
 ## Architecture
 
-```
-src/
-├── lib/
-│   ├── types.ts                          # Shared TypeScript interfaces
-│   ├── utils.ts                          # Shared utilities (date formatting, highlighting)
-│   ├── shared/
-│   │   ├── active-session-types.ts       # Types for live session state and events
-│   │   ├── models.ts                     # Model definitions
-│   │   ├── permission-modes.ts           # Permission mode constants
-│   │   └── state-colors.ts              # Session state → color mapping
-│   ├── stores/
-│   │   ├── active-session.svelte.ts      # Live session client state
-│   │   ├── new-session-modal.svelte.ts   # New session modal state
-│   │   └── theme.svelte.ts              # Light/dark theme preference
-│   ├── server/
-│   │   ├── paths.ts                      # Data root resolution (~/.claude or env override)
-│   │   ├── projects.ts                   # Project listing, dir name parsing
-│   │   ├── project-id.ts                 # Project ID encoding/decoding
-│   │   ├── sessions.ts                   # Session index reading, JSONL fallback scanning
-│   │   ├── session-discovery.ts          # JSONL file discovery and scanning
-│   │   ├── session-metadata.ts           # Session metadata extraction from JSONL
-│   │   ├── session-schema.ts             # JSONL record parsing and type definitions
-│   │   ├── session-adapters.ts           # Session data format adapters
-│   │   ├── session-parser.ts             # JSONL stream parser
-│   │   ├── session-index-sqlite.ts       # SQLite-backed session index cache
-│   │   ├── session-manager.ts            # Live session lifecycle (start, stream, interact)
-│   │   ├── active-pids.ts               # Active session process tracking
-│   │   ├── messages.ts                   # Message threading, tool pairing
-│   │   ├── search.ts                     # SQLite + ripgrep search with SSE streaming
-│   │   ├── reconciler.ts                 # Background session index builder
-│   │   ├── config.ts                     # App configuration (API key, etc.)
-│   │   └── type-guards.ts               # Shared type guard utilities
-│   └── components/
-│       ├── Sidebar.svelte                # Project navigation
-│       ├── TopBar.svelte                 # Breadcrumbs + search icon
-│       ├── BrandMark.svelte              # App logo
-│       ├── ProjectCard.svelte            # Project summary card
-│       ├── SearchResultCard.svelte       # Search result with highlighted snippet
-│       ├── MessageThread.svelte          # Conversation renderer (historical)
-│       ├── ActiveMessageThread.svelte    # Conversation renderer (live sessions)
-│       ├── StreamingAssistantMessage.svelte # In-progress assistant response
-│       ├── UserMessage.svelte            # User message bubble
-│       ├── AssistantMessage.svelte       # Assistant message block
-│       ├── ToolUseBlock.svelte           # Collapsible tool call + result
-│       ├── ToolCallGroup.svelte          # Grouped tool calls
-│       ├── ThinkingBlock.svelte          # Collapsible thinking block
-│       ├── MarkdownContent.svelte        # Markdown → HTML with code extraction
-│       ├── CodeBlock.svelte              # Syntax-highlighted code via shiki
-│       ├── Composer.svelte               # Message input for live sessions
-│       ├── SessionControls.svelte        # Session action buttons (interrupt, etc.)
-│       ├── CostDisplay.svelte            # Token usage and cost display
-│       ├── PermissionBanner.svelte       # Permission request prompt
-│       ├── AskUserQuestion.svelte        # Agent question prompt
-│       └── NewSessionModal.svelte        # New session creation dialog
-├── routes/
-│   ├── +layout.svelte                    # Root layout: sidebar + top bar
-│   ├── +layout.server.ts                 # Load project list
-│   ├── +page.svelte                      # Home: spotlight search + project grid
-│   ├── projects/[projectId]/             # Session list for a project
-│   ├── session/[projectId]/[sessionId]/  # Message viewer (historical + live)
-│   ├── settings/                         # API key and session configuration
-│   └── api/
-│       ├── search/                       # SSE search endpoint
-│       └── session/                      # Live session APIs
-│           ├── start/                    #   Start a new session
-│           ├── active/                   #   List active sessions
-│           └── [sessionId]/
-│               ├── stream/              #   SSE event stream
-│               ├── send/                #   Send user message
-│               ├── question/            #   Respond to agent question
-│               ├── permission/          #   Grant/deny permission
-│               ├── interrupt/           #   Interrupt session
-│               └── config/              #   Session configuration
-└── app.css                               # Tailwind v4 theme
-```
+Standard SvelteKit layout under `src/`:
+
+- **`lib/server/`** — all backend logic: JSONL session parsing, SQLite index with background reconciler, ripgrep-powered search, live session management via the Claude Agent SDK, and project/session discovery
+- **`lib/components/`** — Svelte 5 UI components: conversation rendering (message threading, tool calls, thinking blocks, code highlighting), search with structured filters, live session controls (composer, permissions, interrupts), and navigation
+- **`lib/shared/`** — types and constants shared between client and server (models, permission modes, session state)
+- **`lib/stores/`** — Svelte rune-based client state (active session, theme, modals)
+- **`routes/`** — pages for home (search + project grid), project session lists, session viewer, and settings
+- **`routes/api/`** — SSE search endpoint, filter suggestions, and live session APIs (start, stream, send, permission, interrupt)
 
 ## Scripts
 
