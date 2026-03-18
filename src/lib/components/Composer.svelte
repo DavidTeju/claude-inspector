@@ -177,12 +177,14 @@
 	let canSubmit = $derived(!disabled && text.trim().length > 0);
 </script>
 
-<div class="border-surface-800 bg-surface-900/50 rounded-xl border">
+<div
+	class="border-surface-800 bg-surface-900/50 focus-within:ring-accent-500/30 focus-within:shadow-accent-500/10 rounded-xl border transition-shadow focus-within:shadow-[0_0_12px_-4px] focus-within:ring-1"
+>
 	<div class="relative">
 		<!-- Slash command popup (above the textarea, follows cursor) -->
 		{#if showCommandList}
 			<div
-				class="border-surface-700 bg-surface-900 absolute bottom-full z-20 mb-1 max-w-xs overflow-hidden rounded-lg border shadow-lg"
+				class="border-surface-700 bg-surface-900 absolute bottom-full z-20 mb-1 max-w-sm min-w-[16rem] overflow-hidden rounded-lg border shadow-lg"
 				style="left: {caretLeftPx}px;"
 				id="slash-command-listbox"
 				role="listbox"
@@ -193,20 +195,31 @@
 						id="slash-cmd-{i}"
 						role="option"
 						aria-selected={i === effectiveIndex}
-						class="flex w-full items-baseline gap-2 px-3 py-1.5 text-left text-xs transition-colors {i ===
+						class="flex w-full flex-col gap-0.5 px-3 py-2 text-left transition-colors {i ===
 						effectiveIndex
 							? 'bg-accent-500/15 text-text-100'
 							: 'text-text-300 hover:bg-surface-800'}"
 						onmouseenter={() => (selectedIndex = i)}
 						onclick={() => acceptCommand(cmd)}
 					>
-						<span class="text-accent-400 shrink-0 font-medium">/{cmd.name}</span>
-						{#if cmd.argumentHint}
-							<span class="text-text-600 shrink-0">{cmd.argumentHint}</span>
-						{/if}
-						<span class="text-text-500 ml-auto truncate">{cmd.description}</span>
+						<span class="flex items-baseline gap-2 text-xs">
+							<span class="text-accent-400 shrink-0 font-medium">/{cmd.name}</span>
+							{#if cmd.argumentHint}
+								<span class="text-text-600 shrink-0">{cmd.argumentHint}</span>
+							{/if}
+						</span>
+						<span class="text-text-500 truncate text-[11px]">{cmd.description}</span>
 					</button>
 				{/each}
+
+				<!-- Keyboard hint footer -->
+				<div class="border-surface-700 text-text-700 flex gap-2 border-t px-3 py-1.5 text-[10px]">
+					<span><kbd class="text-text-500">↑↓</kbd> navigate</span>
+					<span class="text-surface-700">&middot;</span>
+					<span><kbd class="text-text-500">Tab</kbd> accept</span>
+					<span class="text-surface-700">&middot;</span>
+					<span><kbd class="text-text-500">Esc</kbd> dismiss</span>
+				</div>
 			</div>
 		{/if}
 
