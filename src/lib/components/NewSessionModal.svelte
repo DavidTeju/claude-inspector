@@ -111,15 +111,21 @@
 				<label for="modal-project-select" class="text-text-300 mb-1.5 block text-xs font-medium"
 					>Project</label
 				>
-				<select
-					id="modal-project-select"
-					bind:value={selectedProject}
-					class="border-surface-800 bg-surface-900 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
-				>
-					{#each projects as project (project.id)}
-						<option value={project.id}>{project.displayName}</option>
-					{/each}
-				</select>
+				{#if projects.length === 0}
+					<p class="text-text-500 border-surface-800 bg-surface-900 rounded-md border px-3 py-2.5 text-sm">
+						No projects found. Start a Claude session in a project directory first.
+					</p>
+				{:else}
+					<select
+						id="modal-project-select"
+						bind:value={selectedProject}
+						class="border-surface-800 bg-surface-900 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
+					>
+						{#each projects as project (project.id)}
+							<option value={project.id}>{project.displayName}</option>
+						{/each}
+					</select>
+				{/if}
 			</div>
 
 			<!-- Permission mode + Model in a row -->
