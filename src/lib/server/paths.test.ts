@@ -26,11 +26,11 @@ describe('server/paths', () => {
 	});
 
 	it('honors environment overrides for Claude data and SQLite paths', () => {
-		vi.stubEnv('CLAUDE_DATA_PATH', '/tmp/claude-data');
-		vi.stubEnv('CLAUDE_INSPECTOR_DB_PATH', '/tmp/claude-inspector.sqlite');
+		vi.stubEnv('CLAUDE_DATA_PATH', '/home/tester/.claude-data');
+		vi.stubEnv('CLAUDE_INSPECTOR_DB_PATH', '/home/tester/.claude-inspector.sqlite');
 
-		expect(getClaudeDataRoot()).toBe('/tmp/claude-data');
-		expect(getProjectsDir()).toBe(path.join('/tmp/claude-data', 'projects'));
-		expect(getSessionIndexDbPath()).toBe('/tmp/claude-inspector.sqlite');
+		expect(getClaudeDataRoot()).toBe('/home/tester/.claude-data');
+		expect(getProjectsDir()).toBe(path.join('/home/tester/.claude-data', 'projects'));
+		expect(getSessionIndexDbPath()).toBe('/home/tester/.claude-inspector.sqlite');
 	});
 });

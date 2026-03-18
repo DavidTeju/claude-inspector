@@ -272,18 +272,18 @@ describe('server/session-schema', () => {
 				durationMs: 25
 			});
 
-			expect(parseSessionRecordValue({ type: 'summary', summary: 'summary', leafUuid: 'leaf-1' })).toEqual(
-				{
-					type: 'summary',
-					summary: 'summary',
-					leafUuid: 'leaf-1',
-					sessionId: undefined,
-					timestamp: undefined,
-					cwd: undefined,
-					gitBranch: undefined,
-					version: undefined
-				}
-			);
+			expect(
+				parseSessionRecordValue({ type: 'summary', summary: 'summary', leafUuid: 'leaf-1' })
+			).toEqual({
+				type: 'summary',
+				summary: 'summary',
+				leafUuid: 'leaf-1',
+				sessionId: undefined,
+				timestamp: undefined,
+				cwd: undefined,
+				gitBranch: undefined,
+				version: undefined
+			});
 
 			expect(
 				parseSessionRecordValue({
@@ -297,7 +297,9 @@ describe('server/session-schema', () => {
 				sessionId: 'session-1'
 			});
 
-			expect(parseSessionRecordValue({ type: 'last-prompt', lastPrompt: 'continue' })).toMatchObject({
+			expect(
+				parseSessionRecordValue({ type: 'last-prompt', lastPrompt: 'continue' })
+			).toMatchObject({
 				type: 'last-prompt',
 				lastPrompt: 'continue'
 			});
@@ -346,14 +348,14 @@ describe('server/session-schema', () => {
 					type: 'tool_use',
 					id: 'tool-1',
 					name: 'Read',
-					input: { path: '/tmp/file' },
+					input: { path: '/home/tester/project/file' },
 					caller: 'agent'
 				})
 			).toEqual({
 				type: 'tool_use',
 				id: 'tool-1',
 				name: 'Read',
-				input: { path: '/tmp/file' },
+				input: { path: '/home/tester/project/file' },
 				caller: 'agent'
 			});
 			expect(

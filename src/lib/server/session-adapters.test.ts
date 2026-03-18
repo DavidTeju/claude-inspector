@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ParsedSessionRecord } from './session-schema.js';
 import { toSharedContent, toThreadMessages } from './session-adapters.js';
+import type { ParsedSessionRecord } from './session-schema.js';
 
 function wrapRecord(record: ParsedSessionRecord['record']): ParsedSessionRecord {
 	return {
@@ -108,9 +108,7 @@ describe('server/session-adapters', () => {
 				})
 			];
 
-			expect(toThreadMessages(records)).toEqual([
-				expect.objectContaining({ uuid: 'main-user' })
-			]);
+			expect(toThreadMessages(records)).toEqual([expect.objectContaining({ uuid: 'main-user' })]);
 			expect(toThreadMessages(records, { includeSidechain: true })).toEqual([
 				expect.objectContaining({ uuid: 'main-user' }),
 				expect.objectContaining({ uuid: 'sidechain-assistant' })
@@ -143,7 +141,7 @@ describe('server/session-adapters', () => {
 								type: 'tool_use',
 								id: 'tool-1',
 								name: 'Read',
-								input: { path: '/tmp/file.txt' }
+								input: { path: '/home/tester/project/file.txt' }
 							}
 						]
 					}
@@ -189,7 +187,7 @@ describe('server/session-adapters', () => {
 						{
 							id: 'tool-1',
 							name: 'Read',
-							input: { path: '/tmp/file.txt' },
+							input: { path: '/home/tester/project/file.txt' },
 							result: {
 								content: [{ type: 'text', text: 'file contents' }],
 								isError: false
@@ -203,7 +201,7 @@ describe('server/session-adapters', () => {
 							type: 'tool_use',
 							id: 'tool-1',
 							name: 'Read',
-							input: { path: '/tmp/file.txt' },
+							input: { path: '/home/tester/project/file.txt' },
 							caller: undefined
 						}
 					],
@@ -224,14 +222,24 @@ describe('server/session-adapters', () => {
 			expect(
 				toSharedContent([
 					{ type: 'text', text: 'Hello' },
-					{ type: 'tool_use', id: 'tool-1', name: 'Read', input: { path: '/tmp/file' } },
+					{
+						type: 'tool_use',
+						id: 'tool-1',
+						name: 'Read',
+						input: { path: '/home/tester/project/file' }
+					},
 					{ type: 'image', source: { type: 'base64', media_type: 'image/png', data: 'abc' } },
 					{ type: 'unknown-custom', payload: true },
 					null
 				])
 			).toEqual([
 				{ type: 'text', text: 'Hello' },
-				{ type: 'tool_use', id: 'tool-1', name: 'Read', input: { path: '/tmp/file' } },
+				{
+					type: 'tool_use',
+					id: 'tool-1',
+					name: 'Read',
+					input: { path: '/home/tester/project/file' }
+				},
 				{
 					type: 'image',
 					source: { type: 'base64', mediaType: 'image/png', data: 'abc' }

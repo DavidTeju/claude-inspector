@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { ParsedSessionRecord } from './session-schema.js';
 import type { SessionFileDescriptor } from './session-discovery.js';
 import { extractSessionEntry } from './session-metadata.js';
+import type { ParsedSessionRecord } from './session-schema.js';
 
 function wrapRecord(record: ParsedSessionRecord['record']): ParsedSessionRecord {
 	return {
@@ -18,7 +18,7 @@ function createDescriptor(overrides: Partial<SessionFileDescriptor> = {}): Sessi
 		projectId: 'project-1',
 		sessionId: 'session-1',
 		routeId: 'session-1',
-		fullPath: '/tmp/project-1/session-1.jsonl',
+		fullPath: '/home/tester/project-1/session-1.jsonl',
 		relativePath: 'session-1.jsonl',
 		isSubagent: false,
 		...overrides
@@ -83,7 +83,7 @@ describe('server/session-metadata', () => {
 		expect(entry).toEqual({
 			sessionId: 'session-1',
 			displaySessionId: 'session-1',
-			fullPath: '/tmp/project-1/session-1.jsonl',
+			fullPath: '/home/tester/project-1/session-1.jsonl',
 			relativePath: 'session-1.jsonl',
 			fileMtime: 1_735_689_600_000,
 			firstPrompt: 'First prompt',
@@ -121,7 +121,7 @@ describe('server/session-metadata', () => {
 		expect(entry).toEqual({
 			sessionId: 'session-1',
 			displaySessionId: 'session-1',
-			fullPath: '/tmp/project-1/session-1.jsonl',
+			fullPath: '/home/tester/project-1/session-1.jsonl',
 			relativePath: 'session-1.jsonl',
 			fileMtime: 1_735_689_600_000,
 			firstPrompt: 'Recovered prompt',
@@ -177,7 +177,7 @@ describe('server/session-metadata', () => {
 				sessionId: 'child-session',
 				routeId: 'parent~subagent~child-session',
 				relativePath: 'parent/subagents/child-session.jsonl',
-				fullPath: '/tmp/project-1/parent/subagents/child-session.jsonl',
+				fullPath: '/home/tester/project-1/parent/subagents/child-session.jsonl',
 				isSubagent: true,
 				parentSessionId: 'parent'
 			}),
