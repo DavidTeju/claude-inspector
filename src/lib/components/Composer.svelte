@@ -41,12 +41,9 @@
 	);
 
 	// Reset dismissed flag when the query changes (user types more)
-	let prevSlashQuery: string | null = null;
 	$effect(() => {
-		if (slashQuery !== prevSlashQuery) {
-			prevSlashQuery = slashQuery;
-			dismissed = false;
-		}
+		void slashQuery;
+		dismissed = false;
 	});
 
 	// Copy textarea font to the hidden measurement span once mounted
