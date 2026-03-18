@@ -1,11 +1,14 @@
 import type {
 	ModelUsage,
 	PermissionMode as SDKPermissionMode,
-	SDKResultMessage
+	SDKResultMessage,
+	SlashCommand
 } from '@anthropic-ai/claude-agent-sdk';
 import type { ContentBlock, ThreadMessage, ToolCall } from '../types.js';
 
 export type PermissionMode = SDKPermissionMode;
+
+export type { SlashCommand };
 
 export type ActiveSessionState =
 	| 'initializing'
@@ -229,6 +232,11 @@ export interface ConfigChangeEvent {
 	permissionMode?: PermissionMode;
 }
 
+export interface SlashCommandsEvent {
+	type: 'slash_commands';
+	commands: SlashCommand[];
+}
+
 export interface HeartbeatEvent {
 	type: 'heartbeat';
 }
@@ -256,4 +264,5 @@ export type ClientEvent =
 	| ReplayInProgressEvent
 	| QueuedNoteSentEvent
 	| ConfigChangeEvent
+	| SlashCommandsEvent
 	| HeartbeatEvent;
