@@ -36,9 +36,12 @@
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",
 		"knip": "knip",
-		"test": "vitest run",
-		"test:watch": "vitest",
-		"test:coverage": "vitest run --coverage"
+		"test": "vitest run --project unit",
+		"test:watch": "vitest --project unit",
+		"test:coverage": "vitest run --project unit --coverage",
+		"test:storybook": "vitest run --project storybook",
+		"storybook": "storybook dev -p 6006",
+		"build-storybook": "storybook build"
 	},
 	"dependencies": {
 		"@anthropic-ai/claude-agent-sdk": "^0.2.75",
@@ -75,6 +78,16 @@
 		"tailwindcss": "^4.0.0",
 		"typescript": "^5.9.3",
 		"vite": "^7.3.1",
-		"vitest": "^4.1.0"
+		"vitest": "^4.1.0",
+		"storybook": "^10.2.19",
+		"@storybook/sveltekit": "^10.2.19",
+		"@storybook/addon-svelte-csf": "^5.0.11",
+		"@chromatic-com/storybook": "^5.0.1",
+		"@storybook/addon-vitest": "^10.2.19",
+		"@storybook/addon-a11y": "^10.2.19",
+		"@storybook/addon-docs": "^10.2.19",
+		"eslint-plugin-storybook": "^10.2.19",
+		"playwright": "^1.58.2",
+		"@vitest/browser-playwright": "^4.1.0"
 	}
 }
