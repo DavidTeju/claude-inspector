@@ -88,12 +88,14 @@
 
 	// Load draft then persist changes — single effect avoids mount race
 	let draftInitialized = false;
+	let lastDraftKey = draftKey;
 	let draftTimer: ReturnType<typeof setTimeout> | undefined;
 	$effect(() => {
 		if (typeof window === 'undefined') return;
-		if (!draftInitialized) {
+		if (!draftInitialized || lastDraftKey !== draftKey) {
+			lastDraftKey = draftKey;
 			const draft = localStorage.getItem(draftKey);
-			if (draft) text = draft;
+			text = draft ?? '';
 			draftInitialized = true;
 			return;
 		}
