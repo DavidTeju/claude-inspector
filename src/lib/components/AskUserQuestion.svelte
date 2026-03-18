@@ -2,6 +2,7 @@
 	import type { AskUserQuestionRequest } from '$lib/shared/active-session-types.js';
 
 	const OTHER_SENTINEL = '__other__';
+	const PERCENT = 100;
 
 	let {
 		request,
@@ -122,17 +123,14 @@
 <div class="border-l-user-400 bg-user-700/10 rounded-xl border-l-2 px-4 py-3">
 	<!-- Progress indicator for multi-question -->
 	{#if !isSingleQuestion}
-		<div class="text-text-500 mb-2 flex items-center gap-2 text-[11px]">
-			<span>{currentPage + 1} / {totalPages}</span>
-			<div class="flex gap-1">
-				{#each request.questions as _, i (i)}
-					<span
-						class="inline-block h-1.5 w-1.5 rounded-full transition-colors {i === currentPage
-							? 'bg-user-400'
-							: 'bg-surface-700'}"
-					></span>
-				{/each}
+		<div class="mb-3 flex items-center gap-2">
+			<div class="bg-surface-800 h-1 flex-1 overflow-hidden rounded-full">
+				<div
+					class="bg-user-400 h-full rounded-full transition-all duration-300 ease-out"
+					style="width: {((currentPage + 1) / totalPages) * PERCENT}%"
+				></div>
 			</div>
+			<span class="text-text-500 text-[11px] tabular-nums">{currentPage + 1}/{totalPages}</span>
 		</div>
 	{/if}
 
