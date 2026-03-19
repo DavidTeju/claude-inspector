@@ -32,3 +32,6 @@ storybook-static/
 .serena/
 .claude/
 .playwright-cli/
+
+# Auto-generated fixture indexes (contain absolute paths)
+tests/fixtures/projects/*/sessions-index.json
