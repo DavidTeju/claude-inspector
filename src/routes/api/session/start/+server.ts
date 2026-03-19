@@ -23,6 +23,9 @@ export const POST: RequestHandler = async ({ request }) => {
 		const projectId = asOptionalString(body.projectId);
 		const projectPath = asOptionalString(body.projectPath);
 		const prompt = asOptionalString(body.prompt);
+		if (projectId && projectPath) {
+			return json({ error: 'Provide either projectId or projectPath, not both' }, { status: 400 });
+		}
 		if ((!projectId && !projectPath) || !prompt) {
 			return json({ error: '(projectId or projectPath) and prompt are required' }, { status: 400 });
 		}

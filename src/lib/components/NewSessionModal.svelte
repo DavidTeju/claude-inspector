@@ -41,10 +41,6 @@
 			if (!selectedProject && projects.length > 0) {
 				selectedProject = projects[0].id;
 			}
-			// Default to custom path mode when no projects exist
-			if (projects.length === 0) {
-				useCustomPath = true;
-			}
 			dialogEl.showModal();
 		} else if (!newSessionModal.open && dialogEl.open) {
 			dialogEl.close();
@@ -54,6 +50,8 @@
 	function handleClose() {
 		newSessionModal.hide();
 		errorMessage = null;
+		useCustomPath = false;
+		customPath = '';
 	}
 
 	function handleBackdropClick(e: MouseEvent) {
