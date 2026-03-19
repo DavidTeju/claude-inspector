@@ -1,7 +1,9 @@
 <script lang="ts">
+	import Loader2 from '@lucide/svelte/icons/loader-2';
 	import ProjectCard from '$lib/components/ProjectCard.svelte';
 	import SearchInput from '$lib/components/SearchInput.svelte';
 	import SearchResultCard from '$lib/components/SearchResultCard.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
 	import { STAGGER_BASE_MS, STAGGER_DELAY_MS } from '$lib/constants.js';
 	import type { Project, SearchResult } from '$lib/types.js';
 	import { getErrorMessage, pluralize } from '$lib/utils.js';
@@ -159,8 +161,8 @@
 
 <div>
 	<div class="mb-8">
-		<h1 class="page-title">Search sessions</h1>
-		<p class="page-subtitle">
+		<h1 class="text-foreground text-3xl font-bold tracking-tight lg:text-4xl">Search sessions</h1>
+		<p class="text-muted-foreground mt-2 text-sm">
 			Inspect transcripts, jump between projects, and find the exact Claude conversation you need.
 		</p>
 	</div>
@@ -171,31 +173,19 @@
 		<!-- Search results -->
 		<div>
 			{#if searchError}
-				<div class="bg-error-500/10 text-error-400 mb-4 rounded-md px-3 py-2 text-center text-xs">
+				<div
+					class="bg-destructive/10 text-destructive mb-4 rounded-md px-3 py-2 text-center text-xs"
+				>
 					{searchError}
 				</div>
 			{/if}
 
 			<div
-				class="text-text-500 mb-4 flex flex-col gap-3 text-xs sm:flex-row sm:items-center sm:justify-between"
+				class="text-muted-foreground mb-4 flex flex-col gap-3 text-xs sm:flex-row sm:items-center sm:justify-between"
 			>
 				<div class="flex items-center gap-2">
 					{#if isSearching}
-						<svg class="text-accent-400 h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none">
-							<circle
-								class="opacity-25"
-								cx="12"
-								cy="12"
-								r="10"
-								stroke="currentColor"
-								stroke-width="4"
-							/>
-							<path
-								class="opacity-75"
-								fill="currentColor"
-								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-							/>
-						</svg>
+						<Loader2 class="text-primary h-3 w-3 animate-spin" />
 						<span>Searching... {results.length} result{results.length !== 1 ? 's' : ''}</span>
 					{:else}
 						<span>{results.length} result{results.length !== 1 ? 's' : ''} for "{searchQuery}"</span
@@ -204,18 +194,16 @@
 				</div>
 
 				<div class="flex items-center gap-1.5">
-					<span class="text-text-500 mr-1 text-[11px] tracking-wide uppercase">Sort</span>
+					<span class="text-muted-foreground mr-1 text-[11px] tracking-wide uppercase">Sort</span>
 					{#each SEARCH_SORT_OPTIONS as option (option.value)}
-						<button
+						<Button
+							variant={searchSortMode === option.value ? 'default' : 'outline'}
+							size="sm"
+							class="h-7 px-2.5 text-xs"
 							onclick={() => (searchSortMode = option.value)}
-							class={`rounded-md border px-2.5 py-1 transition-colors ${
-								searchSortMode === option.value
-									? 'border-accent-500/50 bg-accent-500/10 text-accent-300'
-									: 'border-surface-800 bg-surface-900/50 text-text-500 hover:border-surface-700 hover:text-text-100'
-							}`}
 						>
 							{option.label}
-						</button>
+						</Button>
 					{/each}
 				</div>
 			</div>
@@ -233,15 +221,16 @@
 				</div>
 
 				{#if hasMore}
-					<button
+					<Button
+						variant="outline"
+						class="mt-4 w-full"
 						onclick={() => (displayCount += RESULTS_PER_PAGE)}
-						class="border-surface-800 bg-surface-900/50 text-text-300 hover:border-surface-700 hover:text-text-100 mt-4 w-full rounded-lg border py-2.5 text-xs transition-colors"
 					>
 						Show more ({sortedResults.length - displayCount} remaining)
-					</button>
+					</Button>
 				{/if}
 			{:else if !isSearching}
-				<div class="text-text-500 py-12 text-center">
+				<div class="text-muted-foreground py-12 text-center">
 					<p class="text-sm">No results found for "{searchQuery}"</p>
 					<p class="mt-1 text-xs">Try different keywords or check spelling</p>
 				</div>
@@ -251,8 +240,8 @@
 		<!-- Project grid -->
 		<div>
 			<div class="mb-4 flex items-baseline justify-between">
-				<h2 class="section-title">Projects</h2>
-				<span class="text-text-500 text-sm">{pluralize(projects.length, 'project')}</span>
+				<h2 class="text-foreground text-base font-semibold tracking-tight">Projects</h2>
+				<span class="text-muted-foreground text-sm">{pluralize(projects.length, 'project')}</span>
 			</div>
 
 			<div class="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { STAGGER_DELAY_MS } from '$lib/constants.js';
 	import type { SessionEntry } from '$lib/types.js';
 	import { dirNameToDisplayName, formatDate, pluralize } from '$lib/utils.js';
@@ -45,21 +46,25 @@
 
 <div>
 	<div class="mb-6">
-		<h1 class="page-title">{dirNameToDisplayName(data.projectId)}</h1>
-		<p class="page-subtitle">
+		<h1 class="text-foreground text-3xl font-bold tracking-tight lg:text-4xl">
+			{dirNameToDisplayName(data.projectId)}
+		</h1>
+		<p class="text-muted-foreground mt-2 text-sm">
 			{pluralize(sessions.length, 'session')} indexed for this project.
 		</p>
 	</div>
 
-	<div class="border-surface-800 overflow-x-auto rounded-xl border">
+	<div class="overflow-x-auto rounded-xl border">
 		<table class="w-full text-[0.9rem]">
 			<thead>
-				<tr class="border-surface-800 bg-surface-850 text-text-500 border-b text-left">
+				<tr class="bg-muted/50 text-muted-foreground border-b text-left">
 					<th class="px-3 py-2.5 font-medium">Summary / First Prompt</th>
 					<th class="px-3 py-2.5 font-medium whitespace-nowrap">
 						<button
 							onclick={() => toggleSort('messageCount')}
-							class={sortField === 'messageCount' ? 'text-accent-400' : 'hover:text-text-100'}
+							class={sortField === 'messageCount'
+								? 'text-primary'
+								: 'hover:text-foreground transition-colors'}
 						>
 							Messages{sortIndicator('messageCount')}
 						</button>
@@ -68,7 +73,9 @@
 					<th class="px-3 py-2.5 font-medium whitespace-nowrap">
 						<button
 							onclick={() => toggleSort('created')}
-							class={sortField === 'created' ? 'text-accent-400' : 'hover:text-text-100'}
+							class={sortField === 'created'
+								? 'text-primary'
+								: 'hover:text-foreground transition-colors'}
 						>
 							Created{sortIndicator('created')}
 						</button>
@@ -76,7 +83,9 @@
 					<th class="px-3 py-2.5 font-medium whitespace-nowrap">
 						<button
 							onclick={() => toggleSort('modified')}
-							class={sortField === 'modified' ? 'text-accent-400' : 'hover:text-text-100'}
+							class={sortField === 'modified'
+								? 'text-primary'
+								: 'hover:text-foreground transition-colors'}
 						>
 							Modified{sortIndicator('modified')}
 						</button>
@@ -86,52 +95,50 @@
 			<tbody>
 				{#each sortedSessions as session, i (session.sessionId)}
 					<tr
-						class="animate-fade-in-up border-surface-800/50 hover:bg-surface-900/50 border-b transition-colors"
+						class="animate-fade-in-up hover:bg-muted/50 border-b transition-colors"
 						style="animation-delay: {Math.min(i, STAGGER_DELAY_MS) * STAGGER_BASE_PX}ms"
 					>
 						<td class="px-3 py-2.5">
 							<a
 								href={resolve(`/session/${data.projectId}/${session.sessionId}`)}
-								class="hover:text-accent-400 block transition-colors"
+								class="hover:text-primary block transition-colors"
 							>
 								{#if session.summary}
-									<div class="text-text-100 font-medium">{session.summary}</div>
-									<div class="text-text-300 mt-0.5 line-clamp-1 text-[0.82rem]">
+									<div class="text-foreground font-medium">{session.summary}</div>
+									<div class="text-muted-foreground mt-0.5 line-clamp-1 text-[0.82rem]">
 										{session.firstPrompt || ''}
 									</div>
 								{:else if session.firstPrompt}
-									<div class="text-text-300 line-clamp-1 font-medium italic">
+									<div class="text-muted-foreground line-clamp-1 font-medium italic">
 										{session.firstPrompt}
 									</div>
 								{:else}
-									<div class="text-text-500 italic">Empty session</div>
+									<div class="text-muted-foreground/60 italic">Empty session</div>
 								{/if}
 							</a>
 						</td>
-						<td class="text-text-500 px-3 py-2.5">
+						<td class="text-muted-foreground px-3 py-2.5">
 							{session.messageCount || '-'}
 						</td>
 						<td class="px-3 py-2.5">
 							{#if session.gitBranch}
-								<span
-									class="text-accent-300/70 border-surface-700/50 bg-surface-850 rounded border px-1.5 py-0.5 font-mono text-[10px]"
-								>
+								<Badge variant="outline" class="font-mono text-[10px]">
 									{session.gitBranch}
-								</span>
+								</Badge>
 							{:else}
-								<span class="text-text-700">-</span>
+								<span class="text-muted-foreground/50">-</span>
 							{/if}
 						</td>
-						<td class="text-text-500 px-3 py-2.5 whitespace-nowrap">
+						<td class="text-muted-foreground px-3 py-2.5 whitespace-nowrap">
 							{formatDate(session.created)}
 						</td>
-						<td class="text-text-500 px-3 py-2.5 whitespace-nowrap">
+						<td class="text-muted-foreground px-3 py-2.5 whitespace-nowrap">
 							{formatDate(session.modified)}
 						</td>
 					</tr>
 				{:else}
 					<tr>
-						<td colspan="5" class="text-text-500 px-3 py-12 text-center">
+						<td colspan="5" class="text-muted-foreground px-3 py-12 text-center">
 							<p class="text-sm">No sessions found for this project.</p>
 							<p class="mt-1 text-xs">
 								Start a new Claude session in this project directory to see it here.

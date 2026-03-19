@@ -28,5 +28,11 @@ export default [
 			'svelte/no-at-html-tags': 'off'
 		}
 	},
+	// @lucide/svelte deep icon imports are valid but not resolvable by eslint
+	{
+		rules: {
+			'import-x/no-unresolved': ['error', { ignore: ['^@lucide/svelte/icons/'] }]
+		}
+	},
 	...storybookConfigs['flat/recommended']
 ];
