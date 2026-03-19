@@ -143,7 +143,7 @@
 						</button>
 					{/if}
 				</div>
-				{#if useCustomPath}
+				{#if useCustomPath || projects.length === 0}
 					<input
 						id="modal-project-path"
 						type="text"
@@ -152,18 +152,11 @@
 						class="border-surface-800 bg-surface-900 text-text-100 placeholder:text-text-600 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
 					/>
 					<p class="text-text-500 mt-1 text-xs">
-						Enter the absolute path to a local project directory.
-					</p>
-				{:else if projects.length === 0}
-					<input
-						id="modal-project-path"
-						type="text"
-						bind:value={customPath}
-						placeholder="/path/to/your/project"
-						class="border-surface-800 bg-surface-900 text-text-100 placeholder:text-text-600 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
-					/>
-					<p class="text-text-500 mt-1 text-xs">
-						No existing projects found. Enter a project directory path to get started.
+						{#if projects.length === 0 && !useCustomPath}
+							No existing projects found. Enter a project directory path to get started.
+						{:else}
+							Enter the absolute path to a local project directory.
+						{/if}
 					</p>
 				{:else}
 					<select

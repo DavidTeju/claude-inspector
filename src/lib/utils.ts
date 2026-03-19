@@ -72,6 +72,9 @@ export function dirNameToDisplayName(dirName: string): string {
  *
  * The encoding replaces every `/` with `-`, producing names like
  * `-home-user-projects-myapp` for the path `/home/user/projects/myapp`.
+ *
+ * Callers should normalise the input via `path.resolve()` before calling this
+ * function to ensure it is an absolute, canonical path.
  */
 export function pathToProjectId(absolutePath: string): string {
 	return absolutePath.replace(/\//g, '-');
