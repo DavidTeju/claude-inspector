@@ -1,0 +1,38 @@
+{
+	"version": 2,
+	"entries": [
+		{
+			"sessionId": "parent-session~subagent~agent-child-session",
+			"displaySessionId": "agent-child-session",
+			"fullPath": "/home/runner/work/claude-inspector/claude-inspector/tests/fixtures/projects/subagent-project/parent-session/subagents/agent-child-session.jsonl",
+			"relativePath": "parent-session/subagents/agent-child-session.jsonl",
+			"fileMtime": 1773912058997.6335,
+			"firstPrompt": "",
+			"summary": "",
+			"messageCount": 1,
+			"created": "2026-03-06T00:00:02.000Z",
+			"modified": "2026-03-06T00:00:03.000Z",
+			"gitBranch": "feat/subagent",
+			"projectPath": "parent-session/subagents/agent-child-session.jsonl",
+			"isSidechain": false,
+			"isSubagent": true,
+			"parentSessionId": "parent-session"
+		},
+		{
+			"sessionId": "parent-session",
+			"displaySessionId": "parent-session",
+			"fullPath": "/home/runner/work/claude-inspector/claude-inspector/tests/fixtures/projects/subagent-project/parent-session.jsonl",
+			"relativePath": "parent-session.jsonl",
+			"fileMtime": 1773912058997.1775,
+			"firstPrompt": "",
+			"summary": "",
+			"messageCount": 1,
+			"created": "2026-03-06T00:00:00.000Z",
+			"modified": "2026-03-06T00:00:01.000Z",
+			"gitBranch": "feat/subagent",
+			"projectPath": "parent-session.jsonl",
+			"isSidechain": false,
+			"isSubagent": false
+		}
+	]
+}

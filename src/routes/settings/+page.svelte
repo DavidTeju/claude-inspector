@@ -60,7 +60,7 @@
 			</div>
 		{/if}
 
-		{#if form?.error && form?.section !== 'session'}
+		{#if form?.error && form?.section === 'apiKey'}
 			<div
 				class="border-error-500/30 bg-error-500/10 text-error-400 mb-4 rounded-md border px-3 py-2 text-xs"
 			>

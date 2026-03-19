@@ -35,7 +35,10 @@ export const actions: Actions = {
 		const apiKey = formData.get('apiKey');
 
 		if (typeof apiKey !== 'string') {
-			return fail(HTTP_BAD_REQUEST, { error: 'Invalid API key' });
+			return fail(HTTP_BAD_REQUEST, {
+				error: 'Invalid API key',
+				section: 'apiKey' as const
+			});
 		}
 
 		await saveConfig({ anthropicApiKey: apiKey.trim() });
