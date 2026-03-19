@@ -148,7 +148,7 @@
 								min="1"
 								max="60"
 								value={data.permissionTimeoutMinutes}
-								class="w-16 grow"
+								class="grow"
 							/>
 							<span class="badge badge-ghost badge-sm">min</span>
 						</label>
@@ -164,7 +164,7 @@
 								min="5"
 								max="1440"
 								value={data.sessionReapMinutes}
-								class="w-16 grow"
+								class="grow"
 							/>
 							<span class="badge badge-ghost badge-sm">min</span>
 						</label>

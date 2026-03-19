@@ -66,7 +66,7 @@
 		</a>
 
 		{#if breadcrumbs.length > 0}
-			<div class="divider divider-horizontal mx-0 hidden sm:flex"></div>
+			<div class="divider divider-horizontal mx-0 hidden sm:block"></div>
 			<div class="breadcrumbs hidden text-sm sm:flex">
 				<ul>
 					{#each breadcrumbs as crumb, i (crumb.path)}
