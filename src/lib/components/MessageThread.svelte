@@ -127,35 +127,40 @@
 		<!-- Permission banner -->
 		{#if session?.pendingPermission}
 			{@const permissionId = session.pendingPermission.id}
-			<div class="pl-6">
-				<PermissionBanner
-					request={session.pendingPermission}
-					onAllow={(queuedNote) => {
-						onPermission?.({
-							toolUseId: permissionId,
-							behavior: 'allow',
-							queuedNote
-						});
-					}}
-					onDeny={(message) => {
-						onPermission?.({
-							toolUseId: permissionId,
-							behavior: 'deny',
-							message
-						});
-					}}
-				/>
-			</div>
+			{#key permissionId}
+				<div class="pl-6">
+					<PermissionBanner
+						request={session.pendingPermission}
+						onAllow={(queuedNote) => {
+							onPermission?.({
+								toolUseId: permissionId,
+								behavior: 'allow',
+								queuedNote
+							});
+						}}
+						onDeny={(message) => {
+							onPermission?.({
+								toolUseId: permissionId,
+								behavior: 'deny',
+								message
+							});
+						}}
+					/>
+				</div>
+			{/key}
 		{/if}
 
 		<!-- Ask user question -->
 		{#if session?.pendingQuestion}
-			<div class="pl-6">
-				<AskUserQuestion
-					request={session.pendingQuestion}
-					onSubmit={(answers) => onQuestion?.(answers)}
-				/>
-			</div>
+			{@const questionId = session.pendingQuestion.id}
+			{#key questionId}
+				<div class="pl-6">
+					<AskUserQuestion
+						request={session.pendingQuestion}
+						onSubmit={(answers) => onQuestion?.(answers)}
+					/>
+				</div>
+			{/key}
 		{/if}
 	</div>
 
