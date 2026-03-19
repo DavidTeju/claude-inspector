@@ -38,6 +38,14 @@ function sectionHtml(html: string, heading: string, nextHeading: string): string
 	const start = html.indexOf(heading);
 	const end = html.indexOf(nextHeading);
 
+	if (start === -1) {
+		throw new Error(`Could not find heading: ${heading}`);
+	}
+
+	if (end === -1) {
+		throw new Error(`Could not find next heading: ${nextHeading}`);
+	}
+
 	return html.slice(start, end);
 }
 
