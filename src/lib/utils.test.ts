@@ -10,6 +10,7 @@ import {
 	isDoubleMangledProjectId,
 	parseClientFilters,
 	parseSearchTerms,
+	pathToProjectId,
 	pluralize,
 	rebuildQuery,
 	uuid
@@ -68,6 +69,24 @@ describe('utils', () => {
 
 		it('rejects normal project ids', () => {
 			expect(isDoubleMangledProjectId('Users-demo-project')).toBe(false);
+		});
+	});
+
+	describe('pathToProjectId', () => {
+		it('converts an absolute Unix path to a mangled project ID', () => {
+			expect(pathToProjectId('/home/user/projects/myapp')).toBe('-home-user-projects-myapp');
+		});
+
+		it('converts a root path', () => {
+			expect(pathToProjectId('/myapp')).toBe('-myapp');
+		});
+
+		it('handles paths with multiple segments', () => {
+			expect(pathToProjectId('/Users/david/work/app-src')).toBe('-Users-david-work-app-src');
+		});
+
+		it('returns as-is when there are no slashes', () => {
+			expect(pathToProjectId('myapp')).toBe('myapp');
 		});
 	});
 

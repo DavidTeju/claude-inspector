@@ -67,6 +67,17 @@ export function dirNameToDisplayName(dirName: string): string {
 }
 
 /**
+ * Converts an absolute filesystem path to the mangled directory name used by
+ * Claude to store project data under `~/.claude/projects/`.
+ *
+ * The encoding replaces every `/` with `-`, producing names like
+ * `-home-user-projects-myapp` for the path `/home/user/projects/myapp`.
+ */
+export function pathToProjectId(absolutePath: string): string {
+	return absolutePath.replace(/\//g, '-');
+}
+
+/**
  * Detects legacy project IDs created by the old cwd double-mangling bug.
  * These IDs should usually be filtered from lists rather than displayed or
  * normalized, because they do not map cleanly back to a real Claude project.
