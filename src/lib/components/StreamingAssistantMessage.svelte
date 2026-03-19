@@ -28,16 +28,14 @@
 </script>
 
 <div class="max-w-[95%]">
-	<div
-		class="border-l-accent-400/30 bg-surface-900/70 rounded-xl rounded-bl-md border-l-2 px-4 py-3"
-	>
+	<div class="border-l-primary/30 bg-base-200/70 rounded-xl rounded-bl-md border-l-2 px-4 py-3">
 		<!-- Header -->
 		<div class="mb-2 flex items-center gap-2">
-			<span class="text-accent-400 text-[10px] font-semibold tracking-wider uppercase">Claude</span>
+			<span class="text-primary text-[10px] font-semibold tracking-wider uppercase">Claude</span>
 			{#if model}
-				<span class="text-text-500 text-[9px]">{model}</span>
+				<span class="text-base-content/50 text-[9px]">{model}</span>
 			{/if}
-			<span class="bg-accent-400 h-1.5 w-1.5 animate-pulse rounded-full"></span>
+			<span class="bg-primary h-1.5 w-1.5 animate-pulse rounded-full"></span>
 		</div>
 
 		<div class="space-y-3">
@@ -56,9 +54,11 @@
 					{/if}
 					{#if splitContent.trailing || (!splitContent.complete && text?.trim())}
 						<div
-							class="text-text-300 text-sm leading-relaxed {splitContent.complete ? 'mt-1' : ''}"
+							class="text-base-content/70 text-sm leading-relaxed {splitContent.complete
+								? 'mt-1'
+								: ''}"
 						>
-							{splitContent.trailing}<span class="animate-blink text-accent-400">&#x258A;</span>
+							{splitContent.trailing}<span class="animate-blink text-primary">&#x258A;</span>
 						</div>
 					{/if}
 				</div>

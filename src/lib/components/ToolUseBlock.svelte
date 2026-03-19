@@ -63,24 +63,22 @@
 	});
 </script>
 
-<CollapsibleSection accentClass="border-l-accent-300/50" bodyClass="space-y-2">
+<CollapsibleSection accentClass="border-l-primary/50" bodyClass="space-y-2">
 	{#snippet header()}
 		<span
 			class="rounded px-1.5 py-0.5 text-[10px] font-semibold {tool.result?.isError
-				? 'bg-error-500/10 text-error-500'
-				: 'bg-accent-500/10 text-accent-300'}"
+				? 'bg-error/10 text-error'
+				: 'bg-primary/10 text-primary'}"
 		>
 			{tool.name}
 		</span>
 
 		{#if summary}
-			<span class="text-text-500 truncate font-mono text-[11px]">{summary}</span>
+			<span class="text-base-content/50 truncate font-mono text-[11px]">{summary}</span>
 		{/if}
 
 		{#if tool.result?.isError}
-			<span class="text-error-400 bg-error-500/10 ml-auto rounded-full px-2 py-0.5 text-[10px]"
-				>error</span
-			>
+			<span class="text-error bg-error/10 ml-auto rounded-full px-2 py-0.5 text-[10px]">error</span>
 		{/if}
 	{/snippet}
 
@@ -89,13 +87,13 @@
 		{#if viewMode !== 'generic'}
 			<button
 				onclick={() => (showRaw = !showRaw)}
-				class="text-text-500 hover:text-text-300 text-[10px] transition-colors"
+				class="text-base-content/50 hover:text-base-content/70 text-[10px] transition-colors"
 			>
 				{showRaw ? 'View formatted' : 'View raw'}
 			</button>
 		{/if}
 		{#if viewMode === 'edit' && tool.input.replace_all}
-			<span class="bg-accent-500/10 text-accent-300 rounded px-1.5 py-0.5 text-[9px] font-medium"
+			<span class="bg-primary/10 text-primary rounded px-1.5 py-0.5 text-[9px] font-medium"
 				>replace_all</span
 			>
 		{/if}
