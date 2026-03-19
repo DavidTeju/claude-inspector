@@ -1,4 +1,6 @@
 <script lang="ts">
+	import * as Dialog from '$lib/components/ui/dialog/index.js';
+	import { Label } from '$lib/components/ui/label/index.js';
 	import type { PermissionMode } from '$lib/shared/active-session-types.js';
 	import type { ModelOption } from '$lib/shared/models.js';
 	import { PERMISSION_MODES, PERMISSION_MODE_LABELS } from '$lib/shared/permission-modes.js';
@@ -27,31 +29,22 @@
 	let isStarting = $state(false);
 	let errorMessage = $state<string | null>(null);
 
-	let dialogEl: HTMLDialogElement | undefined = $state();
-
-	// Sync dialog open/close with store
+	// Initialize project selection when dialog opens
 	$effect(() => {
-		if (!dialogEl) return;
-		if (newSessionModal.open && !dialogEl.open) {
-			// Initialize project selection on open
-			if (!selectedProject && projects.length > 0) {
-				selectedProject = projects[0].id;
-			}
-			dialogEl.showModal();
-		} else if (!newSessionModal.open && dialogEl.open) {
-			dialogEl.close();
+		if (newSessionModal.open && !selectedProject && projects.length > 0) {
+			selectedProject = projects[0].id;
 		}
 	});
+
+	function handleOpenChange(open: boolean) {
+		if (!open) {
+			handleClose();
+		}
+	}
 
 	function handleClose() {
 		newSessionModal.hide();
 		errorMessage = null;
-	}
-
-	function handleBackdropClick(e: MouseEvent) {
-		if (e.target === dialogEl) {
-			handleClose();
-		}
 	}
 
 	async function startSession(prompt: string) {
@@ -89,35 +82,22 @@
 	}
 </script>
 
-<dialog
-	bind:this={dialogEl}
-	onclose={handleClose}
-	onclick={handleBackdropClick}
-	class="bg-surface-950 border-surface-800 m-auto w-full max-w-xl rounded-2xl border p-0 shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm"
->
-	<div class="p-6">
-		<div class="mb-5 flex items-center justify-between">
-			<h2 class="text-text-100 text-lg font-semibold">New Session</h2>
-			<button
-				onclick={handleClose}
-				class="text-text-500 hover:text-text-300 cursor-pointer transition-colors"
-				aria-label="Close"
-			>
-				<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-				</svg>
-			</button>
-		</div>
+<Dialog.Root open={newSessionModal.open} onOpenChange={handleOpenChange}>
+	<Dialog.Content class="gap-0 p-6 sm:max-w-xl">
+		<Dialog.Header class="mb-5">
+			<Dialog.Title class="text-lg font-semibold">New Session</Dialog.Title>
+		</Dialog.Header>
 
 		<div class="space-y-4">
 			<!-- Project selector -->
 			<div>
-				<label for="modal-project-select" class="text-text-300 mb-1.5 block text-xs font-medium"
-					>Project</label
+				<Label
+					for="modal-project-select"
+					class="text-muted-foreground mb-1.5 block text-xs font-medium">Project</Label
 				>
 				{#if projects.length === 0}
 					<p
-						class="text-text-500 border-surface-800 bg-surface-900 rounded-md border px-3 py-2.5 text-sm"
+						class="text-muted-foreground border-border bg-muted rounded-md border px-3 py-2.5 text-sm"
 					>
 						No projects found. Start a Claude session in a project directory first.
 					</p>
@@ -125,7 +105,7 @@
 					<select
 						id="modal-project-select"
 						bind:value={selectedProject}
-						class="border-surface-800 bg-surface-900 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
+						class="border-border bg-muted text-foreground focus:border-primary/50 w-full rounded-md border px-3 py-2.5 text-sm outline-none"
 					>
 						{#each projects as project (project.id)}
 							<option value={project.id}>{project.displayName}</option>
@@ -137,14 +117,14 @@
 			<!-- Permission mode + Model in a row -->
 			<div class="grid grid-cols-2 gap-3">
 				<div>
-					<label
+					<Label
 						for="modal-permission-select"
-						class="text-text-300 mb-1.5 block text-xs font-medium">Permission Mode</label
+						class="text-muted-foreground mb-1.5 block text-xs font-medium">Permission Mode</Label
 					>
 					<select
 						id="modal-permission-select"
 						bind:value={permissionMode}
-						class="border-surface-800 bg-surface-900 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
+						class="border-border bg-muted text-foreground focus:border-primary/50 w-full rounded-md border px-3 py-2.5 text-sm outline-none"
 					>
 						{#each PERMISSION_MODES as mode (mode)}
 							<option value={mode}>{PERMISSION_MODE_LABELS[mode]}</option>
@@ -152,13 +132,14 @@
 					</select>
 				</div>
 				<div>
-					<label for="modal-model-select" class="text-text-300 mb-1.5 block text-xs font-medium"
-						>Model</label
+					<Label
+						for="modal-model-select"
+						class="text-muted-foreground mb-1.5 block text-xs font-medium">Model</Label
 					>
 					<select
 						id="modal-model-select"
 						bind:value={selectedModel}
-						class="border-surface-800 bg-surface-900 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
+						class="border-border bg-muted text-foreground focus:border-primary/50 w-full rounded-md border px-3 py-2.5 text-sm outline-none"
 					>
 						{#each models as modelOption (modelOption.value)}
 							<option value={modelOption.value}>{modelOption.displayName}</option>
@@ -171,7 +152,7 @@
 		<!-- Error banner -->
 		{#if errorMessage}
 			<div
-				class="border-error-500/30 bg-error-500/10 text-error-400 mt-4 rounded-md border px-3 py-2 text-xs"
+				class="border-destructive/30 bg-destructive/10 text-destructive mt-4 rounded-md border px-3 py-2 text-xs"
 			>
 				{errorMessage}
 			</div>
@@ -187,5 +168,5 @@
 				buttonLabel="Start"
 			/>
 		</div>
-	</div>
-</dialog>
+	</Dialog.Content>
+</Dialog.Root>

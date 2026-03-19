@@ -1,6 +1,11 @@
 <script lang="ts">
+	import BookmarkIcon from '@lucide/svelte/icons/bookmark';
+	import FilterIcon from '@lucide/svelte/icons/filter';
+	import SearchIcon from '@lucide/svelte/icons/search';
+	import XIcon from '@lucide/svelte/icons/x';
+	import * as Popover from '$lib/components/ui/popover/index.js';
 	import { filterPresets } from '$lib/stores/filter-presets.svelte.js';
-	import { parseClientFilters, rebuildQuery, type ParsedFilter } from '$lib/utils.js';
+	import { cn, parseClientFilters, rebuildQuery, type ParsedFilter } from '$lib/utils.js';
 	import FilterPill from './FilterPill.svelte';
 	import FilterPopover from './FilterPopover.svelte';
 
@@ -432,22 +437,10 @@
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="input-glow border-surface-800 bg-surface-900 focus-within:border-accent-500/50 flex min-h-[52px] items-center gap-1.5 rounded-xl border px-4 transition-colors"
+		class="border-border bg-card focus-within:border-primary/50 flex min-h-[52px] items-center gap-1.5 rounded-xl border px-4 transition-colors"
 		onclick={() => inputEl?.focus()}
 	>
-		<svg
-			class="text-text-500 h-5 w-5 shrink-0"
-			fill="none"
-			viewBox="0 0 24 24"
-			stroke="currentColor"
-			stroke-width="2"
-		>
-			<path
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-			/>
-		</svg>
+		<SearchIcon class="text-muted-foreground size-5 shrink-0" />
 
 		{#if searchModeLabel}
 			<span
@@ -487,14 +480,15 @@
 				placeholder={activeFilters.length > 0
 					? 'Add more filters or text...'
 					: 'Search sessions...'}
-				class="text-text-100 placeholder-text-500 w-full bg-transparent py-3.5 text-base outline-none"
+				class="text-foreground placeholder:text-muted-foreground w-full bg-transparent py-3.5 text-base outline-none"
 			/>
 			{#if ghostText}
 				<span
 					class="pointer-events-none absolute inset-0 overflow-hidden py-3.5 text-base whitespace-pre"
 					aria-hidden="true"
 				>
-					<span class="invisible">{inputText}</span><span class="text-text-500/40">{ghostText}</span
+					<span class="invisible">{inputText}</span><span class="text-muted-foreground/40"
+						>{ghostText}</span
 					>
 				</span>
 			{/if}
@@ -508,63 +502,60 @@
 		{#if hasContent}
 			<button
 				onclick={() => (showPresetSave = !showPresetSave)}
-				class="text-text-500 hover:text-text-300 shrink-0 transition-colors"
+				class="text-muted-foreground hover:text-foreground/80 shrink-0 transition-colors"
 				aria-label="Save preset"
 				title="Save filter preset"
 			>
-				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-					/>
-				</svg>
+				<BookmarkIcon class="size-4" />
 			</button>
 		{/if}
 
-		<button
-			onclick={() => (showPopover = !showPopover)}
-			class={`shrink-0 rounded-md p-1.5 transition-colors ${
-				showPopover ? 'bg-accent-500/10 text-accent-300' : 'text-text-500 hover:text-text-300'
-			}`}
-			aria-label="Filter options"
-		>
-			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+		<Popover.Root bind:open={showPopover}>
+			<Popover.Trigger
+				class={cn(
+					'shrink-0 rounded-md p-1.5 transition-colors',
+					showPopover
+						? 'bg-primary/10 text-primary'
+						: 'text-muted-foreground hover:text-foreground/80'
+				)}
+				aria-label="Filter options"
+			>
+				<FilterIcon class="size-4" />
+			</Popover.Trigger>
+			{#if showPopover}
+				<FilterPopover
+					{activeFilters}
+					onToggleFilter={toggleFilterFromPopover}
+					onLoadPreset={loadPreset}
 				/>
-			</svg>
-		</button>
+			{/if}
+		</Popover.Root>
 
 		{#if hasContent}
 			<button
 				onclick={clearSearch}
-				class="text-text-500 hover:text-text-300 shrink-0 transition-colors"
+				class="text-muted-foreground hover:text-foreground/80 shrink-0 transition-colors"
 				aria-label="Clear search"
 			>
-				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-				</svg>
+				<XIcon class="size-4" />
 			</button>
 		{/if}
 	</div>
 
 	{#if showPresetSave}
 		<div
-			class="border-surface-800 bg-surface-900 absolute top-full right-16 z-50 mt-1 flex items-center gap-2 rounded-lg border p-2 shadow-lg"
+			class="border-border bg-card absolute top-full right-16 z-50 mt-1 flex items-center gap-2 rounded-lg border p-2 shadow-lg"
 		>
 			<input
 				bind:value={presetName}
 				type="text"
 				placeholder="Preset name..."
-				class="border-surface-800 bg-surface-950 text-text-100 placeholder-text-500 focus:border-accent-500/50 w-40 rounded-md border px-2 py-1 text-xs outline-none"
+				class="border-border bg-background text-foreground placeholder:text-muted-foreground focus:border-primary/50 w-40 rounded-md border px-2 py-1 text-xs outline-none"
 				onkeydown={(e) => e.key === 'Enter' && savePreset()}
 			/>
 			<button
 				onclick={savePreset}
-				class="bg-accent-500/10 text-accent-300 hover:bg-accent-500/20 rounded-md px-2 py-1 text-xs transition-colors"
+				class="bg-primary/10 text-primary hover:bg-primary/20 rounded-md px-2 py-1 text-xs transition-colors"
 			>
 				Save
 			</button>
@@ -573,33 +564,27 @@
 
 	{#if showAutocomplete && suggestions.length > 0}
 		<div
-			class="border-surface-800 bg-surface-900 absolute z-50 mt-1 overflow-hidden rounded-lg border shadow-lg"
+			class="border-border bg-card absolute z-50 mt-1 overflow-hidden rounded-lg border shadow-lg"
 			style="left: {dropdownLeft}px; min-width: {DROPDOWN_MIN_WIDTH}px; max-width: 300px;"
 		>
 			{#each suggestions as suggestion, i (suggestion.raw)}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div
-					class={`flex cursor-pointer items-center justify-between gap-3 px-4 py-2.5 text-sm transition-colors ${
+					class={cn(
+						'flex cursor-pointer items-center justify-between gap-3 px-4 py-2.5 text-sm transition-colors',
 						i === autocompleteIndex
-							? 'bg-accent-500/10 text-accent-300'
-							: 'text-text-300 hover:bg-surface-800'
-					}`}
+							? 'bg-primary/10 text-primary'
+							: 'text-foreground/80 hover:bg-muted'
+					)}
 					onmousedown={() => confirmSuggestion(suggestion)}
 					onmouseenter={() => (autocompleteIndex = i)}
 				>
 					<span class="font-mono text-xs">{suggestion.label}</span>
-					<span class="text-text-500 text-xs whitespace-nowrap">{suggestion.description}</span>
+					<span class="text-muted-foreground text-xs whitespace-nowrap"
+						>{suggestion.description}</span
+					>
 				</div>
 			{/each}
 		</div>
-	{/if}
-
-	{#if showPopover}
-		<FilterPopover
-			{activeFilters}
-			onToggleFilter={toggleFilterFromPopover}
-			onClose={() => (showPopover = false)}
-			onLoadPreset={loadPreset}
-		/>
 	{/if}
 </div>
