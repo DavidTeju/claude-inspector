@@ -46,6 +46,7 @@
 		"@sveltejs/adapter-node": "^5.5.4",
 		"@vscode/ripgrep": "^1.17.0",
 		"better-sqlite3": "^12.6.2",
+		"daisyui": "^5.5.19",
 		"diff": "^8.0.3",
 		"marked": "^15.0.0",
 		"shiki": "^3.0.0"

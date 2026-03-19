@@ -51,7 +51,7 @@
 	<!-- Mobile overlay backdrop -->
 	{#if isMobile && sidebarOpen}
 		<button
-			class="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm transition-opacity"
+			class="bg-base-content/50 fixed inset-0 z-30 backdrop-blur-sm transition-opacity"
 			onclick={() => (userSidebarChoice = false)}
 			aria-label="Close sidebar"
 			tabindex="-1"
