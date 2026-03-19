@@ -13,6 +13,7 @@ import {
 	extractTextFromMessageContent,
 	isApiUserRecord,
 	isAssistantRecord,
+	isToolResultRecord,
 	isUserRecord,
 	normalizeContentBlock,
 	type AssistantRecord,
@@ -88,6 +89,47 @@ function buildToolResultMap(ordered: TranscriptRecord[]): ToolResultMap {
 	return toolResultMap;
 }
 
+/**
+ * Maps Skill `tool_use` IDs to the expanded prompt text from the `isMeta` user
+ * record that the SDK injects immediately after the Skill tool result. The link
+ * is temporal: after each Skill tool_use / tool_result pair the SDK emits an
+ * `isMeta: true` user record carrying the full prompt expansion (no
+ * `tool_use_id` on that record). We walk the ordered timeline and match pending
+ * Skill IDs to the next qualifying isMeta record in FIFO order.
+ */
+function collectSkillToolUseIds(content: ClaudeMessageContent): string[] {
+	if (!Array.isArray(content)) return [];
+	const ids: string[] = [];
+	for (const block of content) {
+		if (block.type === 'tool_use' && block.name === 'Skill') {
+			ids.push(block.id);
+		}
+	}
+	return ids;
+}
+
+function buildSkillExpansionMap(ordered: TranscriptRecord[]): Map<string, string> {
+	const expansionMap = new Map<string, string>();
+	const pendingSkillIds: string[] = [];
+
+	for (const record of ordered) {
+		if (isAssistantRecord(record)) {
+			pendingSkillIds.push(...collectSkillToolUseIds(record.message.content));
+		} else if (pendingSkillIds.length > 0 && isToolResultRecord(record) && record.isMeta) {
+			// The SDK emits the isMeta expansion immediately after the Skill tool_result.
+			// Non-skill isMeta records (plan-mode exits, local-command caveats) are short
+			// signals that don't occur mid-Skill invocation, so FIFO matching is safe here.
+			const text = extractTextFromMessageContent(record.message.content);
+			if (text) {
+				const skillId = pendingSkillIds.shift();
+				if (skillId) expansionMap.set(skillId, text);
+			}
+		}
+	}
+
+	return expansionMap;
+}
+
 function convertUserRecord(record: UserRecord): ThreadMessage | null {
 	const textContent = extractTextFromMessageContent(record.message.content);
 	const rawContent = toSharedMessageContent(record.message.content);
@@ -112,7 +154,8 @@ interface AssistantContentParts {
 
 function extractAssistantContentParts(
 	content: ClaudeMessageContent,
-	toolResultMap: ToolResultMap
+	toolResultMap: ToolResultMap,
+	skillExpansionMap: Map<string, string>
 ): AssistantContentParts {
 	const textParts: string[] = [];
 	const toolCalls: ToolCall[] = [];
@@ -123,12 +166,12 @@ function extractAssistantContentParts(
 			if (block.type === 'text' && block.text) {
 				textParts.push(block.text);
 			} else if (block.type === 'tool_use' && block.id) {
-				const result = toolResultMap.get(block.id);
 				toolCalls.push({
 					id: block.id,
 					name: block.name,
 					input: block.input,
-					result
+					result: toolResultMap.get(block.id),
+					skillExpansion: skillExpansionMap.get(block.id)
 				});
 			} else if (block.type === 'thinking' && block.thinking) {
 				thinkingBlocks.push(block.thinking);
@@ -143,11 +186,13 @@ function extractAssistantContentParts(
 
 function convertAssistantRecord(
 	record: AssistantRecord,
-	toolResultMap: ToolResultMap
+	toolResultMap: ToolResultMap,
+	skillExpansionMap: Map<string, string>
 ): ThreadMessage | null {
 	const { textParts, toolCalls, thinkingBlocks } = extractAssistantContentParts(
 		record.message.content,
-		toolResultMap
+		toolResultMap,
+		skillExpansionMap
 	);
 
 	const textContent = textParts.join('\n').trim();
@@ -186,6 +231,7 @@ export function toThreadMessages(
 
 	const ordered = orderRecordsByTree(transcriptRecords);
 	const toolResultMap = buildToolResultMap(ordered);
+	const skillExpansionMap = buildSkillExpansionMap(ordered);
 	const messages: ThreadMessage[] = [];
 
 	for (const record of ordered) {
@@ -196,7 +242,7 @@ export function toThreadMessages(
 		}
 
 		if (isAssistantRecord(record)) {
-			const message = convertAssistantRecord(record, toolResultMap);
+			const message = convertAssistantRecord(record, toolResultMap, skillExpansionMap);
 			if (message) messages.push(message);
 		}
 		// ToolResultRecords are skipped — already consumed by toolResultMap

@@ -28,6 +28,10 @@
 	--color-error-500: var(--error-500);
 	--color-error-400: var(--error-400);
 
+	--color-skill-500: var(--skill-500);
+	--color-skill-400: var(--skill-400);
+	--color-skill-300: var(--skill-300);
+
 	/* Fonts */
 	--font-sans: 'Geist', 'Outfit', ui-sans-serif, system-ui, sans-serif;
 	--font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
@@ -64,6 +68,10 @@
 	--error-500: #dc2626;
 	--error-400: #b91c1c;
 
+	--skill-500: #7c3aed;
+	--skill-400: #6d28d9;
+	--skill-300: #5b21b6;
+
 	--card-shadow: rgba(0, 0, 0, 0.08);
 }
 
@@ -94,6 +102,10 @@
 	--warning-500: #fbbf24;
 	--error-500: #f87171;
 	--error-400: #fca5a5;
+
+	--skill-500: #a78bfa;
+	--skill-400: #c4b5fd;
+	--skill-300: #8b5cf6;
 
 	--card-shadow: rgba(0, 0, 0, 0.3);
 }

@@ -117,6 +117,8 @@ export interface ToolCall {
 	name: string;
 	input: Record<string, unknown>;
 	result?: ToolResultEntry;
+	/** Full expanded prompt injected by the SDK when a skill is invoked. */
+	skillExpansion?: string;
 }
 
 /** A processed message for display, with extracted text, tool calls, and thinking blocks */
