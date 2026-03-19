@@ -152,12 +152,15 @@
 
 		<!-- Ask user question -->
 		{#if session?.pendingQuestion}
-			<div class="pl-6">
-				<AskUserQuestion
-					request={session.pendingQuestion}
-					onSubmit={(answers) => onQuestion?.(answers)}
-				/>
-			</div>
+			{@const questionId = session.pendingQuestion.id}
+			{#key questionId}
+				<div class="pl-6">
+					<AskUserQuestion
+						request={session.pendingQuestion}
+						onSubmit={(answers) => onQuestion?.(answers)}
+					/>
+				</div>
+			{/key}
 		{/if}
 	</div>
 
