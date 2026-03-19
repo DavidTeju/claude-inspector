@@ -16,6 +16,7 @@ import type {
 	SessionCost,
 	SlashCommand
 } from '$lib/shared/active-session-types.js';
+import { createSessionError, type SessionErrorInfo } from '$lib/shared/session-errors.js';
 import type { ThreadMessage, ToolCall } from '$lib/types.js';
 import { uuid } from '$lib/utils.js';
 
@@ -40,19 +41,22 @@ export interface ActiveSessionClient {
 	readonly pendingPermission: PermissionRequest | null;
 	readonly pendingQuestion: AskUserQuestionRequest | null;
 	readonly cost: SessionCost;
-	readonly error: string | null;
+	readonly error: SessionErrorInfo | null;
+	readonly networkNotice: SessionErrorInfo | null;
 	readonly promptSuggestion: string;
 	readonly slashCommands: SlashCommand[];
 	readonly dangerousPermissionsAllowed: boolean;
 	readonly connected: boolean;
 	readonly reconnecting: boolean;
 
-	send(prompt: string): Promise<void>;
+	send(prompt: string): Promise<boolean>;
+	retryLastPrompt(): Promise<boolean>;
 	respondPermission(response: PermissionResponse): Promise<void>;
 	respondQuestion(answers: Record<string, string | string[]>): Promise<void>;
 	interrupt(): Promise<void>;
 	setPermissionMode(mode: PermissionMode): Promise<void>;
 	setModel(model: string): Promise<void>;
+	dismissNetworkNotice(): void;
 	disconnect(): void;
 }
 
@@ -68,6 +72,19 @@ const EMPTY_COST: SessionCost = {
 /** Create a timestamp string without triggering svelte/prefer-svelte-reactivity */
 function isoNow(): string {
 	return new Date().toISOString();
+}
+
+function findLastUserMessageText(messages: ThreadMessage[] | undefined): string | null {
+	if (!messages) return null;
+
+	for (let index = messages.length - 1; index >= 0; index -= 1) {
+		const message = messages[index];
+		if (message.role === 'user') {
+			return message.textContent;
+		}
+	}
+
+	return null;
 }
 
 /**
@@ -94,7 +111,8 @@ export function createActiveSessionConnection(
 	let pendingPermission = $state<PermissionRequest | null>(null);
 	let pendingQuestion = $state<AskUserQuestionRequest | null>(null);
 	let cost = $state<SessionCost>({ ...EMPTY_COST });
-	let error = $state<string | null>(null);
+	let error = $state<SessionErrorInfo | null>(null);
+	let networkNotice = $state<SessionErrorInfo | null>(null);
 	let promptSuggestion = $state('');
 	let slashCommands = $state<SlashCommand[]>([]);
 	let connected = $state(false);
@@ -106,11 +124,14 @@ export function createActiveSessionConnection(
 	let retryCount = 0;
 	let disposed = false;
 	let lastConnectionError: unknown = null;
+	let lastSubmittedPrompt = $state<string | null>(findLastUserMessageText(initialMessages));
+	let networkNoticeTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const HEARTBEAT_TIMEOUT_MS = 45_000;
 	const MAX_RETRIES = 10;
 	const BASE_BACKOFF_MS = 1000;
 	const MAX_BACKOFF_MS = 30_000;
+	const NETWORK_NOTICE_DURATION_MS = 5000;
 
 	// --- Helpers ---
 
@@ -188,6 +209,25 @@ export function createActiveSessionConnection(
 		heartbeatTimer = setTimeout(() => {
 			abortController?.abort();
 		}, HEARTBEAT_TIMEOUT_MS);
+	}
+
+	function dismissNetworkNotice() {
+		if (networkNoticeTimer) {
+			clearTimeout(networkNoticeTimer);
+			networkNoticeTimer = null;
+		}
+		networkNotice = null;
+	}
+
+	function showNetworkNotice(message: string) {
+		dismissNetworkNotice();
+		networkNotice = createSessionError(message, 'network', true);
+		const timer = setTimeout(() => {
+			if (networkNoticeTimer !== timer) return;
+			networkNotice = null;
+			networkNoticeTimer = null;
+		}, NETWORK_NOTICE_DURATION_MS);
+		networkNoticeTimer = timer;
 	}
 
 	// --- Event sub-handlers (split to keep cyclomatic complexity manageable) ---
@@ -269,12 +309,12 @@ export function createActiveSessionConnection(
 				break;
 			case 'rate_limit':
 				if (event.status === 'rejected') {
-					error = formatRateLimitMessage(event);
+					error = createSessionError(formatRateLimitMessage(event), 'rate_limit', true);
 				}
 				break;
 			case 'error':
-				error = event.message;
-				if (!event.recoverable) {
+				error = event.error;
+				if (!event.error.recoverable) {
 					state = 'error';
 				}
 				break;
@@ -321,6 +361,8 @@ export function createActiveSessionConnection(
 		dangerousPermissionsAllowed = event.dangerousPermissionsAllowed;
 		if (event.error) {
 			error = event.error;
+		} else {
+			error = null;
 		}
 	}
 
@@ -459,6 +501,7 @@ export function createActiveSessionConnection(
 		}
 		if (import.meta.env.DEV) console.error('[SSE] Connection error:', err);
 		lastConnectionError = err;
+		showNetworkNotice('Connection lost. Retrying…');
 		return 'retry';
 	}
 
@@ -466,7 +509,11 @@ export function createActiveSessionConnection(
 		if (disposed) return;
 		if (import.meta.env.DEV)
 			console.error('[SSE] Giving up after max retries. Last error:', lastConnectionError);
-		error = 'Connection lost after maximum retries';
+		error = createSessionError(
+			'Connection lost after maximum retries. Retry the last prompt to continue.',
+			'transient',
+			true
+		);
 		state = 'error';
 	}
 
@@ -495,6 +542,7 @@ export function createActiveSessionConnection(
 				reconnecting = false;
 				retryCount = 0;
 				error = null;
+				dismissNetworkNotice();
 				resetHeartbeatWatchdog();
 
 				await readStream(response.body);
@@ -517,26 +565,44 @@ export function createActiveSessionConnection(
 	// --- API actions ---
 
 	async function apiPost(path: string, body?: Record<string, unknown>): Promise<boolean> {
-		const response = await fetch(`/api/session/${sessionId}/${path}`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: body ? JSON.stringify(body) : undefined
-		});
+		try {
+			const response = await fetch(`/api/session/${sessionId}/${path}`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: body ? JSON.stringify(body) : undefined
+			});
 
-		if (!response.ok) {
-			const data = await response.json().catch(() => ({ error: 'Request failed' }));
-			error = data.error ?? 'Request failed';
+			if (!response.ok) {
+				const data = await response.json().catch(() => ({ error: 'Request failed' }));
+				error = createSessionError(data.error ?? 'Request failed', 'action', true);
+				return false;
+			}
+
+			error = null;
+			return true;
+		} catch (err: unknown) {
+			if (err instanceof Error && err.name === 'AbortError') {
+				return false;
+			}
+			showNetworkNotice('Network error. Check your connection and try again.');
+			return false;
+		}
+	}
+
+	async function send(prompt: string): Promise<boolean> {
+		const messageUuid = uuid();
+		lastSubmittedPrompt = prompt;
+		addOptimisticUserMessage(prompt, messageUuid);
+		return apiPost('send', { prompt, uuid: messageUuid });
+	}
+
+	async function retryLastPrompt(): Promise<boolean> {
+		if (!lastSubmittedPrompt) {
+			error = createSessionError('No previous prompt is available to retry.', 'unknown', true);
 			return false;
 		}
 
-		error = null;
-		return true;
-	}
-
-	async function send(prompt: string) {
-		const messageUuid = uuid();
-		addOptimisticUserMessage(prompt, messageUuid);
-		await apiPost('send', { prompt, uuid: messageUuid });
+		return send(lastSubmittedPrompt);
 	}
 
 	async function respondPermission(response: PermissionResponse) {
@@ -578,6 +644,7 @@ export function createActiveSessionConnection(
 		disposed = true;
 		abortController?.abort();
 		cleanupHeartbeat();
+		dismissNetworkNotice();
 		connected = false;
 	}
 
@@ -627,6 +694,9 @@ export function createActiveSessionConnection(
 		get error() {
 			return error;
 		},
+		get networkNotice() {
+			return networkNotice;
+		},
 		get promptSuggestion() {
 			return promptSuggestion;
 		},
@@ -644,11 +714,13 @@ export function createActiveSessionConnection(
 		},
 
 		send,
+		retryLastPrompt,
 		respondPermission,
 		respondQuestion,
 		interrupt,
 		setPermissionMode: setPermissionModeAction,
 		setModel: setModelAction,
+		dismissNetworkNotice,
 		disconnect
 	};
 }

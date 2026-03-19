@@ -6,8 +6,10 @@
 		SessionCost
 	} from '$lib/shared/active-session-types.js';
 	import { getCyclableModes, PERMISSION_MODE_LABELS } from '$lib/shared/permission-modes.js';
+	import type { SessionErrorInfo } from '$lib/shared/session-errors.js';
 	import { STATE_COLORS } from '$lib/shared/state-colors.js';
 	import CostDisplay from './CostDisplay.svelte';
+	import ErrorBanner from './ErrorBanner.svelte';
 	import { resolve } from '$app/paths';
 
 	const COPY_FEEDBACK_DURATION_MS = 2000;
@@ -29,8 +31,10 @@
 		parentSessionId = '',
 		projectId = '',
 		reconnecting = false,
-		error = '',
-		resumeError = ''
+		error = null,
+		resumeError = null,
+		onRetry,
+		onStartNewSession
 	}: {
 		sessionTitle?: string;
 		sessionId?: string;
@@ -48,8 +52,10 @@
 		parentSessionId?: string;
 		projectId?: string;
 		reconnecting?: boolean;
-		error?: string;
-		resumeError?: string;
+		error?: SessionErrorInfo | null;
+		resumeError?: SessionErrorInfo | null;
+		onRetry?: () => void | Promise<void>;
+		onStartNewSession?: () => void;
 	} = $props();
 
 	const stateLabels: Record<ActiveSessionState, { label: string; pulse: boolean }> = {
@@ -223,43 +229,9 @@
 {/if}
 
 {#if error}
-	<div
-		class="bg-error-500/10 text-error-400 mt-2 flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[11px]"
-	>
-		<svg
-			class="h-3.5 w-3.5 shrink-0"
-			fill="none"
-			viewBox="0 0 24 24"
-			stroke="currentColor"
-			stroke-width="2"
-		>
-			<path
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-			/>
-		</svg>
-		{error}
-	</div>
+	<ErrorBanner {error} {onRetry} {onStartNewSession} />
 {/if}
 
 {#if resumeError}
-	<div
-		class="bg-error-500/10 text-error-400 mt-2 flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[11px]"
-	>
-		<svg
-			class="h-3.5 w-3.5 shrink-0"
-			fill="none"
-			viewBox="0 0 24 24"
-			stroke="currentColor"
-			stroke-width="2"
-		>
-			<path
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-			/>
-		</svg>
-		{resumeError}
-	</div>
+	<ErrorBanner error={resumeError} />
 {/if}

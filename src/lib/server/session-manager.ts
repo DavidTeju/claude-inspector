@@ -42,6 +42,13 @@ import type {
 } from '$lib/shared/active-session-types.js';
 import type { ModelOption } from '$lib/shared/models.js';
 import { FALLBACK_MODELS } from '$lib/shared/models.js';
+import {
+	classifyAssistantSessionError,
+	classifyResultSessionError,
+	classifyRuntimeSessionError,
+	createSessionError,
+	type SessionErrorInfo
+} from '$lib/shared/session-errors.js';
 import type { ThreadMessage, ToolCall, ToolResultEntry, ToolResultMap } from '$lib/types.js';
 import { getErrorMessage } from '$lib/utils.js';
 import {
@@ -137,7 +144,7 @@ export interface ActiveSession {
 	queuedContextId: SDKUserMessage['uuid'] | null;
 	toolResults: ToolResultMap;
 	dangerousPermissionsAllowed: boolean;
-	lastError: string | null;
+	lastError: SessionErrorInfo | null;
 	childPid?: number;
 }
 
@@ -189,7 +196,7 @@ interface SessionReplaySnapshot {
 	model: string;
 	permissionMode: PermissionMode;
 	dangerousPermissionsAllowed: boolean;
-	lastError: string | null;
+	lastError: SessionErrorInfo | null;
 	messages: ThreadMessage[];
 	inProgress: InProgressTurnSnapshot | null;
 	pendingPermission: PermissionRequest | null;
@@ -459,13 +466,19 @@ function touchSession(session: ActiveSession): void {
 
 function setSessionState(session: ActiveSession, state: ActiveSessionState, detail?: string): void {
 	session.state = state;
-	session.lastError = state === 'error' && detail ? detail : null;
+	if (state !== 'error') {
+		session.lastError = null;
+	}
 	touchSession(session);
 	broadcast(session, {
 		type: 'state_change',
 		state,
 		detail
 	});
+}
+
+function setSessionError(session: ActiveSession, error: SessionErrorInfo | null): void {
+	session.lastError = error;
 }
 
 function addOrReplaceMessage(session: ActiveSession, message: ThreadMessage): void {
@@ -982,8 +995,7 @@ async function handleAskUserQuestion(
 			});
 			broadcast(session, {
 				type: 'error',
-				message: 'AskUserQuestion timed out waiting for UI input',
-				recoverable: true
+				error: createSessionError('AskUserQuestion timed out waiting for UI input', 'action', true)
 			});
 			setSessionState(session, 'running', 'question_timeout');
 		}, timeoutMs);
@@ -1169,10 +1181,14 @@ function handleAssistantSdkMessage(
 	broadcastAssistantContentBlocks(session, message);
 
 	if (message.error) {
+		const errorInfo = classifyAssistantSessionError(message.error);
+		setSessionError(session, errorInfo);
+		if (!errorInfo.recoverable) {
+			setSessionState(session, 'error', message.error);
+		}
 		broadcast(session, {
 			type: 'error',
-			message: `Assistant error: ${message.error}`,
-			recoverable: true
+			error: errorInfo
 		});
 	}
 }
@@ -1238,6 +1254,19 @@ function handleResultSdkMessage(
 		numTurns: message.num_turns,
 		durationMs: message.duration_ms
 	});
+
+	if (message.is_error) {
+		const errorInfo = classifyResultSessionError(message.subtype);
+		setSessionError(session, errorInfo);
+		broadcast(session, {
+			type: 'error',
+			error: errorInfo
+		});
+		if (!errorInfo.recoverable) {
+			setSessionState(session, 'error', message.subtype);
+			return;
+		}
+	}
 
 	if (session.queuedContext) {
 		const queuedNote = session.queuedContext;
@@ -1348,7 +1377,17 @@ async function consumeQuery(session: ActiveSession, queryObject: Query): Promise
 			session.state === 'awaiting_input' ||
 			session.state === 'compacting'
 		) {
+			const errorInfo = createSessionError(
+				'The Claude session ended unexpectedly. Retry your last prompt to continue.',
+				'transient',
+				true
+			);
+			setSessionError(session, errorInfo);
 			setSessionState(session, 'error', 'query_ended');
+			broadcast(session, {
+				type: 'error',
+				error: errorInfo
+			});
 		}
 	} catch (error) {
 		if (session.state === 'closed') {
@@ -1358,11 +1397,12 @@ async function consumeQuery(session: ActiveSession, queryObject: Query): Promise
 		flushInProgressTurn(session, nowIso());
 		session.queryObject = null;
 		const errorMessage = getErrorMessage(error);
+		const errorInfo = classifyRuntimeSessionError(errorMessage);
+		setSessionError(session, errorInfo);
 		setSessionState(session, 'error', errorMessage);
 		broadcast(session, {
 			type: 'error',
-			message: errorMessage,
-			recoverable: true
+			error: errorInfo
 		});
 	}
 }

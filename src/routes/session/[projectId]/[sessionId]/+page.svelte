@@ -4,10 +4,12 @@
 	import SessionControls from '$lib/components/SessionControls.svelte';
 	import { SESSION_ID_DISPLAY_LENGTH } from '$lib/constants.js';
 	import type { PermissionMode } from '$lib/shared/active-session-types.js';
+	import { createSessionError, type SessionErrorInfo } from '$lib/shared/session-errors.js';
 	import {
 		createActiveSessionConnection,
 		type ActiveSessionClient
 	} from '$lib/stores/active-session.svelte.js';
+	import { newSessionModal } from '$lib/stores/new-session-modal.svelte.js';
 	import type { ThreadMessage } from '$lib/types.js';
 	import { dirNameToDisplayName, getErrorMessage, uuid } from '$lib/utils.js';
 	import { browser } from '$app/environment';
@@ -18,7 +20,7 @@
 
 	let session: ActiveSessionClient | undefined = $state();
 	let localPermissionMode = $state<PermissionMode>('default');
-	let resumeError = $state<string | null>(null);
+	let resumeError = $state<SessionErrorInfo | null>(null);
 	let resuming = $state(false);
 
 	// Local override — set to true after a successful resume so the SSE connection
@@ -125,7 +127,7 @@
 
 			const body: { error?: string } = await response.json();
 			if (!response.ok) {
-				resumeError = body.error ?? 'Failed to resume session';
+				resumeError = createSessionError(body.error ?? 'Failed to resume session', 'action', true);
 				return;
 			}
 
@@ -149,7 +151,11 @@
 			activatedLocally = true;
 		} catch (err: unknown) {
 			console.error('[session] Resume failed:', err);
-			resumeError = `Failed to resume session: ${getErrorMessage(err)}`;
+			resumeError = createSessionError(
+				`Failed to resume session: ${getErrorMessage(err)}`,
+				'network',
+				true
+			);
 		} finally {
 			resuming = false;
 		}
@@ -193,8 +199,12 @@
 				isSubagent={data.isSubagent}
 				parentSessionId={data.parentSessionId}
 				reconnecting={session?.reconnecting ?? false}
-				error={session?.error ?? ''}
-				resumeError={resumeError ?? ''}
+				error={session?.error ?? null}
+				{resumeError}
+				onRetry={async () => {
+					await session?.retryLastPrompt();
+				}}
+				onStartNewSession={() => newSessionModal.show(data.projectId)}
 			/>
 		</div>
 
@@ -232,4 +242,14 @@
 			</div>
 		{/if}
 	{/key}
+
+	{#if session?.networkNotice}
+		<div class="pointer-events-none fixed right-4 bottom-4 z-30 max-w-sm">
+			<div
+				class="border-warning-500/30 bg-surface-950/95 text-warning-400 shadow-soft rounded-lg border px-4 py-3 text-sm backdrop-blur"
+			>
+				{session.networkNotice.message}
+			</div>
+		</div>
+	{/if}
 </div>
