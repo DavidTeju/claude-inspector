@@ -157,7 +157,7 @@
 	<title>Claude Inspector</title>
 </svelte:head>
 
-<div class="hero-gradient">
+<div>
 	<div class="mb-8">
 		<h1 class="text-2xl font-bold tracking-tight lg:text-3xl">Search sessions</h1>
 		<p class="text-base-content/50 mt-2 text-sm">
