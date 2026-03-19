@@ -116,6 +116,9 @@ function buildSkillExpansionMap(ordered: TranscriptRecord[]): Map<string, string
 		if (isAssistantRecord(record)) {
 			pendingSkillIds.push(...collectSkillToolUseIds(record.message.content));
 		} else if (pendingSkillIds.length > 0 && isToolResultRecord(record) && record.isMeta) {
+			// The SDK emits the isMeta expansion immediately after the Skill tool_result.
+			// Non-skill isMeta records (plan-mode exits, local-command caveats) are short
+			// signals that don't occur mid-Skill invocation, so FIFO matching is safe here.
 			const text = extractTextFromMessageContent(record.message.content);
 			if (text) {
 				const skillId = pendingSkillIds.shift();

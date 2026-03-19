@@ -32,3 +32,6 @@ storybook-static/
 .serena/
 .claude/
 .playwright-cli/
+
+# Generated session indexes in test fixtures
+tests/fixtures/projects/*/sessions-index.json

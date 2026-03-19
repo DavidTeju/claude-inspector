@@ -13,6 +13,9 @@
 	);
 
 	let showFullExpansion = $state(false);
+
+	const expansionBase =
+		'bg-surface-950 mt-1 rounded-md p-3 font-mono leading-relaxed break-words whitespace-pre-wrap';
 </script>
 
 <div class="space-y-2">
@@ -44,10 +47,10 @@
 
 			{#if showFullExpansion}
 				<pre
-					class="bg-surface-950 text-text-400 mt-1 max-h-96 overflow-auto rounded-md p-3 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">{expansion}</pre>
+					class="{expansionBase} text-text-400 max-h-96 overflow-auto text-[11px]">{expansion}</pre>
 			{:else if expansionPreview}
 				<pre
-					class="bg-surface-950 text-text-500 mt-1 max-h-16 overflow-hidden rounded-md p-3 font-mono text-[10px] leading-relaxed break-words whitespace-pre-wrap">{expansionPreview}</pre>
+					class="{expansionBase} text-text-500 max-h-16 overflow-hidden text-[10px]">{expansionPreview}</pre>
 			{/if}
 		</div>
 	{/if}
