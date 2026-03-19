@@ -6,6 +6,7 @@
 	import RawJsonView from './tool-views/RawJsonView.svelte';
 	import ReadView from './tool-views/ReadView.svelte';
 	import SearchView from './tool-views/SearchView.svelte';
+	import SkillView from './tool-views/SkillView.svelte';
 	import WriteView from './tool-views/WriteView.svelte';
 
 	const MAX_INLINE_LENGTH = 120;
@@ -15,7 +16,7 @@
 
 	let showRaw = $state(false);
 
-	type ViewMode = 'read' | 'edit' | 'bash' | 'write' | 'glob' | 'grep' | 'generic';
+	type ViewMode = 'read' | 'edit' | 'bash' | 'write' | 'glob' | 'grep' | 'skill' | 'generic';
 
 	let viewMode = $derived.by((): ViewMode => {
 		const name = tool.name.toLowerCase();
@@ -25,6 +26,7 @@
 		if (name === 'write') return 'write';
 		if (name === 'glob') return 'glob';
 		if (name === 'grep') return 'grep';
+		if (name === 'skill') return 'skill';
 		return 'generic';
 	});
 
@@ -40,6 +42,8 @@
 			case 'glob':
 			case 'grep':
 				return input.pattern ? String(input.pattern) : '';
+			case 'skill':
+				return input.skill ? String(input.skill) : '';
 			default: {
 				if (input.description) return String(input.description);
 				if (input.url) return String(input.url).slice(0, MAX_PREVIEW_LENGTH);
@@ -61,15 +65,19 @@
 		}
 		return JSON.stringify(content, null, 2);
 	});
+	let badgeClass = $derived.by(() => {
+		if (tool.result?.isError) return 'bg-error-500/10 text-error-500';
+		if (viewMode === 'skill') return 'bg-purple-500/10 text-purple-300';
+		return 'bg-accent-500/10 text-accent-300';
+	});
 </script>
 
-<CollapsibleSection accentClass="border-l-accent-300/50" bodyClass="space-y-2">
+<CollapsibleSection
+	accentClass={viewMode === 'skill' ? 'border-l-purple-400/50' : 'border-l-accent-300/50'}
+	bodyClass="space-y-2"
+>
 	{#snippet header()}
-		<span
-			class="rounded px-1.5 py-0.5 text-[10px] font-semibold {tool.result?.isError
-				? 'bg-error-500/10 text-error-500'
-				: 'bg-accent-500/10 text-accent-300'}"
-		>
+		<span class="rounded px-1.5 py-0.5 text-[10px] font-semibold {badgeClass}">
 			{tool.name}
 		</span>
 
@@ -113,5 +121,7 @@
 		<BashView {tool} {resultText} />
 	{:else if viewMode === 'glob' || viewMode === 'grep'}
 		<SearchView {tool} {resultText} />
+	{:else if viewMode === 'skill'}
+		<SkillView {tool} {resultText} />
 	{/if}
 </CollapsibleSection>
