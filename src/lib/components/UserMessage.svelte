@@ -23,7 +23,7 @@
 		<time class="text-[10px]">{formatTime(message.timestamp)}</time>
 	</div>
 	<div
-		class="chat-bubble chat-bubble-secondary font-mono text-sm leading-relaxed break-words whitespace-pre-wrap"
+		class="chat-bubble chat-bubble-secondary text-sm leading-relaxed break-words whitespace-pre-wrap"
 	>
 		{#if message.textContent}
 			{message.textContent}
