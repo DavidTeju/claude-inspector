@@ -32,3 +32,6 @@ storybook-static/
 .serena/
 .claude/
 .playwright-cli/
+
+# Generated session index caches
+**/sessions-index.json
