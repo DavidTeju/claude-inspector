@@ -8,7 +8,7 @@
 	import SearchView from './tool-views/SearchView.svelte';
 	import WriteView from './tool-views/WriteView.svelte';
 
-	const MAX_INLINE_LENGTH = 80;
+	const MAX_INLINE_LENGTH = 120;
 	const MAX_PREVIEW_LENGTH = 60;
 
 	let { tool }: { tool: ToolCall } = $props();
@@ -65,7 +65,11 @@
 
 <CollapsibleSection accentClass="border-l-accent-300/50" bodyClass="space-y-2">
 	{#snippet header()}
-		<span class="font-semibold {tool.result?.isError ? 'text-error-500' : 'text-accent-300'}">
+		<span
+			class="rounded px-1.5 py-0.5 text-[10px] font-semibold {tool.result?.isError
+				? 'bg-error-500/10 text-error-500'
+				: 'bg-accent-500/10 text-accent-300'}"
+		>
 			{tool.name}
 		</span>
 
@@ -100,7 +104,7 @@
 	{#if showRaw || viewMode === 'generic'}
 		<RawJsonView {tool} {resultText} />
 	{:else if viewMode === 'read'}
-		<ReadView {resultText} />
+		<ReadView {tool} {resultText} />
 	{:else if viewMode === 'edit'}
 		<EditView {tool} {resultText} />
 	{:else if viewMode === 'write'}

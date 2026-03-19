@@ -123,71 +123,85 @@ function matchValuePrefix(
 	return false;
 }
 
+interface TokenClassificationState {
+	textParts: string[];
+	phraseTerms: string[];
+	collectors: Record<string, FilterTerm[]>;
+	errorFilter: IncludeExcludeFilter;
+	subagentFilter: IncludeExcludeFilter;
+	dateFilter: { after: string; before: string } | null;
+	rawMode: boolean;
+	regexMode: boolean;
+}
+
+function classifyToken(
+	token: { body: string; quoted: boolean; negated: boolean },
+	state: TokenClassificationState
+): void {
+	if (token.quoted) {
+		state.phraseTerms.push(token.body);
+		return;
+	}
+
+	const lowerBody = token.body.toLowerCase();
+
+	if (!token.negated && RAW_MODE_TOKENS.has(lowerBody)) {
+		state.rawMode = true;
+		return;
+	}
+	if (!token.negated && lowerBody === 'mode:regex') {
+		state.regexMode = true;
+		return;
+	}
+	if (matchValuePrefix(token.body, lowerBody, token.negated, state.collectors)) return;
+
+	if (lowerBody.startsWith('date:') && token.body.length > 'date:'.length) {
+		state.dateFilter = parseDateFilter(token.body.slice('date:'.length)) ?? state.dateFilter;
+		return;
+	}
+	if (lowerBody === 'has:error' || lowerBody === 'is:error') {
+		state.errorFilter = token.negated ? 'exclude' : 'include';
+		return;
+	}
+	if (lowerBody === 'is:subagent') {
+		state.subagentFilter = token.negated ? 'exclude' : 'include';
+		return;
+	}
+
+	state.textParts.push(token.body);
+}
+
 /**
  * Parses free text plus filter tokens from the search box.
  * Keep this in sync with `parseClientFilters()` so the client-side filter chips
  * represent the exact same grammar that the server executes.
  */
 function parseStructuredQuery(query: string): ParsedSearchQuery {
-	const textParts: string[] = [];
-	const phraseTerms: string[] = [];
-	const collectors: Record<string, FilterTerm[]> = {
-		project: [],
-		model: []
+	const state: TokenClassificationState = {
+		textParts: [],
+		phraseTerms: [],
+		collectors: { project: [], model: [] },
+		errorFilter: null,
+		subagentFilter: null,
+		dateFilter: null,
+		rawMode: false,
+		regexMode: false
 	};
-	let errorFilter: IncludeExcludeFilter = null;
-	let subagentFilter: IncludeExcludeFilter = null;
-	let dateFilter: { after: string; before: string } | null = null;
-	let rawMode = false;
-	let regexMode = false;
 
 	for (const token of tokenizeQuery(query)) {
-		if (token.quoted) {
-			phraseTerms.push(token.body);
-			continue;
-		}
-
-		const lowerBody = token.body.toLowerCase();
-
-		if (!token.negated && RAW_MODE_TOKENS.has(lowerBody)) {
-			rawMode = true;
-			continue;
-		}
-		if (!token.negated && lowerBody === 'mode:regex') {
-			regexMode = true;
-			continue;
-		}
-
-		if (matchValuePrefix(token.body, lowerBody, token.negated, collectors)) continue;
-
-		if (lowerBody.startsWith('date:') && token.body.length > 'date:'.length) {
-			const parsed = parseDateFilter(token.body.slice('date:'.length));
-			if (parsed) dateFilter = parsed;
-			continue;
-		}
-
-		if (lowerBody === 'has:error' || lowerBody === 'is:error') {
-			errorFilter = token.negated ? 'exclude' : 'include';
-			continue;
-		}
-		if (lowerBody === 'is:subagent') {
-			subagentFilter = token.negated ? 'exclude' : 'include';
-			continue;
-		}
-
-		textParts.push(token.body);
+		classifyToken(token, state);
 	}
 
 	return {
-		textTerms: parseSearchTerms(textParts.join(' ')),
-		phraseTerms,
-		projects: collectors.project,
-		models: collectors.model,
-		errorFilter,
-		subagentFilter,
-		dateFilter,
-		rawMode,
-		regexMode
+		textTerms: parseSearchTerms(state.textParts.join(' ')),
+		phraseTerms: state.phraseTerms,
+		projects: state.collectors.project,
+		models: state.collectors.model,
+		errorFilter: state.errorFilter,
+		subagentFilter: state.subagentFilter,
+		dateFilter: state.dateFilter,
+		rawMode: state.rawMode,
+		regexMode: state.regexMode
 	};
 }
 
