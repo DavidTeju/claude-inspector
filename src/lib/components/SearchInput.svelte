@@ -31,17 +31,7 @@
 	let dynamicBranches: string[] = $state([]);
 	let dynamicFetched = $state(false);
 	let cursorAtEnd = $state(true);
-	let dropdownLeft = $derived.by(() => {
-		// inputText drives measureEl's width via measureText, but getBoundingClientRect()
-		// isn't reactive — reading inputText here triggers recomputation when it changes.
-		void inputText;
-		if (!showAutocomplete || !measureEl || !containerEl) return 0;
-
-		const containerRect = containerEl.getBoundingClientRect();
-		const measureRect = measureEl.getBoundingClientRect();
-		const left = measureRect.right - containerRect.left;
-		return Math.max(0, Math.min(left, containerRect.width - DROPDOWN_MIN_WIDTH));
-	});
+	let dropdownLeft = $state(0);
 
 	interface FilterSuggestion {
 		raw: string;
@@ -94,6 +84,19 @@
 
 	$effect(() => {
 		inputEl?.focus();
+	});
+
+	// Must use $effect (not $derived) — getBoundingClientRect() reads DOM geometry
+	// which is only current after Svelte's DOM flush. $derived runs before the flush,
+	// so it would always read stale dimensions from the previous render.
+	$effect(() => {
+		void inputText;
+		if (showAutocomplete && measureEl && containerEl) {
+			const containerRect = containerEl.getBoundingClientRect();
+			const measureRect = measureEl.getBoundingClientRect();
+			const left = measureRect.right - containerRect.left;
+			dropdownLeft = Math.max(0, Math.min(left, containerRect.width - DROPDOWN_MIN_WIDTH));
+		}
 	});
 
 	function updateCursorAtEnd() {
