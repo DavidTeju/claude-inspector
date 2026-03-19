@@ -1,0 +1,41 @@
+{
+	"version": 2,
+	"entries": [
+		{
+			"sessionId": "fix-rate-limiter",
+			"displaySessionId": "fix-rate-limiter",
+			"fullPath": "/home/runner/work/claude-inspector/claude-inspector/tests/fixtures/projects/demo-api-project/fix-rate-limiter.jsonl",
+			"relativePath": "fix-rate-limiter.jsonl",
+			"fileMtime": 1773947472668.9402,
+			"firstPrompt": "The rate limiter is letting through 2x the configured limit. I think it's a sliding window calculation bug.",
+			"summary": "Fixed sliding window rate limiter allowing 2x configured limit. Root cause: denied requests were unconditionally pushed into the timestamp window, inflating the count and creating false gaps on expiry",
+			"messageCount": 6,
+			"created": "2026-03-18T08:45:00.000Z",
+			"modified": "2026-03-18T08:45:45.000Z",
+			"gitBranch": "fix/rate-limit",
+			"projectPath": "fix-rate-limiter.jsonl",
+			"isSidechain": false,
+			"isSubagent": false,
+			"nativeSummary": "Fixed sliding window rate limiter allowing 2x configured limit. Root cause: denied requests were unconditionally pushed into the timestamp window, inflating the count and creating false gaps on expiry.",
+			"lastPrompt": "The rate limiter is letting through 2x the configured limit. I think it's a sliding window calculation bug."
+		},
+		{
+			"sessionId": "add-pagination",
+			"displaySessionId": "add-pagination",
+			"fullPath": "/home/runner/work/claude-inspector/claude-inspector/tests/fixtures/projects/demo-api-project/add-pagination.jsonl",
+			"relativePath": "add-pagination.jsonl",
+			"fileMtime": 1773947472668.6262,
+			"firstPrompt": "Add cursor-based pagination to the /api/users endpoint. Page size default 25, max 100.",
+			"summary": "Added cursor-based pagination to /api/users endpoint. Default page size 25, max 100. Uses fetch-one-extra pattern to detect hasMore.",
+			"messageCount": 5,
+			"created": "2026-03-14T16:20:00.000Z",
+			"modified": "2026-03-14T16:20:42.000Z",
+			"gitBranch": "feat/pagination",
+			"projectPath": "add-pagination.jsonl",
+			"isSidechain": false,
+			"isSubagent": false,
+			"nativeSummary": "Added cursor-based pagination to /api/users endpoint. Default page size 25, max 100. Uses fetch-one-extra pattern to detect hasMore.",
+			"lastPrompt": "Add cursor-based pagination to the /api/users endpoint. Page size default 25, max 100."
+		}
+	]
+}

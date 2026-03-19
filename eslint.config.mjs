@@ -8,6 +8,19 @@ export default [
 	{
 		ignores: ['workspace/**']
 	},
+	// shadcn-svelte generated UI primitives — lint rules don't apply
+	{
+		files: ['src/lib/components/ui/**'],
+		rules: {
+			'no-magic-numbers': 'off',
+			'import-x/no-cycle': 'off',
+			'import-x/no-unresolved': 'off',
+			'sonarjs/no-nested-assignment': 'off',
+			'sonarjs/no-use-of-empty-return-value': 'off',
+			'sonarjs/pseudo-random': 'off',
+			'svelte/no-navigation-without-resolve': 'off'
+		}
+	},
 	// Project-specific: trust rendered markdown/search highlights
 	{
 		files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],

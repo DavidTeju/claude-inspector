@@ -1,0 +1,21 @@
+{
+	"version": 2,
+	"entries": [
+		{
+			"sessionId": "basic-linear-session",
+			"displaySessionId": "basic-linear-session",
+			"fullPath": "/home/runner/work/claude-inspector/claude-inspector/tests/fixtures/projects/basic-project/basic-linear-session.jsonl",
+			"relativePath": "basic-linear-session.jsonl",
+			"fileMtime": 1773947472668.6262,
+			"firstPrompt": "",
+			"summary": "",
+			"messageCount": 1,
+			"created": "2026-03-01T00:00:00.000Z",
+			"modified": "2026-03-01T00:00:02.000Z",
+			"gitBranch": "main",
+			"projectPath": "basic-linear-session.jsonl",
+			"isSidechain": false,
+			"isSubagent": false
+		}
+	]
+}

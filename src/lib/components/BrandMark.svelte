@@ -1,31 +1,23 @@
 <script lang="ts">
+	import Inspect from '@lucide/svelte/icons/scan-search';
+	import { cn } from '$lib/utils.js';
+
+	let { class: className, iconOnly = false }: { class?: string; iconOnly?: boolean } = $props();
 </script>
 
-<div class="flex items-center gap-3 leading-none">
+<div class={cn('flex items-center gap-2.5 leading-none', className)}>
 	<div
-		class="border-accent-500/25 bg-surface-900/80 relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border shadow-sm"
+		class="bg-primary/10 text-primary ring-primary/20 relative flex h-8 w-8 items-center justify-center rounded-lg ring-1"
 	>
-		<div class="border-accent-400/15 absolute inset-1 rounded-[0.9rem] border"></div>
-		<svg class="text-accent-300 h-6 w-6" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-			<path
-				d="M27 13H21C16.582 13 13 16.582 13 21V27C13 31.418 16.582 35 21 35H27"
-				stroke="currentColor"
-				stroke-width="3.25"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-			/>
-			<path d="M31 14V34" stroke="currentColor" stroke-width="3.25" stroke-linecap="round" />
-			<circle cx="31" cy="9.5" r="2.5" fill="currentColor" opacity="0.9" />
-		</svg>
+		<Inspect class="h-4 w-4" />
 	</div>
 
-	<div class="flex min-w-0 flex-col">
-		<span class="text-accent-300/80 text-[0.55rem] font-semibold tracking-[0.32em] uppercase"
-			>Claude</span
-		>
-		<span
-			class="text-text-100 truncate text-[0.98rem] font-black tracking-[0.14em] uppercase italic"
-			>Inspector</span
-		>
-	</div>
+	{#if !iconOnly}
+		<div class="flex min-w-0 flex-col gap-0">
+			<span class="text-primary/70 text-[0.5rem] font-semibold tracking-[0.3em] uppercase"
+				>Claude</span
+			>
+			<span class="text-foreground truncate text-sm font-extrabold tracking-wide">Inspector</span>
+		</div>
+	{/if}
 </div>
