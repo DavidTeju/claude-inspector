@@ -11,10 +11,10 @@ const config: StorybookConfig = {
 		'@storybook/addon-docs'
 	],
 	framework: '@storybook/sveltekit',
-	async viteFinal(config) {
-		config.plugins = config.plugins ?? [];
-		config.plugins.push(tailwindcss());
-		return config;
+	async viteFinal(viteConfig) {
+		viteConfig.plugins = viteConfig.plugins ?? [];
+		viteConfig.plugins.push(tailwindcss());
+		return viteConfig;
 	}
 };
 

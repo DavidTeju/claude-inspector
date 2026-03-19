@@ -52,7 +52,7 @@ const preview: Preview = {
 	initialGlobals: {
 		theme: 'dark'
 	},
-	beforeEach: async ({ globals }) => {
+	beforeEach: ({ globals }) => {
 		applyTheme(globals.theme !== 'light');
 	}
 };
