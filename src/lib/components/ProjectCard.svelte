@@ -8,16 +8,16 @@
 
 <a
 	href={resolve(`/projects/${project.id}`)}
-	class="card-hover group border-surface-800/30 bg-surface-850 hover:border-surface-700/60 hover:bg-surface-800 relative block overflow-hidden rounded-lg border p-3.5 transition-all"
+	class="card card-hover bg-base-200 hover:bg-base-300 group relative block overflow-hidden rounded-lg p-3.5 transition-all"
 >
 	<h3
-		class="group-hover:text-accent-400 text-text-100 truncate text-base font-semibold tracking-tight transition-colors"
+		class="group-hover:text-primary text-base-content truncate text-base font-semibold tracking-tight transition-colors"
 		title={project.displayName}
 	>
 		{project.displayName}
 	</h3>
 
-	<div class="text-text-500 mt-3 flex items-center gap-3 text-[11px]">
+	<div class="text-base-content/50 mt-3 flex items-center gap-3 text-[11px]">
 		<span class="flex items-center gap-1">
 			<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 				<path
@@ -28,7 +28,7 @@
 			</svg>
 			{pluralize(project.sessionCount, 'session')}
 		</span>
-		<span class="text-text-700">|</span>
+		<span class="text-base-content/30">|</span>
 		<span>{formatRelativeDate(project.lastModified)}</span>
 	</div>
 </a>

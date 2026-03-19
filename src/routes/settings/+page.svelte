@@ -23,7 +23,7 @@
 	</div>
 
 	<!-- Appearance section -->
-	<div class="border-surface-800 bg-surface-900/50 rounded-2xl border p-6">
+	<div class="card bg-base-200 rounded-2xl p-6">
 		<h2 class="section-title">Appearance</h2>
 		<p class="section-subtitle">Choose your preferred color scheme.</p>
 
@@ -33,8 +33,8 @@
 					onclick={() => theme.setPreference(option.value)}
 					class="flex-1 rounded-lg border px-3 py-2.5 text-center text-sm font-medium transition-colors
 						{theme.preference === option.value
-						? 'border-accent-500/50 bg-accent-500/10 text-accent-400'
-						: 'border-surface-800 bg-surface-950 text-text-500 hover:border-surface-700 hover:text-text-100'}"
+						? 'border-primary/50 bg-primary/10 text-primary'
+						: 'border-base-content/10 bg-base-100 text-base-content/50 hover:border-base-content/20 hover:text-base-content'}"
 				>
 					{option.label}
 				</button>
@@ -43,7 +43,7 @@
 	</div>
 
 	<!-- API Key section -->
-	<div class="border-surface-800 bg-surface-900/50 mt-8 rounded-2xl border p-6">
+	<div class="card bg-base-200 mt-8 rounded-2xl p-6">
 		<h2 class="section-title">Anthropic API Key</h2>
 		<p class="section-subtitle mb-4">
 			Used to generate session summaries via Haiku for sessions that don't have one. Optional —
@@ -51,9 +51,7 @@
 		</p>
 
 		{#if form?.success && form?.section === 'apiKey'}
-			<div
-				class="border-success-500/30 bg-success-500/10 text-success-500 mb-4 rounded-md border px-3 py-2 text-xs"
-			>
+			<div class="alert alert-success mb-4 rounded-md px-3 py-2 text-xs">
 				{form.cleared
 					? 'API key cleared.'
 					: 'API key saved. Summary generation will run in the background.'}
@@ -61,17 +59,15 @@
 		{/if}
 
 		{#if form?.error && form?.section !== 'session'}
-			<div
-				class="border-error-500/30 bg-error-500/10 text-error-400 mb-4 rounded-md border px-3 py-2 text-xs"
-			>
+			<div class="alert alert-error mb-4 rounded-md px-3 py-2 text-xs">
 				{form.error}
 			</div>
 		{/if}
 
 		{#if data.hasApiKey}
 			<div class="mb-4 flex items-center gap-2">
-				<span class="text-text-300 text-sm">Current key:</span>
-				<code class="text-text-500 font-mono text-sm">{data.maskedKey}</code>
+				<span class="text-base-content/70 text-sm">Current key:</span>
+				<code class="text-base-content/50 font-mono text-sm">{data.maskedKey}</code>
 			</div>
 		{/if}
 
@@ -80,13 +76,10 @@
 				name="apiKey"
 				type="password"
 				placeholder="sk-ant-api03-..."
-				class="border-surface-800 bg-surface-950 text-text-100 placeholder-text-500 focus:border-accent-500/50 input-glow w-full rounded-md border px-3 py-2.5 font-mono text-sm outline-none"
+				class="input input-bordered w-full rounded-md px-3 py-2.5 font-mono text-sm"
 			/>
 			<div class="flex gap-2">
-				<button
-					type="submit"
-					class="bg-accent-500 hover:bg-accent-400 text-surface-950 rounded-md px-4 py-2 text-sm font-medium transition-colors"
-				>
+				<button type="submit" class="btn btn-primary rounded-md px-4 py-2 text-sm font-medium">
 					Save Key
 				</button>
 			</div>
@@ -94,10 +87,7 @@
 
 		{#if data.hasApiKey}
 			<form method="POST" action="?/clear" use:enhance class="mt-3">
-				<button
-					type="submit"
-					class="border-surface-700 text-text-300 hover:border-surface-600 hover:text-text-100 rounded-md border px-4 py-2 text-sm transition-colors"
-				>
+				<button type="submit" class="btn btn-ghost rounded-md px-4 py-2 text-sm">
 					Clear Key
 				</button>
 			</form>
@@ -105,22 +95,18 @@
 	</div>
 
 	<!-- Interactive Sessions section -->
-	<div class="border-surface-800 bg-surface-900/50 mt-8 rounded-2xl border p-6">
+	<div class="card bg-base-200 mt-8 rounded-2xl p-6">
 		<h2 class="section-title">Interactive Sessions</h2>
 		<p class="section-subtitle mb-4">Defaults for new Claude sessions.</p>
 
 		{#if form?.success && form?.section === 'session'}
-			<div
-				class="border-success-500/30 bg-success-500/10 text-success-500 mb-4 rounded-md border px-3 py-2 text-xs"
-			>
+			<div class="alert alert-success mb-4 rounded-md px-3 py-2 text-xs">
 				Session settings saved.
 			</div>
 		{/if}
 
 		{#if form?.error && form?.section === 'session'}
-			<div
-				class="border-error-500/30 bg-error-500/10 text-error-400 mb-4 rounded-md border px-3 py-2 text-xs"
-			>
+			<div class="alert alert-error mb-4 rounded-md px-3 py-2 text-xs">
 				{form.error}
 			</div>
 		{/if}
@@ -128,14 +114,16 @@
 		<form method="POST" action="?/saveSessionConfig" use:enhance class="space-y-4">
 			<!-- Permission mode -->
 			<div>
-				<label for="settings-permission" class="text-text-300 mb-1.5 block text-xs font-medium"
+				<label
+					for="settings-permission"
+					class="text-base-content/70 mb-1.5 block text-xs font-medium"
 					>Default Permission Mode</label
 				>
 				<select
 					id="settings-permission"
 					name="permissionMode"
 					value={data.defaultPermissionMode}
-					class="border-surface-800 bg-surface-950 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
+					class="select select-bordered w-full rounded-md text-sm"
 				>
 					{#each PERMISSION_MODES as mode (mode)}
 						<option value={mode}>{PERMISSION_MODE_LABELS[mode]}</option>
@@ -145,7 +133,7 @@
 
 			<!-- Model -->
 			<div>
-				<label for="settings-model" class="text-text-300 mb-1.5 block text-xs font-medium"
+				<label for="settings-model" class="text-base-content/70 mb-1.5 block text-xs font-medium"
 					>Default Model</label
 				>
 				<input
@@ -153,14 +141,15 @@
 					name="model"
 					value={data.defaultModel}
 					placeholder="SDK default"
-					class="border-surface-800 bg-surface-950 text-text-100 placeholder-text-500 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
+					class="input input-bordered w-full rounded-md text-sm"
 				/>
 			</div>
 
 			<!-- Permission timeout -->
 			<div>
-				<label for="settings-perm-timeout" class="text-text-300 mb-1.5 block text-xs font-medium"
-					>Permission Timeout</label
+				<label
+					for="settings-perm-timeout"
+					class="text-base-content/70 mb-1.5 block text-xs font-medium">Permission Timeout</label
 				>
 				<div class="flex items-center gap-2">
 					<input
@@ -170,16 +159,17 @@
 						min="1"
 						max="60"
 						value={data.permissionTimeoutMinutes}
-						class="border-surface-800 bg-surface-950 text-text-100 input-glow w-24 rounded-md border px-3 py-2.5 text-sm outline-none"
+						class="input input-bordered w-24 rounded-md text-sm"
 					/>
-					<span class="text-text-500 text-xs">minutes</span>
+					<span class="text-base-content/50 text-xs">minutes</span>
 				</div>
 			</div>
 
 			<!-- Session reap timeout -->
 			<div>
-				<label for="settings-reap-timeout" class="text-text-300 mb-1.5 block text-xs font-medium"
-					>Session Reap Timeout</label
+				<label
+					for="settings-reap-timeout"
+					class="text-base-content/70 mb-1.5 block text-xs font-medium">Session Reap Timeout</label
 				>
 				<div class="flex items-center gap-2">
 					<input
@@ -189,16 +179,13 @@
 						min="5"
 						max="1440"
 						value={data.sessionReapMinutes}
-						class="border-surface-800 bg-surface-950 text-text-100 input-glow w-24 rounded-md border px-3 py-2.5 text-sm outline-none"
+						class="input input-bordered w-24 rounded-md text-sm"
 					/>
-					<span class="text-text-500 text-xs">minutes</span>
+					<span class="text-base-content/50 text-xs">minutes</span>
 				</div>
 			</div>
 
-			<button
-				type="submit"
-				class="bg-accent-500 hover:bg-accent-400 text-surface-950 rounded-md px-4 py-2 text-sm font-medium transition-colors"
-			>
+			<button type="submit" class="btn btn-primary rounded-md px-4 py-2 text-sm font-medium">
 				Save Settings
 			</button>
 		</form>
