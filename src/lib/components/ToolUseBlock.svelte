@@ -63,41 +63,32 @@
 	});
 </script>
 
-<CollapsibleSection accentClass="border-l-accent-300/50" bodyClass="space-y-2">
+<CollapsibleSection accentClass="border-l-primary/30" bodyClass="space-y-2">
 	{#snippet header()}
 		<span
-			class="rounded px-1.5 py-0.5 text-[10px] font-semibold {tool.result?.isError
-				? 'bg-error-500/10 text-error-500'
-				: 'bg-accent-500/10 text-accent-300'}"
+			class="badge badge-sm {tool.result?.isError ? 'badge-error' : 'badge-primary badge-outline'}"
 		>
 			{tool.name}
 		</span>
 
 		{#if summary}
-			<span class="text-text-500 truncate font-mono text-[11px]">{summary}</span>
+			<span class="text-base-content/50 truncate font-mono text-[11px]">{summary}</span>
 		{/if}
 
 		{#if tool.result?.isError}
-			<span class="text-error-400 bg-error-500/10 ml-auto rounded-full px-2 py-0.5 text-[10px]"
-				>error</span
-			>
+			<span class="badge badge-error badge-sm ml-auto">error</span>
 		{/if}
 	{/snippet}
 
 	<!-- Badges + Raw toggle -->
 	<div class="flex items-center gap-2">
 		{#if viewMode !== 'generic'}
-			<button
-				onclick={() => (showRaw = !showRaw)}
-				class="text-text-500 hover:text-text-300 text-[10px] transition-colors"
-			>
+			<button onclick={() => (showRaw = !showRaw)} class="btn btn-ghost btn-xs">
 				{showRaw ? 'View formatted' : 'View raw'}
 			</button>
 		{/if}
 		{#if viewMode === 'edit' && tool.input.replace_all}
-			<span class="bg-accent-500/10 text-accent-300 rounded px-1.5 py-0.5 text-[9px] font-medium"
-				>replace_all</span
-			>
+			<span class="badge badge-primary badge-xs badge-outline">replace_all</span>
 		{/if}
 	</div>
 

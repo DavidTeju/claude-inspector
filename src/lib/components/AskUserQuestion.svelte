@@ -82,13 +82,13 @@
 	);
 </script>
 
-<div class="border-l-user-400 bg-user-700/10 rounded-xl border-l-2 px-4 py-3">
+<div class="border-l-secondary bg-secondary/5 rounded-xl border-l-2 px-4 py-3">
 	{#each request.questions as question, qi (qi)}
-		<div class={qi > 0 ? 'border-surface-800/50 mt-4 border-t pt-4' : ''}>
+		<div class={qi > 0 ? 'border-base-content/10 mt-4 border-t pt-4' : ''}>
 			{#if question.header}
-				<div class="text-text-100 mb-1 text-[11px] font-semibold">{question.header}</div>
+				<div class="text-base-content mb-1 text-[11px] font-semibold">{question.header}</div>
 			{/if}
-			<div class="text-text-300 mb-2 text-sm">{question.question}</div>
+			<div class="text-base-content/70 mb-2 text-sm">{question.question}</div>
 
 			<div class="space-y-1" role={question.multiSelect ? 'group' : 'radiogroup'}>
 				{#each question.options as option (option.label)}
@@ -99,19 +99,21 @@
 							question.multiSelect ? toggleMulti(qi, value) : selectSingle(qi, value)}
 						role={question.multiSelect ? 'checkbox' : 'radio'}
 						aria-checked={selected}
-						class="hover:bg-surface-800/30 flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors {selected
-							? 'border-user-400/30 bg-surface-800/50 border'
+						class="hover:bg-base-300/50 flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors {selected
+							? 'border-secondary/30 bg-base-300/50 border'
 							: 'border border-transparent'}"
 					>
 						<!-- Radio / Checkbox indicator -->
 						<span
 							class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-{question.multiSelect
 								? 'sm'
-								: 'full'} border {selected ? 'border-user-400 bg-user-400' : 'border-surface-600'}"
+								: 'full'} border {selected
+								? 'border-secondary bg-secondary'
+								: 'border-base-content/20'}"
 						>
 							{#if selected}
 								<svg
-									class="text-surface-950 h-2.5 w-2.5"
+									class="text-base-100 h-2.5 w-2.5"
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"
@@ -123,9 +125,9 @@
 						</span>
 
 						<div>
-							<span class="text-text-100 text-sm">{option.label}</span>
+							<span class="text-base-content text-sm">{option.label}</span>
 							{#if option.description}
-								<span class="text-text-500 ml-1 text-[10px]">{option.description}</span>
+								<span class="text-base-content/50 ml-1 text-[10px]">{option.description}</span>
 							{/if}
 						</div>
 					</button>
@@ -141,8 +143,8 @@
 								: selectSingle(qi, OTHER_SENTINEL)}
 						role={question.multiSelect ? 'checkbox' : 'radio'}
 						aria-checked={otherSelected}
-						class="hover:bg-surface-800/30 flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors {otherSelected
-							? 'border-user-400/30 bg-surface-800/50 border'
+						class="hover:bg-base-300/50 flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors {otherSelected
+							? 'border-secondary/30 bg-base-300/50 border'
 							: 'border border-transparent'}"
 					>
 						<!-- Radio / Checkbox indicator -->
@@ -150,12 +152,12 @@
 							class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-{question.multiSelect
 								? 'sm'
 								: 'full'} border {otherSelected
-								? 'border-user-400 bg-user-400'
-								: 'border-surface-600'}"
+								? 'border-secondary bg-secondary'
+								: 'border-base-content/20'}"
 						>
 							{#if otherSelected}
 								<svg
-									class="text-surface-950 h-2.5 w-2.5"
+									class="text-base-100 h-2.5 w-2.5"
 									fill="none"
 									viewBox="0 0 24 24"
 									stroke="currentColor"
@@ -187,8 +189,8 @@
 								}
 							}}
 							class="min-w-0 flex-1 bg-transparent text-sm focus:outline-none {otherSelected
-								? 'text-text-100 placeholder-text-500 cursor-text'
-								: 'text-text-500 cursor-pointer line-through'}"
+								? 'text-base-content placeholder-base-content/50 cursor-text'
+								: 'text-base-content/50 cursor-pointer line-through'}"
 						/>
 					</button>
 				{/if}
@@ -200,9 +202,7 @@
 		<button
 			onclick={handleSubmit}
 			disabled={!hasAnyAnswer}
-			class="bg-user-500 text-surface-950 rounded-lg px-4 py-2 text-[11px] font-semibold transition-colors {hasAnyAnswer
-				? 'hover:bg-user-400 cursor-pointer'
-				: 'cursor-not-allowed opacity-40'}"
+			class="btn btn-secondary btn-sm {!hasAnyAnswer ? 'btn-disabled' : ''}"
 		>
 			Submit
 		</button>

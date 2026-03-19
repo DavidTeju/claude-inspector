@@ -106,14 +106,14 @@
 		{#if displayMessages.length > 0}
 			<MessageList messages={displayMessages} />
 		{:else if !session}
-			<div class="text-text-500 py-12 text-center text-sm">No messages in this session.</div>
+			<div class="text-base-content/50 py-12 text-center text-sm">No messages in this session.</div>
 		{/if}
 
 		<!-- Streaming assistant message -->
 		{#if session?.streamingUuid}
-			<div class="border-surface-800/50 relative border-l pl-6">
+			<div class="border-base-content/10 relative border-l pl-6">
 				<div
-					class="bg-accent-400 absolute top-4 -left-6 h-2 w-2 -translate-x-1/2 animate-pulse rounded-full"
+					class="bg-primary absolute top-4 -left-6 h-2 w-2 -translate-x-1/2 animate-pulse rounded-full"
 				></div>
 				<StreamingAssistantMessage
 					text={session.streamingText}
@@ -163,7 +163,7 @@
 	{#if !isNearBottom}
 		<button
 			onclick={scrollToBottom}
-			class="border-surface-700 bg-surface-800 text-text-300 hover:bg-surface-700 absolute bottom-4 left-1/2 -translate-x-1/2 cursor-pointer rounded-full border px-3 py-1.5 text-[10px] shadow-lg transition-colors"
+			class="btn btn-sm btn-ghost absolute bottom-4 left-1/2 -translate-x-1/2 shadow-lg"
 		>
 			Jump to bottom
 		</button>

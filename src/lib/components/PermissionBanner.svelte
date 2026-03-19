@@ -56,16 +56,14 @@
 	let jsonExpanded = $state(false);
 </script>
 
-<div class="animate-pulse-border bg-warning-500/5 rounded-xl border-l-2 px-4 py-3">
+<div class="animate-pulse-border bg-warning/5 rounded-xl border-l-2 px-4 py-3">
 	<!-- Header -->
 	<div class="mb-2 flex items-center gap-2">
-		<span
-			class="bg-warning-500/10 text-warning-500 rounded px-1.5 py-0.5 text-[10px] font-semibold"
-		>
+		<span class="badge badge-warning badge-sm">
 			{request.toolName}
 		</span>
 		{#if request.decisionReason}
-			<span class="text-text-500 text-[10px]">{request.decisionReason}</span>
+			<span class="text-base-content/50 text-[10px]">{request.decisionReason}</span>
 		{/if}
 	</div>
 
@@ -73,25 +71,22 @@
 	<div class="mb-3">
 		{#if inputPreview.type === 'code'}
 			<pre
-				class="border-accent-500/20 bg-accent-500/5 text-accent-300 overflow-auto rounded-md border p-2 font-mono text-[11px] leading-relaxed">{inputPreview.value}</pre>
+				class="border-primary/20 bg-primary/5 text-primary overflow-auto rounded-md border p-2 font-mono text-[11px] leading-relaxed">{inputPreview.value}</pre>
 		{:else if inputPreview.type === 'path'}
-			<span class="text-text-300 font-mono text-[11px]">{inputPreview.value}</span>
+			<span class="text-base-content/70 font-mono text-[11px]">{inputPreview.value}</span>
 		{:else if inputPreview.type === 'pattern'}
 			<span
-				class="border-accent-500/20 bg-accent-500/5 text-accent-300 inline-block rounded border px-2 py-1 font-mono text-[11px]"
+				class="border-primary/20 bg-primary/5 text-primary inline-block rounded border px-2 py-1 font-mono text-[11px]"
 			>
 				{inputPreview.value}
 			</span>
 		{:else if inputPreview.long && !jsonExpanded}
-			<button
-				onclick={() => (jsonExpanded = true)}
-				class="text-text-500 hover:text-text-300 text-[10px] transition-colors"
-			>
+			<button onclick={() => (jsonExpanded = true)} class="btn btn-ghost btn-xs">
 				Show input ({inputPreview.value.length} chars)
 			</button>
 		{:else}
 			<pre
-				class="bg-surface-950 text-text-300 max-h-48 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed">{inputPreview.value}</pre>
+				class="bg-base-100 text-base-content/70 max-h-48 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed">{inputPreview.value}</pre>
 		{/if}
 	</div>
 
@@ -100,21 +95,21 @@
 		<button
 			onclick={() => onAllow()}
 			aria-label="Allow tool use"
-			class="border-success-500/20 bg-success-500/10 text-success-500 hover:bg-success-500/20 cursor-pointer rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors"
+			class="btn btn-success btn-sm btn-outline"
 		>
 			Allow
 		</button>
 		<button
 			onclick={() => (openPanel = openPanel === 'note' ? null : 'note')}
 			aria-label="Allow with note"
-			class="border-success-500/20 text-success-500 hover:bg-success-500/10 cursor-pointer rounded-lg border px-3 py-1.5 text-[11px] transition-colors"
+			class="btn btn-success btn-sm btn-ghost"
 		>
 			Allow + Note
 		</button>
 		<button
 			onclick={() => (openPanel = openPanel === 'deny' ? null : 'deny')}
 			aria-label="Deny tool use"
-			class="border-error-500/20 bg-error-500/10 text-error-500 hover:bg-error-500/20 cursor-pointer rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors"
+			class="btn btn-error btn-sm btn-outline"
 		>
 			Deny
 		</button>
@@ -127,7 +122,7 @@
 				bind:value={noteText}
 				placeholder="Add a note for Claude (will be sent after this turn)..."
 				rows="2"
-				class="border-surface-700 bg-surface-900 text-text-100 placeholder-text-500 w-full resize-none rounded-md border px-3 py-1.5 text-sm focus:outline-none"
+				class="textarea textarea-bordered w-full"
 			></textarea>
 			<button
 				onclick={() => {
@@ -135,7 +130,7 @@
 					noteText = '';
 					openPanel = null;
 				}}
-				class="border-success-500/20 bg-success-500/10 text-success-500 hover:bg-success-500/20 cursor-pointer rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors"
+				class="btn btn-success btn-sm"
 			>
 				Allow with note
 			</button>
@@ -149,7 +144,7 @@
 				bind:value={denyMessage}
 				placeholder="Tell Claude what to do instead..."
 				rows="2"
-				class="border-surface-700 bg-surface-900 text-text-100 placeholder-text-500 w-full resize-none rounded-md border px-3 py-1.5 text-sm focus:outline-none"
+				class="textarea textarea-bordered w-full"
 			></textarea>
 			<button
 				onclick={() => {
@@ -157,7 +152,7 @@
 					denyMessage = '';
 					openPanel = null;
 				}}
-				class="border-error-500/20 bg-error-500/10 text-error-500 hover:bg-error-500/20 cursor-pointer rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors"
+				class="btn btn-error btn-sm"
 			>
 				Deny
 			</button>

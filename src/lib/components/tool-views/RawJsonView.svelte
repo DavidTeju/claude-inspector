@@ -5,9 +5,11 @@
 </script>
 
 <div>
-	<div class="text-text-500 mb-1 text-[10px] font-semibold tracking-wider uppercase">Input</div>
+	<div class="text-base-content/50 mb-1 text-[10px] font-semibold tracking-wider uppercase">
+		Input
+	</div>
 	<pre
-		class="bg-surface-950 text-text-300 max-h-64 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">{JSON.stringify(
+		class="bg-base-100 text-base-content/70 max-h-64 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">{JSON.stringify(
 			tool.input,
 			null,
 			2
@@ -18,14 +20,14 @@
 	<div>
 		<div
 			class="mb-1 text-[10px] font-semibold tracking-wider uppercase {tool.result?.isError
-				? 'text-error-500'
-				: 'text-text-500'}"
+				? 'text-error'
+				: 'text-base-content/50'}"
 		>
 			{tool.result?.isError ? 'Error' : 'Result'}
 		</div>
 		<pre
-			class="bg-surface-950 max-h-96 overflow-auto rounded-md p-2 text-[11px] {tool.result?.isError
-				? 'text-error-400'
-				: 'text-text-300'} font-mono leading-relaxed break-words whitespace-pre-wrap">{resultText}</pre>
+			class="bg-base-100 max-h-96 overflow-auto rounded-md p-2 text-[11px] {tool.result?.isError
+				? 'text-error'
+				: 'text-base-content/70'} font-mono leading-relaxed break-words whitespace-pre-wrap">{resultText}</pre>
 	</div>
 {/if}

@@ -178,13 +178,13 @@
 </script>
 
 <div
-	class="border-surface-800 bg-surface-900/50 focus-within:ring-accent-500/30 focus-within:shadow-accent-500/10 rounded-xl border transition-shadow focus-within:shadow-[0_0_12px_-4px] focus-within:ring-1"
+	class="card bg-base-200 focus-within:ring-primary/30 focus-within:shadow-primary/10 rounded-xl transition-shadow focus-within:shadow-[0_0_12px_-4px] focus-within:ring-1"
 >
 	<div class="relative">
 		<!-- Slash command popup (above the textarea, follows cursor) -->
 		{#if showCommandList}
 			<div
-				class="border-surface-700 bg-surface-900 absolute bottom-full z-20 mb-1 max-w-sm min-w-[16rem] overflow-hidden rounded-lg border shadow-lg"
+				class="dropdown-content bg-base-100 border-base-content/10 rounded-box absolute bottom-full z-20 mb-1 max-w-sm min-w-[16rem] overflow-hidden border shadow-lg"
 				style="left: {caretLeftPx}px;"
 				id="slash-command-listbox"
 				role="listbox"
@@ -195,30 +195,32 @@
 						id="slash-cmd-{i}"
 						role="option"
 						aria-selected={i === effectiveIndex}
-						class="flex w-full flex-col gap-0.5 px-3 py-2 text-left transition-colors {i ===
+						class="btn btn-ghost btn-block h-auto flex-col items-start justify-start gap-0.5 rounded-none px-3 py-2 text-left {i ===
 						effectiveIndex
-							? 'bg-accent-500/15 text-text-100'
-							: 'text-text-300 hover:bg-surface-800'}"
+							? 'bg-primary/10 text-primary'
+							: ''}"
 						onmouseenter={() => (selectedIndex = i)}
 						onclick={() => acceptCommand(cmd)}
 					>
 						<span class="flex items-baseline gap-2 text-xs">
-							<span class="text-accent-400 shrink-0 font-medium">/{cmd.name}</span>
+							<span class="text-primary shrink-0 font-medium">/{cmd.name}</span>
 							{#if cmd.argumentHint}
-								<span class="text-text-600 shrink-0">{cmd.argumentHint}</span>
+								<span class="text-base-content/50 shrink-0">{cmd.argumentHint}</span>
 							{/if}
 						</span>
-						<span class="text-text-500 truncate text-[11px]">{cmd.description}</span>
+						<span class="text-base-content/50 truncate text-[11px]">{cmd.description}</span>
 					</button>
 				{/each}
 
 				<!-- Keyboard hint footer -->
-				<div class="border-surface-700 text-text-700 flex gap-2 border-t px-3 py-1.5 text-[10px]">
-					<span><kbd class="text-text-500">↑↓</kbd> navigate</span>
-					<span class="text-surface-700">&middot;</span>
-					<span><kbd class="text-text-500">Tab</kbd> accept</span>
-					<span class="text-surface-700">&middot;</span>
-					<span><kbd class="text-text-500">Esc</kbd> dismiss</span>
+				<div
+					class="border-base-content/10 text-base-content/30 flex gap-2 border-t px-3 py-1.5 text-[10px]"
+				>
+					<span><kbd class="kbd kbd-sm">↑↓</kbd> navigate</span>
+					<span class="text-base-content/10">&middot;</span>
+					<span><kbd class="kbd kbd-sm">Tab</kbd> accept</span>
+					<span class="text-base-content/10">&middot;</span>
+					<span><kbd class="kbd kbd-sm">Esc</kbd> dismiss</span>
 				</div>
 			</div>
 		{/if}
@@ -241,30 +243,26 @@
 			aria-controls="slash-command-listbox"
 			aria-expanded={showCommandList}
 			aria-activedescendant={showCommandList ? `slash-cmd-${effectiveIndex}` : undefined}
-			class="text-text-100 placeholder-text-500 w-full resize-none bg-transparent px-4 py-2.5 text-sm focus:outline-none disabled:opacity-40 supports-[field-sizing:content]:field-sizing-content"
+			class="text-base-content placeholder-base-content/50 w-full resize-none bg-transparent px-4 py-2.5 text-sm focus:outline-none disabled:opacity-40 supports-[field-sizing:content]:field-sizing-content"
 			style="min-height: 36px; max-height: 200px;"
 		></textarea>
 
 		<!-- Ghost text for slash command completion -->
 		{#if ghostText}
 			<div class="pointer-events-none absolute top-2.5 left-4 text-sm">
-				<span class="invisible">{text}</span><span class="text-text-700">{ghostText}</span>
-				<span class="border-surface-700 text-text-500 ml-1 rounded border px-1 py-0.5 text-[10px]"
-					>Tab</span
-				>
+				<span class="invisible">{text}</span><span class="text-base-content/30">{ghostText}</span>
+				<kbd class="kbd kbd-sm ml-1">Tab</kbd>
 			</div>
 		{:else if suggestion && !text.trim()}
-			<div class="text-text-700 pointer-events-none absolute top-2.5 left-4 text-sm">
+			<div class="text-base-content/30 pointer-events-none absolute top-2.5 left-4 text-sm">
 				{suggestion}
-				<span class="border-surface-700 text-text-500 ml-2 rounded border px-1 py-0.5 text-[10px]"
-					>Tab</span
-				>
+				<kbd class="kbd kbd-sm ml-2">Tab</kbd>
 			</div>
 		{/if}
 	</div>
 
-	<div class="border-surface-800/50 flex items-center justify-between border-t px-3 py-1.5">
-		<span class="text-text-700 text-[11px]">
+	<div class="border-base-content/5 flex items-center justify-between border-t px-3 py-1.5">
+		<span class="text-base-content/30 text-[11px]">
 			{#if isQueuing}
 				Message will be queued
 			{:else}
@@ -276,11 +274,9 @@
 			onclick={submit}
 			disabled={!canSubmit}
 			aria-label={isQueuing ? 'Queue message' : 'Send message'}
-			class="rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors {isQueuing
-				? 'border-warning-500/30 bg-warning-500/20 text-warning-500 border'
-				: 'bg-accent-500 text-surface-950'} {!canSubmit
-				? 'cursor-not-allowed opacity-40'
-				: 'cursor-pointer'}"
+			class="btn btn-sm {isQueuing ? 'btn-warning btn-outline' : 'btn-primary'} {!canSubmit
+				? 'btn-disabled'
+				: ''}"
 		>
 			{resolvedButtonLabel}
 		</button>

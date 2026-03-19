@@ -93,16 +93,12 @@
 	bind:this={dialogEl}
 	onclose={handleClose}
 	onclick={handleBackdropClick}
-	class="bg-surface-950 border-surface-800 m-auto w-full max-w-xl rounded-2xl border p-0 shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm"
+	class="bg-base-100 border-base-content/10 m-auto w-full max-w-xl rounded-2xl border p-0 shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-sm"
 >
 	<div class="p-6">
 		<div class="mb-5 flex items-center justify-between">
-			<h2 class="text-text-100 text-lg font-semibold">New Session</h2>
-			<button
-				onclick={handleClose}
-				class="text-text-500 hover:text-text-300 cursor-pointer transition-colors"
-				aria-label="Close"
-			>
+			<h2 class="text-base-content text-lg font-semibold">New Session</h2>
+			<button onclick={handleClose} class="btn btn-ghost btn-circle btn-sm" aria-label="Close">
 				<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
 				</svg>
@@ -112,12 +108,13 @@
 		<div class="space-y-4">
 			<!-- Project selector -->
 			<div>
-				<label for="modal-project-select" class="text-text-300 mb-1.5 block text-xs font-medium"
-					>Project</label
+				<label
+					for="modal-project-select"
+					class="text-base-content/70 mb-1.5 block text-xs font-medium">Project</label
 				>
 				{#if projects.length === 0}
 					<p
-						class="text-text-500 border-surface-800 bg-surface-900 rounded-md border px-3 py-2.5 text-sm"
+						class="text-base-content/50 border-base-content/10 bg-base-200 rounded-md border px-3 py-2.5 text-sm"
 					>
 						No projects found. Start a Claude session in a project directory first.
 					</p>
@@ -125,7 +122,7 @@
 					<select
 						id="modal-project-select"
 						bind:value={selectedProject}
-						class="border-surface-800 bg-surface-900 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
+						class="select select-bordered w-full"
 					>
 						{#each projects as project (project.id)}
 							<option value={project.id}>{project.displayName}</option>
@@ -139,12 +136,12 @@
 				<div>
 					<label
 						for="modal-permission-select"
-						class="text-text-300 mb-1.5 block text-xs font-medium">Permission Mode</label
+						class="text-base-content/70 mb-1.5 block text-xs font-medium">Permission Mode</label
 					>
 					<select
 						id="modal-permission-select"
 						bind:value={permissionMode}
-						class="border-surface-800 bg-surface-900 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
+						class="select select-bordered w-full"
 					>
 						{#each PERMISSION_MODES as mode (mode)}
 							<option value={mode}>{PERMISSION_MODE_LABELS[mode]}</option>
@@ -152,13 +149,14 @@
 					</select>
 				</div>
 				<div>
-					<label for="modal-model-select" class="text-text-300 mb-1.5 block text-xs font-medium"
-						>Model</label
+					<label
+						for="modal-model-select"
+						class="text-base-content/70 mb-1.5 block text-xs font-medium">Model</label
 					>
 					<select
 						id="modal-model-select"
 						bind:value={selectedModel}
-						class="border-surface-800 bg-surface-900 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
+						class="select select-bordered w-full"
 					>
 						{#each models as modelOption (modelOption.value)}
 							<option value={modelOption.value}>{modelOption.displayName}</option>
@@ -170,9 +168,7 @@
 
 		<!-- Error banner -->
 		{#if errorMessage}
-			<div
-				class="border-error-500/30 bg-error-500/10 text-error-400 mt-4 rounded-md border px-3 py-2 text-xs"
-			>
+			<div class="alert alert-error mt-4 text-sm">
 				{errorMessage}
 			</div>
 		{/if}
