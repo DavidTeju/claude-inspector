@@ -16,11 +16,7 @@ function mockPage(pathname: string, params: Record<string, string> = {}) {
 const meta = {
 	title: 'Components/TopBar',
 	component: TopBar,
-	tags: ['autodocs'],
-	args: {
-		sidebarOpen: true,
-		onToggleSidebar: () => {}
-	}
+	tags: ['autodocs']
 } satisfies Meta;
 
 export default meta;
@@ -41,9 +37,4 @@ export const SessionPage: Story = {
 		projectId: MOCK_PROJECT_ID,
 		sessionId: MOCK_SESSION_ID
 	})
-};
-
-export const SidebarClosed: Story = {
-	args: { sidebarOpen: false },
-	parameters: mockPage('/')
 };
