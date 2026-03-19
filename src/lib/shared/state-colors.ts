@@ -1,13 +1,13 @@
 import type { ActiveSessionState } from './active-session-types.js';
 
 export const STATE_COLORS: Record<ActiveSessionState, string> = {
-	initializing: 'bg-text-500',
-	running: 'bg-accent-400',
-	awaiting_permission: 'bg-warning-500',
-	awaiting_input: 'bg-user-400',
-	rate_limited: 'bg-error-500',
-	compacting: 'bg-accent-300',
-	idle: 'bg-success-500',
-	error: 'bg-error-500',
-	closed: 'bg-text-700'
+	initializing: 'bg-base-content/50',
+	running: 'bg-primary',
+	awaiting_permission: 'bg-warning',
+	awaiting_input: 'bg-secondary',
+	rate_limited: 'bg-error',
+	compacting: 'bg-primary/70',
+	idle: 'bg-success',
+	error: 'bg-error',
+	closed: 'bg-base-content/30'
 };
