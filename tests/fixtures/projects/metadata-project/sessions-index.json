@@ -6,7 +6,7 @@
 			"displaySessionId": "native-title-summary-session",
 			"fullPath": "/home/runner/work/claude-inspector/claude-inspector/tests/fixtures/projects/metadata-project/native-title-summary-session.jsonl",
 			"relativePath": "native-title-summary-session.jsonl",
-			"fileMtime": 1773912058997.1775,
+			"fileMtime": 1773940587610.072,
 			"firstPrompt": "Refactor the raw schema handling.",
 			"summary": "Native Titles Win",
 			"messageCount": 1,
@@ -15,7 +15,6 @@
 			"gitBranch": "feat/metadata",
 			"projectPath": "native-title-summary-session.jsonl",
 			"isSidechain": false,
-			"isSubagent": false,
 			"customTitle": "Native Titles Win",
 			"nativeSummary": "This session migrated the parser.\nIt kept the UI adapter intact.",
 			"lastPrompt": "Refactor the raw schema handling."

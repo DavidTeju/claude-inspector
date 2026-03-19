@@ -6,7 +6,7 @@
 			"displaySessionId": "basic-linear-session",
 			"fullPath": "/home/runner/work/claude-inspector/claude-inspector/tests/fixtures/projects/basic-project/basic-linear-session.jsonl",
 			"relativePath": "basic-linear-session.jsonl",
-			"fileMtime": 1773912058997.1775,
+			"fileMtime": 1773940587609.6873,
 			"firstPrompt": "",
 			"summary": "",
 			"messageCount": 1,
@@ -14,8 +14,7 @@
 			"modified": "2026-03-01T00:00:02.000Z",
 			"gitBranch": "main",
 			"projectPath": "basic-linear-session.jsonl",
-			"isSidechain": false,
-			"isSubagent": false
+			"isSidechain": false
 		}
 	]
 }

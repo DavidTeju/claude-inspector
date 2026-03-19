@@ -6,7 +6,7 @@
 			"displaySessionId": "corrupt-line-session",
 			"fullPath": "/home/runner/work/claude-inspector/claude-inspector/tests/fixtures/projects/corrupt-project/corrupt-line-session.jsonl",
 			"relativePath": "corrupt-line-session.jsonl",
-			"fileMtime": 1773912058997.1775,
+			"fileMtime": 1773940587609.8757,
 			"firstPrompt": "",
 			"summary": "",
 			"messageCount": 1,
@@ -14,8 +14,7 @@
 			"modified": "2026-03-07T00:00:01.000Z",
 			"gitBranch": "feat/corrupt",
 			"projectPath": "corrupt-line-session.jsonl",
-			"isSidechain": false,
-			"isSubagent": false
+			"isSidechain": false
 		}
 	]
 }

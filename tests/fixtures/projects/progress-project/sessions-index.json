@@ -6,7 +6,7 @@
 			"displaySessionId": "progress-and-system-session",
 			"fullPath": "/home/runner/work/claude-inspector/claude-inspector/tests/fixtures/projects/progress-project/progress-and-system-session.jsonl",
 			"relativePath": "progress-and-system-session.jsonl",
-			"fileMtime": 1773912058997.1775,
+			"fileMtime": 1773940587610.1606,
 			"firstPrompt": "",
 			"summary": "",
 			"messageCount": 1,
@@ -14,8 +14,7 @@
 			"modified": "2026-03-03T00:00:03.000Z",
 			"gitBranch": "feat/progress",
 			"projectPath": "progress-and-system-session.jsonl",
-			"isSidechain": false,
-			"isSubagent": false
+			"isSidechain": false
 		}
 	]
 }

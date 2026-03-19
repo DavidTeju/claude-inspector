@@ -6,7 +6,7 @@
 			"displaySessionId": "file-history-session",
 			"fullPath": "/home/runner/work/claude-inspector/claude-inspector/tests/fixtures/projects/file-history-project/file-history-session.jsonl",
 			"relativePath": "file-history-session.jsonl",
-			"fileMtime": 1773912058997.1775,
+			"fileMtime": 1773940587609.9695,
 			"firstPrompt": "",
 			"summary": "",
 			"messageCount": 1,
@@ -14,8 +14,7 @@
 			"modified": "2026-03-04T00:00:01.000Z",
 			"gitBranch": "feat/files",
 			"projectPath": "file-history-session.jsonl",
-			"isSidechain": false,
-			"isSubagent": false
+			"isSidechain": false
 		}
 	]
 }

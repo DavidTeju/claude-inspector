@@ -6,7 +6,7 @@
 			"displaySessionId": "chunked-assistant-usage-session",
 			"fullPath": "/home/runner/work/claude-inspector/claude-inspector/tests/fixtures/projects/chunked-project/chunked-assistant-usage-session.jsonl",
 			"relativePath": "chunked-assistant-usage-session.jsonl",
-			"fileMtime": 1773912058997.1775,
+			"fileMtime": 1773940587609.7634,
 			"firstPrompt": "",
 			"summary": "",
 			"messageCount": 1,
@@ -14,8 +14,7 @@
 			"modified": "2026-03-05T00:00:02.000Z",
 			"gitBranch": "feat/chunked",
 			"projectPath": "chunked-assistant-usage-session.jsonl",
-			"isSidechain": false,
-			"isSubagent": false
+			"isSidechain": false
 		}
 	]
 }

@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
-
 const { getConfig, saveConfig, startReconciliation } = vi.hoisted(() => ({
 	getConfig: vi.fn(),
 	saveConfig: vi.fn(),
@@ -16,7 +15,7 @@ vi.mock('$lib/server/reconciler.js', () => ({
 	startReconciliation
 }));
 
-import { actions } from '../src/routes/settings/+page.server.js';
+const { actions } = await import('../src/routes/settings/+page.server.js');
 
 const settingsPagePath =
 	'/home/runner/work/claude-inspector/claude-inspector/src/routes/settings/+page.svelte';
