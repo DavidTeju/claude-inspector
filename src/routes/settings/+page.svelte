@@ -116,56 +116,64 @@
 
 		<form method="POST" action="?/saveSessionConfig" use:enhance class="space-y-4">
 			<FormField id="settings-permission" label="Default Permission Mode">
-				<select
-					id="settings-permission"
-					name="permissionMode"
-					value={data.defaultPermissionMode}
-					class="border-surface-800 bg-surface-950 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
-				>
-					{#each PERMISSION_MODES as mode (mode)}
-						<option value={mode}>{PERMISSION_MODE_LABELS[mode]}</option>
-					{/each}
-				</select>
+				{#snippet children(fieldId)}
+					<select
+						id={fieldId}
+						name="permissionMode"
+						value={data.defaultPermissionMode}
+						class="border-surface-800 bg-surface-950 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
+					>
+						{#each PERMISSION_MODES as mode (mode)}
+							<option value={mode}>{PERMISSION_MODE_LABELS[mode]}</option>
+						{/each}
+					</select>
+				{/snippet}
 			</FormField>
 
 			<FormField id="settings-model" label="Default Model">
-				<input
-					id="settings-model"
-					name="model"
-					value={data.defaultModel}
-					placeholder="SDK default"
-					class="border-surface-800 bg-surface-950 text-text-100 placeholder-text-500 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
-				/>
+				{#snippet children(fieldId)}
+					<input
+						id={fieldId}
+						name="model"
+						value={data.defaultModel}
+						placeholder="SDK default"
+						class="border-surface-800 bg-surface-950 text-text-100 placeholder-text-500 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
+					/>
+				{/snippet}
 			</FormField>
 
 			<FormField id="settings-perm-timeout" label="Permission Timeout">
-				<div class="flex items-center gap-2">
-					<input
-						id="settings-perm-timeout"
-						name="permissionTimeout"
-						type="number"
-						min="1"
-						max="60"
-						value={data.permissionTimeoutMinutes}
-						class="border-surface-800 bg-surface-950 text-text-100 input-glow w-24 rounded-md border px-3 py-2.5 text-sm outline-none"
-					/>
-					<span class="text-text-500 text-xs">minutes</span>
-				</div>
+				{#snippet children(fieldId)}
+					<div class="flex items-center gap-2">
+						<input
+							id={fieldId}
+							name="permissionTimeout"
+							type="number"
+							min="1"
+							max="60"
+							value={data.permissionTimeoutMinutes}
+							class="border-surface-800 bg-surface-950 text-text-100 input-glow w-24 rounded-md border px-3 py-2.5 text-sm outline-none"
+						/>
+						<span class="text-text-500 text-xs">minutes</span>
+					</div>
+				{/snippet}
 			</FormField>
 
 			<FormField id="settings-reap-timeout" label="Session Reap Timeout">
-				<div class="flex items-center gap-2">
-					<input
-						id="settings-reap-timeout"
-						name="sessionReap"
-						type="number"
-						min="5"
-						max="1440"
-						value={data.sessionReapMinutes}
-						class="border-surface-800 bg-surface-950 text-text-100 input-glow w-24 rounded-md border px-3 py-2.5 text-sm outline-none"
-					/>
-					<span class="text-text-500 text-xs">minutes</span>
-				</div>
+				{#snippet children(fieldId)}
+					<div class="flex items-center gap-2">
+						<input
+							id={fieldId}
+							name="sessionReap"
+							type="number"
+							min="5"
+							max="1440"
+							value={data.sessionReapMinutes}
+							class="border-surface-800 bg-surface-950 text-text-100 input-glow w-24 rounded-md border px-3 py-2.5 text-sm outline-none"
+						/>
+						<span class="text-text-500 text-xs">minutes</span>
+					</div>
+				{/snippet}
 			</FormField>
 
 			<button

@@ -114,48 +114,54 @@
 		<div class="space-y-4">
 			<!-- Project selector -->
 			<FormField id="modal-project-select" label="Project">
-				{#if projects.length === 0}
-					<p
-						class="text-text-500 border-surface-800 bg-surface-900 rounded-md border px-3 py-2.5 text-sm"
-					>
-						No projects found. Start a Claude session in a project directory first.
-					</p>
-				{:else}
-					<select
-						id="modal-project-select"
-						bind:value={selectedProject}
-						class="border-surface-800 bg-surface-900 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
-					>
-						{#each projects as project (project.id)}
-							<option value={project.id}>{project.displayName}</option>
-						{/each}
-					</select>
-				{/if}
+				{#snippet children(fieldId)}
+					{#if projects.length === 0}
+						<p
+							class="text-text-500 border-surface-800 bg-surface-900 rounded-md border px-3 py-2.5 text-sm"
+						>
+							No projects found. Start a Claude session in a project directory first.
+						</p>
+					{:else}
+						<select
+							id={fieldId}
+							bind:value={selectedProject}
+							class="border-surface-800 bg-surface-900 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
+						>
+							{#each projects as project (project.id)}
+								<option value={project.id}>{project.displayName}</option>
+							{/each}
+						</select>
+					{/if}
+				{/snippet}
 			</FormField>
 
 			<!-- Permission mode + Model in a row -->
 			<div class="grid grid-cols-2 gap-3">
 				<FormField id="modal-permission-select" label="Permission Mode">
-					<select
-						id="modal-permission-select"
-						bind:value={permissionMode}
-						class="border-surface-800 bg-surface-900 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
-					>
-						{#each PERMISSION_MODES as mode (mode)}
-							<option value={mode}>{PERMISSION_MODE_LABELS[mode]}</option>
-						{/each}
-					</select>
+					{#snippet children(fieldId)}
+						<select
+							id={fieldId}
+							bind:value={permissionMode}
+							class="border-surface-800 bg-surface-900 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
+						>
+							{#each PERMISSION_MODES as mode (mode)}
+								<option value={mode}>{PERMISSION_MODE_LABELS[mode]}</option>
+							{/each}
+						</select>
+					{/snippet}
 				</FormField>
 				<FormField id="modal-model-select" label="Model">
-					<select
-						id="modal-model-select"
-						bind:value={selectedModel}
-						class="border-surface-800 bg-surface-900 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
-					>
-						{#each models as modelOption (modelOption.value)}
-							<option value={modelOption.value}>{modelOption.displayName}</option>
-						{/each}
-					</select>
+					{#snippet children(fieldId)}
+						<select
+							id={fieldId}
+							bind:value={selectedModel}
+							class="border-surface-800 bg-surface-900 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
+						>
+							{#each models as modelOption (modelOption.value)}
+								<option value={modelOption.value}>{modelOption.displayName}</option>
+							{/each}
+						</select>
+					{/snippet}
 				</FormField>
 			</div>
 		</div>

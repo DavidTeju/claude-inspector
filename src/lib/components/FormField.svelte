@@ -8,11 +8,11 @@
 	}: {
 		id: string;
 		label: string;
-		children: Snippet;
+		children: Snippet<[string]>;
 	} = $props();
 </script>
 
 <div>
 	<label for={id} class="text-text-300 mb-1.5 block text-xs font-medium">{label}</label>
-	{@render children()}
+	{@render children(id)}
 </div>
