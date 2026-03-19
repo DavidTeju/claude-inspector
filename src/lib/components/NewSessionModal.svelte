@@ -34,7 +34,9 @@
 		if (!dialogEl) return;
 		if (newSessionModal.open && !dialogEl.open) {
 			// Initialize project selection on open
-			if (!selectedProject && projects.length > 0) {
+			if (newSessionModal.projectId) {
+				selectedProject = newSessionModal.projectId;
+			} else if (!selectedProject && projects.length > 0) {
 				selectedProject = projects[0].id;
 			}
 			dialogEl.showModal();

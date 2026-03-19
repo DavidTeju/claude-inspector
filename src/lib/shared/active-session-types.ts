@@ -11,6 +11,7 @@ import type {
 	SlashCommand
 } from '@anthropic-ai/claude-agent-sdk';
 import type { ContentBlock, ThreadMessage, ToolCall } from '../types.js';
+import type { SessionErrorInfo } from './session-errors.js';
 
 export type PermissionMode = SDKPermissionMode;
 
@@ -118,7 +119,7 @@ export interface InitEvent {
 	model: string;
 	permissionMode: PermissionMode;
 	dangerousPermissionsAllowed: boolean;
-	error: string | null;
+	error: SessionErrorInfo | null;
 }
 
 export interface UserEvent {
@@ -224,8 +225,7 @@ export interface PromptSuggestionEvent {
 
 export interface ErrorEvent {
 	type: 'error';
-	message: string;
-	recoverable: boolean;
+	error: SessionErrorInfo;
 }
 
 export interface ReplayMessageEvent {

@@ -4,10 +4,12 @@
 	import SessionControls from '$lib/components/SessionControls.svelte';
 	import { SESSION_ID_DISPLAY_LENGTH } from '$lib/constants.js';
 	import type { PermissionMode } from '$lib/shared/active-session-types.js';
+	import { createSessionError, type SessionErrorInfo } from '$lib/shared/session-errors.js';
 	import {
 		createActiveSessionConnection,
 		type ActiveSessionClient
 	} from '$lib/stores/active-session.svelte.js';
+	import { newSessionModal } from '$lib/stores/new-session-modal.svelte.js';
 	import type { ThreadMessage } from '$lib/types.js';
 	import { dirNameToDisplayName, getErrorMessage, uuid } from '$lib/utils.js';
 	import { browser } from '$app/environment';
@@ -18,7 +20,7 @@
 
 	let session: ActiveSessionClient | undefined = $state();
 	let localPermissionMode = $state<PermissionMode>('default');
-	let resumeError = $state<string | null>(null);
+	let resumeError = $state<SessionErrorInfo | null>(null);
 	let resuming = $state(false);
 
 	// Local override — set to true after a successful resume so the SSE connection
@@ -125,7 +127,7 @@
 
 			const body: { error?: string } = await response.json();
 			if (!response.ok) {
-				resumeError = body.error ?? 'Failed to resume session';
+				resumeError = createSessionError(body.error ?? 'Failed to resume session', 'action', true);
 				return;
 			}
 
@@ -149,7 +151,11 @@
 			activatedLocally = true;
 		} catch (err: unknown) {
 			console.error('[session] Resume failed:', err);
-			resumeError = `Failed to resume session: ${getErrorMessage(err)}`;
+			resumeError = createSessionError(
+				`Failed to resume session: ${getErrorMessage(err)}`,
+				'network',
+				true
+			);
 		} finally {
 			resuming = false;
 		}
@@ -193,8 +199,12 @@
 				isSubagent={data.isSubagent}
 				parentSessionId={data.parentSessionId}
 				reconnecting={session?.reconnecting ?? false}
-				error={session?.error ?? ''}
-				resumeError={resumeError ?? ''}
+				error={session?.error ?? null}
+				{resumeError}
+				onRetry={async () => {
+					await session?.retryLastPrompt();
+				}}
+				onStartNewSession={() => newSessionModal.show(data.projectId)}
 			/>
 		</div>
 
@@ -232,4 +242,47 @@
 			</div>
 		{/if}
 	{/key}
+
+	{#if session?.networkNotice}
+		<div class="animate-fade-in-up fixed right-4 bottom-4 z-30 max-w-sm">
+			<div
+				class="border-warning-500/30 bg-surface-950/95 text-warning-400 flex items-start gap-2.5 rounded-lg border px-4 py-3 shadow-lg backdrop-blur"
+			>
+				<svg
+					class="mt-0.5 h-4 w-4 shrink-0"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+					stroke-width="2"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.858 15.355-5.858 21.213 0"
+					/>
+				</svg>
+				<div class="min-w-0 flex-1">
+					<p class="text-[12px] leading-tight font-medium">Connection issue</p>
+					<p class="text-warning-400/70 mt-0.5 text-[11px] leading-snug">
+						{session.networkNotice.message}
+					</p>
+				</div>
+				<button
+					onclick={() => session?.dismissNetworkNotice()}
+					class="text-warning-400/50 hover:text-warning-400 -mr-1 shrink-0 cursor-pointer transition-colors"
+					aria-label="Dismiss"
+				>
+					<svg
+						class="h-3.5 w-3.5"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
+			</div>
+		</div>
+	{/if}
 </div>
