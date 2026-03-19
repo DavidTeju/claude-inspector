@@ -15,7 +15,8 @@ describe('ErrorBanner', () => {
 			}
 		});
 
-		expect(body).toContain('Retry');
+		expect(body).toContain('Retry last prompt');
+		expect(body).toContain('Recoverable Error');
 	});
 
 	it('renders a settings link for authentication errors', () => {
@@ -29,8 +30,9 @@ describe('ErrorBanner', () => {
 			}
 		});
 
-		expect(body).toContain('Configure API key in Settings');
+		expect(body).toContain('Open Settings');
 		expect(body).toContain('href="/settings"');
+		expect(body).toContain('Authentication Error');
 	});
 
 	it('renders a new-session action for context-limit errors', () => {
@@ -45,6 +47,51 @@ describe('ErrorBanner', () => {
 			}
 		});
 
-		expect(body).toContain('Start new session in this project');
+		expect(body).toContain('Start new session');
+		expect(body).toContain('Context Limit Reached');
+	});
+
+	it('renders category labels for each error type', () => {
+		const { body: billingBody } = render(ErrorBanner, {
+			props: {
+				error: {
+					message: 'Billing error.',
+					category: 'billing',
+					recoverable: false
+				}
+			}
+		});
+
+		expect(billingBody).toContain('Billing Error');
+
+		const { body: rateLimitBody } = render(ErrorBanner, {
+			props: {
+				error: {
+					message: 'Rate limited.',
+					category: 'rate_limit',
+					recoverable: true
+				},
+				onRetry: () => {}
+			}
+		});
+
+		expect(rateLimitBody).toContain('Rate Limited');
+		expect(rateLimitBody).toContain('Retry last prompt');
+	});
+
+	it('renders retry action for action errors', () => {
+		const { body } = render(ErrorBanner, {
+			props: {
+				error: {
+					message: 'Request failed.',
+					category: 'action',
+					recoverable: true
+				},
+				onRetry: () => {}
+			}
+		});
+
+		expect(body).toContain('Retry last prompt');
+		expect(body).toContain('Action Failed');
 	});
 });
