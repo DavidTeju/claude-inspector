@@ -95,30 +95,25 @@
 	</a>
 {/if}
 
-<div class="card border-base-content/10 bg-base-200/70 overflow-hidden border">
+<div class="card bg-base-100 overflow-hidden shadow-md">
 	<!-- Row 1: Title + State + Stop -->
 	<div class="flex items-center gap-2 px-4 pt-3 {isActive ? 'pb-1' : 'pb-2.5'}">
-		{#if isActive}
-			<span
-				class="h-2 w-2 shrink-0 rounded-full {currentColor} {currentLabel.pulse
-					? 'animate-pulse'
-					: ''}"
-			></span>
-		{/if}
 		{#if sessionTitle}
 			<span class="text-base-content min-w-0 truncate text-sm font-medium" title={sessionTitle}>
 				{sessionTitle}
 			</span>
 		{/if}
 		{#if isActive}
-			<span class="text-base-content/50 shrink-0 text-xs">{currentLabel.label}</span>
+			<span
+				class="badge badge-sm shrink-0 {currentColor} {currentLabel.pulse ? 'animate-pulse' : ''}"
+			>
+				{currentLabel.label}
+			</span>
 			<button
 				onclick={() => onInterrupt?.()}
 				disabled={!canInterrupt}
 				aria-label="Interrupt session"
-				class="btn btn-error btn-outline btn-sm ml-auto gap-1.5 {!canInterrupt
-					? 'btn-disabled'
-					: ''}"
+				class="btn btn-error btn-sm ml-auto gap-1.5 {!canInterrupt ? 'btn-disabled' : ''}"
 			>
 				<svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
 					<rect x="6" y="6" width="12" height="12" rx="1" />

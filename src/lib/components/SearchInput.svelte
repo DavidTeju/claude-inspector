@@ -432,7 +432,7 @@
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="border-base-content/10 bg-base-200 focus-within:border-primary/50 flex min-h-[52px] items-center gap-1.5 rounded-xl border px-4 transition-colors"
+		class="bg-base-100 focus-within:border-primary/50 flex min-h-[52px] items-center gap-1.5 rounded-xl px-4 shadow-md transition-all focus-within:shadow-lg"
 		onclick={() => inputEl?.focus()}
 	>
 		<svg
@@ -552,7 +552,7 @@
 
 	{#if showPresetSave}
 		<div
-			class="border-base-content/10 bg-base-200 absolute top-full right-16 z-50 mt-1 flex items-center gap-2 rounded-lg border p-2 shadow-lg"
+			class="border-base-content/10 bg-base-100 absolute top-full right-16 z-50 mt-1 flex items-center gap-2 rounded-lg border p-2 shadow-lg"
 		>
 			<input
 				bind:value={presetName}
@@ -567,7 +567,7 @@
 
 	{#if showAutocomplete && suggestions.length > 0}
 		<div
-			class="border-base-content/10 bg-base-200 absolute z-50 mt-1 overflow-hidden rounded-lg border shadow-lg"
+			class="border-base-content/10 bg-base-100 absolute z-50 mt-1 overflow-hidden rounded-lg border shadow-lg"
 			style="left: {dropdownLeft}px; min-width: {DROPDOWN_MIN_WIDTH}px; max-width: 300px;"
 		>
 			{#each suggestions as suggestion, i (suggestion.raw)}

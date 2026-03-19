@@ -47,9 +47,7 @@
 	});
 </script>
 
-<header
-	class="navbar border-base-content/10 bg-base-100/88 min-h-0 gap-4 border-b px-4 py-2.5 backdrop-blur-md lg:px-6"
->
+<header class="navbar bg-base-100 min-h-0 gap-4 px-4 py-2.5 shadow-sm lg:px-6">
 	{#if !sidebarOpen}
 		<button
 			onclick={onToggleSidebar}
@@ -67,7 +65,7 @@
 	</a>
 
 	{#if breadcrumbs.length > 0}
-		<div class="border-base-content/10 hidden h-9 border-l sm:block"></div>
+		<div class="border-base-content/10 hidden h-5 border-l sm:block"></div>
 		<div class="breadcrumbs hidden p-0 text-sm sm:flex">
 			<ul>
 				{#each breadcrumbs as crumb, i (crumb.path)}

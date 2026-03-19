@@ -25,7 +25,7 @@
 	</div>
 
 	<!-- Appearance section -->
-	<div class="card bg-base-200/50 border-base-content/10 border">
+	<div class="card bg-base-100 shadow-md">
 		<div class="card-body">
 			<h2 class="text-base font-semibold">Appearance</h2>
 			<p class="text-base-content/50 mt-1 text-xs">Choose your preferred color scheme.</p>
@@ -45,7 +45,8 @@
 	</div>
 
 	<!-- API Key section -->
-	<div class="card bg-base-200/50 border-base-content/10 mt-8 border">
+	<div class="divider"></div>
+	<div class="card bg-base-100 shadow-md">
 		<div class="card-body">
 			<h2 class="text-base font-semibold">Anthropic API Key</h2>
 			<p class="text-base-content/50 mt-1 mb-4 text-xs">
@@ -95,7 +96,8 @@
 	</div>
 
 	<!-- Interactive Sessions section -->
-	<div class="card bg-base-200/50 border-base-content/10 mt-8 border">
+	<div class="divider"></div>
+	<div class="card bg-base-100 shadow-md">
 		<div class="card-body">
 			<h2 class="text-base font-semibold">Interactive Sessions</h2>
 			<p class="text-base-content/50 mt-1 mb-4 text-xs">Defaults for new Claude sessions.</p>

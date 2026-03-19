@@ -47,7 +47,7 @@
 
 <svelte:window bind:innerWidth />
 
-<div class="bg-base-100 flex h-screen overflow-hidden">
+<div class="bg-base-200 flex h-screen overflow-hidden">
 	<!-- Mobile overlay backdrop -->
 	{#if isMobile && sidebarOpen}
 		<button

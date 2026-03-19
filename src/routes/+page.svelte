@@ -157,7 +157,7 @@
 	<title>Claude Inspector</title>
 </svelte:head>
 
-<div>
+<div class="hero-gradient">
 	<div class="mb-8">
 		<h1 class="text-2xl font-bold tracking-tight lg:text-3xl">Search sessions</h1>
 		<p class="text-base-content/50 mt-2 text-sm">
@@ -221,7 +221,7 @@
 				{#if hasMore}
 					<button
 						onclick={() => (displayCount += RESULTS_PER_PAGE)}
-						class="btn btn-ghost btn-block btn-sm border-base-content/10 text-base-content/70 mt-4 border"
+						class="btn btn-ghost btn-block btn-sm text-base-content/70 mt-4"
 					>
 						Show more ({sortedResults.length - displayCount} remaining)
 					</button>

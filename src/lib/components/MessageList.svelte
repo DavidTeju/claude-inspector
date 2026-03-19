@@ -35,19 +35,12 @@
 	});
 </script>
 
-<div class="border-base-content/5 space-y-6 border-l pl-6">
+<div class="space-y-2">
 	{#each groupedMessages as group, i (group.message.uuid)}
 		<div
-			class="animate-fade-in-up relative"
+			class="animate-fade-in-up"
 			style="animation-delay: {Math.min(i, STAGGER_DELAY_MS) * STAGGER_BASE_MS}ms"
 		>
-			<!-- Timeline dot -->
-			<div
-				class="absolute top-4 -left-6 h-2 w-2 -translate-x-1/2 rounded-full {group.message.role ===
-				'user'
-					? 'bg-secondary'
-					: 'bg-primary'}"
-			></div>
 			{#if group.message.role === 'user'}
 				<UserMessage message={group.message} />
 			{:else}

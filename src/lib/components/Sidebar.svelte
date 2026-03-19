@@ -31,14 +31,14 @@ Tailwind dynamic class safelist (scanner needs to see these as literals):
 max-lg:translate-x-0 max-lg:-translate-x-full lg:w-64 lg:w-0 lg:overflow-hidden
 -->
 <aside
-	class="bg-base-100 border-base-content/10 flex flex-col border-r
+	class="bg-base-100 flex flex-col shadow-lg
 max-lg:fixed max-lg:inset-y-0 max-lg:left-0 max-lg:z-40 max-lg:w-64
 max-lg:transition-transform max-lg:duration-250 max-lg:ease-out
 {open ? 'max-lg:translate-x-0' : 'max-lg:-translate-x-full'}
 lg:transition-all lg:duration-250
 {open ? 'lg:w-64' : 'lg:w-0 lg:overflow-hidden'}"
 >
-	<div class="border-base-content/10 flex items-center justify-between border-b px-4 py-2.5">
+	<div class="flex items-center justify-between px-4 py-3.5">
 		<a href={resolve('/')} class="min-w-0">
 			<BrandMark />
 		</a>
@@ -65,6 +65,8 @@ lg:transition-all lg:duration-250
 			</button>
 		</div>
 	</div>
+
+	<div class="divider my-0 px-3"></div>
 
 	<nav class="flex-1 overflow-y-auto p-2">
 		{#if activeSessions.length > 0}
@@ -111,9 +113,7 @@ lg:transition-all lg:duration-250
 						<li>
 							<a
 								href={resolve(`/projects/${project.id}`)}
-								class="text-[13px] {currentProjectId === project.id
-									? 'bg-primary/10 text-primary font-medium'
-									: ''}"
+								class="text-[13px] {currentProjectId === project.id ? 'active font-medium' : ''}"
 								aria-current={currentProjectId === project.id ? 'page' : undefined}
 								title={project.displayName}
 							>
@@ -127,7 +127,8 @@ lg:transition-all lg:duration-250
 		</ul>
 	</nav>
 
-	<div class="border-base-content/10 border-t p-2">
+	<div class="divider my-0 px-3"></div>
+	<div class="p-2">
 		<ul class="menu menu-sm p-0">
 			<li>
 				<a

@@ -3,9 +3,9 @@
 
 <div class="flex items-center gap-3 leading-none">
 	<div
-		class="border-primary/25 bg-base-200/80 relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border shadow-sm"
+		class="bg-primary/10 relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl shadow-sm"
 	>
-		<div class="border-primary/15 absolute inset-1 rounded-[0.9rem] border"></div>
+		<div class="border-primary/20 absolute inset-1 rounded-[0.9rem] border"></div>
 		<svg class="text-primary h-6 w-6" viewBox="0 0 48 48" fill="none" aria-hidden="true">
 			<path
 				d="M27 13H21C16.582 13 13 16.582 13 21V27C13 31.418 16.582 35 21 35H27"

@@ -17,20 +17,16 @@
 	);
 </script>
 
-<div class="flex justify-end">
+<div class="chat chat-end">
+	<div class="chat-header text-xs opacity-50">
+		You
+		<time class="text-[10px]">{formatTime(message.timestamp)}</time>
+	</div>
 	<div
-		class="border-l-secondary/40 bg-secondary/40 max-w-[85%] rounded-xl rounded-br-md border-l-2 px-4 py-3"
+		class="chat-bubble chat-bubble-secondary font-mono text-sm leading-relaxed break-words whitespace-pre-wrap"
 	>
-		<div class="mb-1.5 flex items-center justify-between gap-4">
-			<span class="text-secondary text-[10px] font-semibold tracking-wider uppercase">You</span>
-			<span class="text-base-content/50 text-[10px]">{formatTime(message.timestamp)}</span>
-		</div>
 		{#if message.textContent}
-			<div
-				class="text-base-content font-mono text-sm leading-relaxed break-words whitespace-pre-wrap"
-			>
-				{message.textContent}
-			</div>
+			{message.textContent}
 		{/if}
 		{#each imageBlocks as block (block)}
 			<img

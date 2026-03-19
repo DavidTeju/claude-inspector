@@ -53,10 +53,10 @@
 		</p>
 	</div>
 
-	<div class="border-base-content/10 overflow-x-auto rounded-xl border">
-		<table class="table w-full text-[0.9rem]">
+	<div class="overflow-x-auto rounded-xl shadow-md">
+		<table class="table-zebra table w-full text-[0.9rem]">
 			<thead>
-				<tr class="border-base-content/10 bg-base-300 text-base-content/50 border-b text-left">
+				<tr class="bg-base-100 text-base-content/50 text-left">
 					<th class="px-3 py-2.5 font-medium">Summary / First Prompt</th>
 					<th class="px-3 py-2.5 font-medium whitespace-nowrap">
 						<button
@@ -88,7 +88,7 @@
 			<tbody>
 				{#each sortedSessions as session, i (session.sessionId)}
 					<tr
-						class="animate-fade-in-up border-base-content/5 hover:bg-base-200/50 border-b transition-colors"
+						class="animate-fade-in-up hover:bg-base-300/50 transition-colors"
 						style="animation-delay: {Math.min(i, STAGGER_DELAY_MS) * STAGGER_BASE_PX}ms"
 					>
 						<td class="px-3 py-2.5">

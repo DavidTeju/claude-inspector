@@ -27,17 +27,13 @@
 	});
 </script>
 
-<div class="max-w-[95%]">
-	<div class="border-l-primary/30 bg-base-200/70 rounded-xl rounded-bl-md border-l-2 px-4 py-3">
-		<!-- Header -->
-		<div class="mb-2 flex items-center gap-2">
-			<span class="text-primary text-[10px] font-semibold tracking-wider uppercase">Claude</span>
-			{#if model}
-				<span class="text-base-content/50 text-[9px]">{model}</span>
-			{/if}
-			<span class="bg-primary h-1.5 w-1.5 animate-pulse rounded-full"></span>
-		</div>
-
+<div class="chat chat-start">
+	<div class="chat-header text-xs">
+		Claude
+		{#if model}<span class="text-[9px] opacity-50">{model}</span>{/if}
+		<span class="bg-primary inline-block h-1.5 w-1.5 animate-pulse rounded-full"></span>
+	</div>
+	<div class="chat-bubble chat-bubble-primary bg-primary/10 text-base-content max-w-[95%]">
 		<div class="space-y-3">
 			<!-- Thinking -->
 			{#if thinking}

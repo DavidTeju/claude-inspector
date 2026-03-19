@@ -178,13 +178,13 @@
 </script>
 
 <div
-	class="border-base-content/10 bg-base-200/50 focus-within:ring-primary/30 focus-within:shadow-primary/10 rounded-xl border transition-shadow focus-within:shadow-[0_0_12px_-4px] focus-within:ring-1"
+	class="bg-base-100 focus-within:ring-primary/30 rounded-xl shadow-md transition-shadow focus-within:shadow-lg focus-within:ring-1"
 >
 	<div class="relative">
 		<!-- Slash command popup (above the textarea, follows cursor) -->
 		{#if showCommandList}
 			<div
-				class="border-base-content/15 bg-base-200 absolute bottom-full z-20 mb-1 max-w-sm min-w-[16rem] overflow-hidden rounded-lg border shadow-lg"
+				class="border-base-content/15 bg-base-100 absolute bottom-full z-20 mb-1 max-w-sm min-w-[16rem] overflow-hidden rounded-lg border shadow-lg"
 				style="left: {caretLeftPx}px;"
 				id="slash-command-listbox"
 				role="listbox"
@@ -275,8 +275,8 @@
 			disabled={!canSubmit}
 			aria-label={isQueuing ? 'Queue message' : 'Send message'}
 			class="{isQueuing
-				? 'btn btn-warning btn-outline btn-sm'
-				: 'btn btn-primary btn-sm'} {!canSubmit ? 'btn-disabled' : ''}"
+				? 'btn btn-warning btn-outline btn-sm rounded-full'
+				: 'btn btn-primary btn-sm rounded-full'} {!canSubmit ? 'btn-disabled' : ''}"
 		>
 			{resolvedButtonLabel}
 		</button>

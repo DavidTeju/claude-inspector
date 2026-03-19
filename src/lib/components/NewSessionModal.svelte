@@ -90,9 +90,9 @@
 </script>
 
 <dialog bind:this={dialogEl} onclose={handleClose} onclick={handleBackdropClick} class="modal">
-	<div class="modal-box bg-base-100 border-base-content/10 w-full max-w-xl border">
+	<div class="modal-box bg-base-100 w-full max-w-lg shadow-xl">
 		<div class="mb-5 flex items-center justify-between">
-			<h2 class="text-base-content text-lg font-semibold">New Session</h2>
+			<h2 class="text-base-content text-lg font-bold">New Session</h2>
 			<button onclick={handleClose} class="btn btn-ghost btn-circle btn-sm" aria-label="Close">
 				<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -102,10 +102,9 @@
 
 		<div class="space-y-4">
 			<!-- Project selector -->
-			<div>
-				<label
-					for="modal-project-select"
-					class="text-base-content/70 mb-1.5 block text-xs font-medium">Project</label
+			<div class="form-control">
+				<label for="modal-project-select" class="label"
+					><span class="label-text text-xs font-medium">Project</span></label
 				>
 				{#if projects.length === 0}
 					<p
@@ -128,10 +127,9 @@
 
 			<!-- Permission mode + Model in a row -->
 			<div class="grid grid-cols-2 gap-3">
-				<div>
-					<label
-						for="modal-permission-select"
-						class="text-base-content/70 mb-1.5 block text-xs font-medium">Permission Mode</label
+				<div class="form-control">
+					<label for="modal-permission-select" class="label"
+						><span class="label-text text-xs font-medium">Permission Mode</span></label
 					>
 					<select
 						id="modal-permission-select"
@@ -143,10 +141,9 @@
 						{/each}
 					</select>
 				</div>
-				<div>
-					<label
-						for="modal-model-select"
-						class="text-base-content/70 mb-1.5 block text-xs font-medium">Model</label
+				<div class="form-control">
+					<label for="modal-model-select" class="label"
+						><span class="label-text text-xs font-medium">Model</span></label
 					>
 					<select
 						id="modal-model-select"

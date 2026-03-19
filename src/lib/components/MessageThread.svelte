@@ -111,10 +111,7 @@
 
 		<!-- Streaming assistant message -->
 		{#if session?.streamingUuid}
-			<div class="border-base-content/5 relative border-l pl-6">
-				<div
-					class="bg-primary absolute top-4 -left-6 h-2 w-2 -translate-x-1/2 animate-pulse rounded-full"
-				></div>
+			<div>
 				<StreamingAssistantMessage
 					text={session.streamingText}
 					thinking={session.streamingThinking}
@@ -127,7 +124,7 @@
 		<!-- Permission banner -->
 		{#if session?.pendingPermission}
 			{@const permissionId = session.pendingPermission.id}
-			<div class="pl-6">
+			<div>
 				<PermissionBanner
 					request={session.pendingPermission}
 					onAllow={(queuedNote) => {
@@ -150,7 +147,7 @@
 
 		<!-- Ask user question -->
 		{#if session?.pendingQuestion}
-			<div class="pl-6">
+			<div>
 				<AskUserQuestion
 					request={session.pendingQuestion}
 					onSubmit={(answers) => onQuestion?.(answers)}
