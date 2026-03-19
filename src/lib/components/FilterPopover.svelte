@@ -53,15 +53,15 @@
 	}
 
 	const TOGGLE_CLASSES: Record<string, string> = {
-		include: 'border-accent-500/50 bg-accent-500/10 text-accent-300',
-		exclude: 'border-red-500/30 bg-red-500/10 text-red-400',
-		off: 'border-surface-800 bg-surface-900/50 text-text-500 hover:border-surface-700 hover:text-text-100'
+		include: 'btn-primary btn-outline',
+		exclude: 'btn-error btn-outline',
+		off: 'btn-ghost'
 	};
 
 	const LIST_ITEM_CLASSES: Record<string, string> = {
-		include: 'bg-accent-500/10 text-accent-300',
-		exclude: 'bg-red-500/10 text-red-400',
-		off: 'text-text-500 hover:bg-surface-800/50 hover:text-text-100'
+		include: 'bg-primary/10 text-primary',
+		exclude: 'bg-error/10 text-error',
+		off: 'text-base-content/50 hover:bg-neutral/50 hover:text-base-content'
 	};
 
 	function cycleFilter(prefix: string, value: string) {
@@ -106,16 +106,19 @@
 {#snippet filterSection(config: FilterSectionConfig)}
 	{@const data = sectionData[config.prefix]}
 	{@const filtered = filteredItems(config.prefix)}
-	<div class="border-surface-800/50 mb-4 rounded-lg border p-2.5">
-		<span class="section-label mb-2 block">{config.label}</span>
+	<div class="border-base-content/5 mb-4 rounded-lg border p-2.5">
+		<span
+			class="text-base-content/50 mb-2 block text-[11px] font-semibold tracking-widest uppercase"
+			>{config.label}</span
+		>
 		<input
 			bind:value={data.search}
 			type="text"
 			placeholder={config.placeholder}
-			class="border-surface-800 bg-surface-950 text-text-100 placeholder-text-500 focus:border-accent-500/50 mb-2 w-full rounded-lg border px-3 py-1.5 text-xs transition-colors outline-none"
+			class="input input-bordered input-xs mb-2 w-full"
 		/>
 		<div
-			class="border-surface-800/30 bg-surface-950/50 max-h-32 space-y-0.5 overflow-y-auto rounded border"
+			class="border-base-content/5 bg-base-100/50 max-h-32 space-y-0.5 overflow-y-auto rounded border"
 		>
 			{#each filtered as item (item)}
 				{@const state = filterState(config.prefix, item)}
@@ -128,7 +131,7 @@
 					{state === 'exclude' ? 'NOT ' : ''}{item}
 				</button>
 			{:else}
-				<p class="text-text-500 px-2.5 py-1 text-xs">
+				<p class="px-2.5 py-1 text-xs text-base-content/50">
 					{data.items.length === 0 ? 'Loading...' : 'No matches'}
 				</p>
 			{/each}
@@ -140,20 +143,20 @@
 
 <div
 	bind:this={popoverEl}
-	class="border-surface-800 bg-surface-900 animate-fade-in-up absolute top-full right-0 z-50 mt-2 max-h-[70vh] w-80 overflow-y-auto rounded-xl border p-4 shadow-lg"
+	class="card animate-fade-in-up border-base-content/10 bg-base-200 absolute top-full right-0 z-50 mt-2 max-h-[70vh] w-80 overflow-y-auto border p-4 shadow-lg"
 	style="animation-duration: 150ms"
 >
 	<!-- Boolean toggles -->
 	<div class="mb-4">
-		<span class="section-label mb-2 block">Filters</span>
+		<span
+			class="text-base-content/50 mb-2 block text-[11px] font-semibold tracking-widest uppercase"
+			>Filters</span
+		>
 		<div class="flex flex-wrap gap-1.5">
 			{#each BOOLEAN_FILTERS as bf (bf.prefix + bf.value)}
 				{@const state = filterState(bf.prefix, bf.value)}
 				{@const stateClass = TOGGLE_CLASSES[state]}
-				<button
-					onclick={() => cycleFilter(bf.prefix, bf.value)}
-					class="rounded-md border px-2.5 py-1 text-xs transition-colors {stateClass}"
-				>
+				<button onclick={() => cycleFilter(bf.prefix, bf.value)} class="btn btn-xs {stateClass}">
 					{state === 'exclude' ? 'NOT ' : ''}{bf.label}
 				</button>
 			{/each}
@@ -168,21 +171,24 @@
 
 	<!-- Presets -->
 	{#if filterPresets.list.length > 0}
-		<div class="border-surface-800 border-t pt-4">
-			<span class="section-label mb-2 block">Presets</span>
+		<div class="border-base-content/10 border-t pt-4">
+			<span
+				class="text-base-content/50 mb-2 block text-[11px] font-semibold tracking-widest uppercase"
+				>Presets</span
+			>
 			<div class="space-y-1">
 				{#each filterPresets.list as preset (preset.name)}
 					<div class="flex items-center justify-between gap-2">
 						<button
 							onclick={() => onLoadPreset(preset.query)}
-							class="text-text-500 hover:text-text-100 min-w-0 flex-1 truncate rounded-md px-2.5 py-1 text-left text-xs transition-colors"
+							class="text-base-content/50 hover:text-base-content min-w-0 flex-1 truncate rounded-md px-2.5 py-1 text-left text-xs transition-colors"
 							title={preset.query}
 						>
 							{preset.name}
 						</button>
 						<button
 							onclick={() => filterPresets.remove(preset.name)}
-							class="text-text-500 shrink-0 p-1 text-xs transition-colors hover:text-red-400"
+							class="text-base-content/50 hover:text-error shrink-0 p-1 text-xs transition-colors"
 							aria-label="Delete preset {preset.name}"
 						>
 							<svg
