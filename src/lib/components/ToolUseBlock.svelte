@@ -67,13 +67,13 @@
 	});
 	let badgeClass = $derived.by(() => {
 		if (tool.result?.isError) return 'bg-error-500/10 text-error-500';
-		if (viewMode === 'skill') return 'bg-purple-500/10 text-purple-300';
+		if (viewMode === 'skill') return 'bg-skill-500/10 text-skill-300';
 		return 'bg-accent-500/10 text-accent-300';
 	});
 </script>
 
 <CollapsibleSection
-	accentClass={viewMode === 'skill' ? 'border-l-purple-400/50' : 'border-l-accent-300/50'}
+	accentClass={viewMode === 'skill' ? 'border-l-skill-400/50' : 'border-l-accent-300/50'}
 	bodyClass="space-y-2"
 >
 	{#snippet header()}

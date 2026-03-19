@@ -48,7 +48,7 @@
 			{#if showFullExpansion}
 				<pre
 					class="{expansionBase} text-text-400 max-h-96 overflow-auto text-[11px]">{expansion}</pre>
-			{:else if expansionPreview}
+			{:else}
 				<pre
 					class="{expansionBase} text-text-500 max-h-16 overflow-hidden text-[10px]">{expansionPreview}</pre>
 			{/if}
