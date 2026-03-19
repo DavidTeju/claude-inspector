@@ -33,9 +33,15 @@
 	function handleKeydown(e: KeyboardEvent) {
 		if (isSingleQuestion) return;
 
-		// Don't intercept arrow keys when focus is on an input/textarea
+		// Don't intercept arrow keys when focus is on interactive text controls
 		const target = e.target as HTMLElement;
-		if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+		if (
+			target.tagName === 'INPUT' ||
+			target.tagName === 'TEXTAREA' ||
+			target.tagName === 'SELECT' ||
+			target.isContentEditable
+		)
+			return;
 
 		if (e.key === 'ArrowRight') {
 			e.preventDefault();
@@ -120,23 +126,25 @@
 	);
 </script>
 
-<svelte:window onkeydown={handleKeydown} />
-
-<div class="border-l-user-400 bg-user-700/10 rounded-xl border-l-2 px-4 py-3">
-	<!-- Progress indicator (multi-question only) -->
-	{#if !isSingleQuestion}
-		<div class="text-text-500 mb-2 flex items-center justify-between text-[11px]">
-			<span>{currentPage + 1} / {totalPages}</span>
-			<div class="flex gap-1">
-				{#each request.questions as _, i (i)}
-					<span class="inline-block h-1.5 w-1.5 rounded-full transition-colors {dotClass(i)}"
-					></span>
-				{/each}
+<div
+	role="group"
+	class="border-l-user-400 bg-user-700/10 rounded-xl border-l-2 px-4 py-3"
+	onkeydown={handleKeydown}
+>
+	{#if totalPages > 0}
+		<!-- Progress indicator (multi-question only) -->
+		{#if !isSingleQuestion}
+			<div class="text-text-500 mb-2 flex items-center justify-between text-[11px]">
+				<span>{currentPage + 1} / {totalPages}</span>
+				<div class="flex gap-1">
+					{#each request.questions as _, i (i)}
+						<span class="inline-block h-1.5 w-1.5 rounded-full transition-colors {dotClass(i)}"
+						></span>
+					{/each}
+				</div>
 			</div>
-		</div>
-	{/if}
+		{/if}
 
-	{#key currentPage}
 		<div>
 			{#if currentQuestion.header}
 				<div class="text-text-100 mb-1 text-[11px] font-semibold">{currentQuestion.header}</div>
@@ -249,46 +257,58 @@
 				{/if}
 			</div>
 		</div>
-	{/key}
 
-	<!-- Navigation controls -->
-	<div class="mt-3 flex items-center gap-2">
-		{#if !isSingleQuestion && !isFirstPage}
-			<button
-				onclick={goPrev}
-				class="text-text-300 hover:text-text-100 flex cursor-pointer items-center gap-1 rounded-lg px-3 py-2 text-[11px] font-semibold transition-colors"
-			>
-				<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
-				</svg>
-				Previous
-			</button>
-		{/if}
+		<!-- Navigation controls -->
+		<div class="mt-3 flex items-center gap-2">
+			{#if !isSingleQuestion && !isFirstPage}
+				<button
+					onclick={goPrev}
+					class="text-text-300 hover:text-text-100 flex cursor-pointer items-center gap-1 rounded-lg px-3 py-2 text-[11px] font-semibold transition-colors"
+				>
+					<svg
+						class="h-3 w-3"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+					</svg>
+					Previous
+				</button>
+			{/if}
 
-		<div class="flex-1"></div>
+			<div class="flex-1"></div>
 
-		{#if !isSingleQuestion && !isLastPage}
-			<button
-				onclick={goNext}
-				class="text-text-300 hover:text-text-100 flex cursor-pointer items-center gap-1 rounded-lg px-3 py-2 text-[11px] font-semibold transition-colors"
-			>
-				Next
-				<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-				</svg>
-			</button>
-		{/if}
+			{#if !isSingleQuestion && !isLastPage}
+				<button
+					onclick={goNext}
+					class="text-text-300 hover:text-text-100 flex cursor-pointer items-center gap-1 rounded-lg px-3 py-2 text-[11px] font-semibold transition-colors"
+				>
+					Next
+					<svg
+						class="h-3 w-3"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+					</svg>
+				</button>
+			{/if}
 
-		{#if isSingleQuestion || isLastPage}
-			<button
-				onclick={handleSubmit}
-				disabled={!hasAnyAnswer}
-				class="bg-user-500 text-surface-950 rounded-lg px-4 py-2 text-[11px] font-semibold transition-colors {hasAnyAnswer
-					? 'hover:bg-user-400 cursor-pointer'
-					: 'cursor-not-allowed opacity-40'}"
-			>
-				Submit
-			</button>
-		{/if}
-	</div>
+			{#if isSingleQuestion || isLastPage}
+				<button
+					onclick={handleSubmit}
+					disabled={!hasAnyAnswer}
+					class="bg-user-500 text-surface-950 rounded-lg px-4 py-2 text-[11px] font-semibold transition-colors {hasAnyAnswer
+						? 'hover:bg-user-400 cursor-pointer'
+						: 'cursor-not-allowed opacity-40'}"
+				>
+					Submit
+				</button>
+			{/if}
+		</div>
+	{/if}
 </div>
