@@ -76,7 +76,7 @@
 				name="apiKey"
 				type="password"
 				placeholder="sk-ant-api03-..."
-				class="input input-bordered w-full rounded-md px-3 py-2.5 font-mono text-sm"
+				class="input input-bordered w-full font-mono text-sm"
 			/>
 			<div class="flex gap-2">
 				<button type="submit" class="btn btn-primary rounded-md px-4 py-2 text-sm font-medium">
