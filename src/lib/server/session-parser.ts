@@ -7,6 +7,10 @@ import { createReadStream } from 'fs';
 import { createInterface } from 'readline';
 import { parseSessionRecordValue, type ParsedSessionRecord } from './session-schema.js';
 
+function warnMalformedLine(filePath: string, lineNumber: number): void {
+	console.warn(`[session-parser] Skipping malformed line ${lineNumber} in ${filePath}`);
+}
+
 /**
  * Stream-parse a session JSONL file into normalized raw records.
  * Malformed lines are skipped so one bad record does not poison the whole session,
@@ -30,7 +34,10 @@ export async function parseSessionFile(filePath: string): Promise<ParsedSessionR
 		try {
 			const value = JSON.parse(line);
 			const record = parseSessionRecordValue(value);
-			if (!record) continue;
+			if (!record) {
+				warnMalformedLine(filePath, lineNumber);
+				continue;
+			}
 
 			records.push({
 				record,
@@ -41,6 +48,7 @@ export async function parseSessionFile(filePath: string): Promise<ParsedSessionR
 			});
 			recordIndex += 1;
 		} catch {
+			warnMalformedLine(filePath, lineNumber);
 			continue;
 		}
 	}
