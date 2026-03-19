@@ -12,10 +12,7 @@ function getSystemTheme(): ResolvedTheme {
 
 function applyTheme(resolved: ResolvedTheme) {
 	if (typeof document === 'undefined') return;
-	document.documentElement.setAttribute(
-		'data-theme',
-		resolved === 'dark' ? 'inspector-dark' : 'inspector-light'
-	);
+	document.documentElement.setAttribute('data-theme', resolved === 'dark' ? 'night' : 'winter');
 }
 
 function resolve(pref: ThemePreference, system: ResolvedTheme): ResolvedTheme {

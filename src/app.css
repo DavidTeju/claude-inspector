@@ -1,66 +1,8 @@
 @import 'tailwindcss';
 @plugin 'daisyui' {
 	themes:
-		inspector-light --default,
-		inspector-dark --prefersdark;
-}
-
-/* ── Light theme ── */
-@plugin 'daisyui/theme' {
-	name: 'inspector-light';
-	color-scheme: light;
-	--color-base-100: #f8f7f5;
-	--color-base-200: #f0eeeb;
-	--color-base-300: #e8e6e2;
-	--color-base-content: #1a1917;
-	--color-primary: #b87d1a;
-	--color-primary-content: #f8f7f5;
-	--color-secondary: #0e9384;
-	--color-secondary-content: #f8f7f5;
-	--color-accent: #c98a1f;
-	--color-accent-content: #f8f7f5;
-	--color-neutral: #4a4843;
-	--color-neutral-content: #f0eeeb;
-	--color-info: #3b82f6;
-	--color-info-content: #f8f7f5;
-	--color-success: #15803d;
-	--color-success-content: #f8f7f5;
-	--color-warning: #ca8a04;
-	--color-warning-content: #f8f7f5;
-	--color-error: #dc2626;
-	--color-error-content: #f8f7f5;
-	--rounded-box: 1rem;
-	--rounded-btn: 0.5rem;
-	--rounded-badge: 999px;
-}
-
-/* ── Dark theme ── */
-@plugin 'daisyui/theme' {
-	name: 'inspector-dark';
-	color-scheme: dark;
-	--color-base-100: #0b0c10;
-	--color-base-200: #13141a;
-	--color-base-300: #1a1b23;
-	--color-base-content: #f0eee9;
-	--color-primary: #d4972e;
-	--color-primary-content: #0b0c10;
-	--color-secondary: #14b8a6;
-	--color-secondary-content: #0b0c10;
-	--color-accent: #e2a336;
-	--color-accent-content: #0b0c10;
-	--color-neutral: #23252f;
-	--color-neutral-content: #b8b5ae;
-	--color-info: #60a5fa;
-	--color-info-content: #0b0c10;
-	--color-success: #34d399;
-	--color-success-content: #0b0c10;
-	--color-warning: #fbbf24;
-	--color-warning-content: #0b0c10;
-	--color-error: #f87171;
-	--color-error-content: #0b0c10;
-	--rounded-box: 1rem;
-	--rounded-btn: 0.5rem;
-	--rounded-badge: 999px;
+		winter --default,
+		night --prefersdark;
 }
 
 @theme {

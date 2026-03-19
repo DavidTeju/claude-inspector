@@ -158,14 +158,18 @@
 </svelte:head>
 
 <div>
-	<div class="mb-8">
-		<h1 class="page-title">Search sessions</h1>
-		<p class="page-subtitle">
-			Inspect transcripts, jump between projects, and find the exact Claude conversation you need.
-		</p>
+	<!-- Hero header -->
+	<div class="hero bg-base-200 rounded-box mb-6 p-8">
+		<div class="hero-content flex-col text-center">
+			<h1 class="text-3xl font-bold">Search sessions</h1>
+			<p class="max-w-md opacity-60">
+				Inspect transcripts, jump between projects, and find the exact Claude conversation you need.
+			</p>
+			<div class="w-full max-w-xl">
+				<SearchInput bind:query={searchQuery} onSearch={executeSearch} />
+			</div>
+		</div>
 	</div>
-
-	<SearchInput bind:query={searchQuery} onSearch={executeSearch} />
 
 	{#if showResults}
 		<!-- Search results -->
@@ -181,21 +185,7 @@
 			>
 				<div class="flex items-center gap-2">
 					{#if isSearching}
-						<svg class="text-primary h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none">
-							<circle
-								class="opacity-25"
-								cx="12"
-								cy="12"
-								r="10"
-								stroke="currentColor"
-								stroke-width="4"
-							/>
-							<path
-								class="opacity-75"
-								fill="currentColor"
-								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-							/>
-						</svg>
+						<span class="loading loading-spinner loading-xs text-primary"></span>
 						<span>Searching... {results.length} result{results.length !== 1 ? 's' : ''}</span>
 					{:else}
 						<span>{results.length} result{results.length !== 1 ? 's' : ''} for "{searchQuery}"</span
@@ -203,16 +193,13 @@
 					{/if}
 				</div>
 
-				<div class="flex items-center gap-1.5">
-					<span class="text-base-content/50 mr-1 text-[11px] tracking-wide uppercase">Sort</span>
+				<div class="join">
 					{#each SEARCH_SORT_OPTIONS as option (option.value)}
 						<button
 							onclick={() => (searchSortMode = option.value)}
-							class={`rounded-md border px-2.5 py-1 transition-colors ${
-								searchSortMode === option.value
-									? 'border-primary/50 bg-primary/10 text-primary'
-									: 'border-base-content/10 bg-base-200/50 text-base-content/50 hover:border-base-content/20 hover:text-base-content'
-							}`}
+							class="join-item btn btn-xs {searchSortMode === option.value
+								? 'btn-active btn-primary'
+								: ''}"
 						>
 							{option.label}
 						</button>

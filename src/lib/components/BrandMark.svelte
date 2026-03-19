@@ -1,12 +1,11 @@
 <script lang="ts">
 </script>
 
-<div class="flex items-center gap-3 leading-none">
+<div class="flex items-center gap-2.5 leading-none">
 	<div
-		class="border-primary/25 bg-base-200/80 relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border shadow-sm"
+		class="bg-primary/10 relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl"
 	>
-		<div class="border-primary/15 absolute inset-1 rounded-[0.9rem] border"></div>
-		<svg class="text-primary h-6 w-6" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+		<svg class="text-primary h-5 w-5" viewBox="0 0 48 48" fill="none" aria-hidden="true">
 			<path
 				d="M27 13H21C16.582 13 13 16.582 13 21V27C13 31.418 16.582 35 21 35H27"
 				stroke="currentColor"
@@ -20,11 +19,8 @@
 	</div>
 
 	<div class="flex min-w-0 flex-col">
-		<span class="text-primary/80 text-[0.55rem] font-semibold tracking-[0.32em] uppercase"
-			>Claude</span
-		>
-		<span
-			class="text-base-content truncate text-[0.98rem] font-black tracking-[0.14em] uppercase italic"
+		<span class="text-primary text-[0.5rem] font-semibold tracking-[0.28em] uppercase">Claude</span>
+		<span class="truncate text-[0.88rem] font-black tracking-[0.12em] uppercase italic"
 			>Inspector</span
 		>
 	</div>

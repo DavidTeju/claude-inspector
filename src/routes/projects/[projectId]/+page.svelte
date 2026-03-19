@@ -45,38 +45,38 @@
 
 <div>
 	<div class="mb-6">
-		<h1 class="page-title">{dirNameToDisplayName(data.projectId)}</h1>
-		<p class="page-subtitle">
+		<h1 class="text-3xl font-bold">{dirNameToDisplayName(data.projectId)}</h1>
+		<p class="mt-2 opacity-60">
 			{pluralize(sessions.length, 'session')} indexed for this project.
 		</p>
 	</div>
 
-	<div class="border-base-content/10 overflow-x-auto rounded-xl border">
-		<table class="table w-full text-[0.9rem]">
+	<div class="card bg-base-200 overflow-x-auto shadow-sm">
+		<table class="table-zebra table">
 			<thead>
-				<tr class="border-base-content/10 bg-base-300 text-base-content/50 border-b text-left">
-					<th class="px-3 py-2.5 font-medium">Summary / First Prompt</th>
-					<th class="px-3 py-2.5 font-medium whitespace-nowrap">
+				<tr>
+					<th>Summary / First Prompt</th>
+					<th class="whitespace-nowrap">
 						<button
 							onclick={() => toggleSort('messageCount')}
-							class={sortField === 'messageCount' ? 'text-primary' : 'hover:text-base-content'}
+							class="link-hover {sortField === 'messageCount' ? 'text-primary font-bold' : ''}"
 						>
 							Messages{sortIndicator('messageCount')}
 						</button>
 					</th>
-					<th class="px-3 py-2.5 font-medium whitespace-nowrap">Branch</th>
-					<th class="px-3 py-2.5 font-medium whitespace-nowrap">
+					<th class="whitespace-nowrap">Branch</th>
+					<th class="whitespace-nowrap">
 						<button
 							onclick={() => toggleSort('created')}
-							class={sortField === 'created' ? 'text-primary' : 'hover:text-base-content'}
+							class="link-hover {sortField === 'created' ? 'text-primary font-bold' : ''}"
 						>
 							Created{sortIndicator('created')}
 						</button>
 					</th>
-					<th class="px-3 py-2.5 font-medium whitespace-nowrap">
+					<th class="whitespace-nowrap">
 						<button
 							onclick={() => toggleSort('modified')}
-							class={sortField === 'modified' ? 'text-primary' : 'hover:text-base-content'}
+							class="link-hover {sortField === 'modified' ? 'text-primary font-bold' : ''}"
 						>
 							Modified{sortIndicator('modified')}
 						</button>
@@ -86,50 +86,50 @@
 			<tbody>
 				{#each sortedSessions as session, i (session.sessionId)}
 					<tr
-						class="animate-fade-in-up border-base-content/5 hover:bg-base-200/50 border-b transition-colors"
+						class="animate-fade-in-up hover"
 						style="animation-delay: {Math.min(i, STAGGER_DELAY_MS) * STAGGER_BASE_PX}ms"
 					>
-						<td class="px-3 py-2.5">
+						<td>
 							<a
 								href={resolve(`/session/${data.projectId}/${session.sessionId}`)}
-								class="hover:text-primary block transition-colors"
+								class="link-hover block"
 							>
 								{#if session.summary}
-									<div class="text-base-content font-medium">{session.summary}</div>
-									<div class="text-base-content/70 mt-0.5 line-clamp-1 text-[0.82rem]">
+									<div class="font-medium">{session.summary}</div>
+									<div class="mt-0.5 line-clamp-1 text-sm opacity-60">
 										{session.firstPrompt || ''}
 									</div>
 								{:else if session.firstPrompt}
-									<div class="text-base-content/70 line-clamp-1 font-medium italic">
+									<div class="line-clamp-1 font-medium italic opacity-70">
 										{session.firstPrompt}
 									</div>
 								{:else}
-									<div class="text-base-content/50 italic">Empty session</div>
+									<div class="italic opacity-40">Empty session</div>
 								{/if}
 							</a>
 						</td>
-						<td class="text-base-content/50 px-3 py-2.5">
+						<td class="opacity-60">
 							{session.messageCount || '-'}
 						</td>
-						<td class="px-3 py-2.5">
+						<td>
 							{#if session.gitBranch}
-								<span class="badge badge-primary badge-sm font-mono text-[10px]">
+								<span class="badge badge-primary badge-sm badge-outline font-mono text-[10px]">
 									{session.gitBranch}
 								</span>
 							{:else}
-								<span class="text-base-content/30">-</span>
+								<span class="opacity-30">-</span>
 							{/if}
 						</td>
-						<td class="text-base-content/50 px-3 py-2.5 whitespace-nowrap">
+						<td class="whitespace-nowrap opacity-60">
 							{formatDate(session.created)}
 						</td>
-						<td class="text-base-content/50 px-3 py-2.5 whitespace-nowrap">
+						<td class="whitespace-nowrap opacity-60">
 							{formatDate(session.modified)}
 						</td>
 					</tr>
 				{:else}
 					<tr>
-						<td colspan="5" class="text-base-content/50 px-3 py-12 text-center">
+						<td colspan="5" class="py-12 text-center opacity-50">
 							<p class="text-sm">No sessions found for this project.</p>
 							<p class="mt-1 text-xs">
 								Start a new Claude session in this project directory to see it here.
