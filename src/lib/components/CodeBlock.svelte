@@ -54,19 +54,19 @@
 </script>
 
 <div
-	class="code-block group border-surface-800 bg-surface-950 relative my-2 overflow-hidden rounded-md border"
+	class="code-block group border-base-content/10 bg-base-100 relative my-2 overflow-hidden rounded-md border"
 >
-	<div class="border-surface-800/50 flex items-center justify-between border-b px-3 py-1">
-		<span class="text-accent-400/50 font-sans text-[10px] tracking-wide uppercase">{language}</span>
+	<div class="border-base-content/5 flex items-center justify-between border-b px-3 py-1">
+		<span class="text-primary/50 font-sans text-[10px] tracking-wide uppercase">{language}</span>
 	</div>
 
 	<div class="overflow-x-auto p-3 text-[12px] leading-relaxed">
 		{#if isLoading}
-			<pre class="text-text-300 font-mono"><code>{code}</code></pre>
+			<pre class="text-base-content/70 font-mono"><code>{code}</code></pre>
 		{:else if highlightedHtml}
 			{@html highlightedHtml}
 		{:else}
-			<pre class="text-text-300 font-mono"><code>{code}</code></pre>
+			<pre class="text-base-content/70 font-mono"><code>{code}</code></pre>
 		{/if}
 	</div>
 </div>

@@ -73,17 +73,17 @@
 	}
 	.markdown-body :global(p) {
 		margin-bottom: 0.5em;
-		color: var(--color-text-300);
+		color: oklch(from var(--color-base-content) l c h / 0.7);
 	}
 	.markdown-body :global(p:last-child) {
 		margin-bottom: 0;
 	}
 	.markdown-body :global(code) {
-		background: var(--color-surface-800);
+		background: var(--color-neutral);
 		padding: 0.125em 0.375em;
 		border-radius: 0.25rem;
 		font-size: 0.85em;
-		color: var(--color-accent-300);
+		color: var(--color-primary);
 	}
 	.markdown-body :global(pre code) {
 		background: none;
@@ -103,7 +103,7 @@
 		font-weight: 700;
 		margin-top: 1em;
 		margin-bottom: 0.5em;
-		color: var(--color-text-100);
+		color: var(--color-base-content);
 	}
 	.markdown-body :global(h1) {
 		font-size: 1.25em;
@@ -115,17 +115,17 @@
 		font-size: 1em;
 	}
 	.markdown-body :global(a) {
-		color: var(--color-accent-400);
+		color: var(--color-primary);
 		text-decoration: underline;
 	}
 	.markdown-body :global(blockquote) {
-		border-left: 2px solid var(--color-surface-700);
+		border-left: 2px solid oklch(from var(--color-neutral) l c h / 0.7);
 		padding-left: 0.75em;
-		color: var(--color-text-300);
+		color: oklch(from var(--color-base-content) l c h / 0.7);
 		margin-bottom: 0.5em;
 	}
 	.markdown-body :global(strong) {
-		color: var(--color-text-100);
+		color: var(--color-base-content);
 		font-weight: 600;
 	}
 	.markdown-body :global(table) {
@@ -134,15 +134,15 @@
 		border-spacing: 0;
 		margin-bottom: 0.75em;
 		font-size: 0.85em;
-		border: 1px solid var(--color-surface-700);
+		border: 1px solid oklch(from var(--color-neutral) l c h / 0.7);
 		border-radius: 0.5rem;
 		overflow: hidden;
 	}
 	.markdown-body :global(th),
 	.markdown-body :global(td) {
 		padding: 0.4em 0.75em;
-		border-bottom: 1px solid var(--color-surface-700);
-		border-right: 1px solid var(--color-surface-700);
+		border-bottom: 1px solid oklch(from var(--color-neutral) l c h / 0.7);
+		border-right: 1px solid oklch(from var(--color-neutral) l c h / 0.7);
 		text-align: left;
 	}
 	.markdown-body :global(th:last-child),
@@ -153,15 +153,15 @@
 		border-bottom: none;
 	}
 	.markdown-body :global(th) {
-		background: var(--color-surface-800);
-		color: var(--color-accent-300);
+		background: var(--color-neutral);
+		color: var(--color-primary);
 		font-weight: 600;
-		border-bottom: 1.5px solid var(--color-surface-600);
+		border-bottom: 1.5px solid oklch(from var(--color-neutral-content) l c h / 0.3);
 	}
 	.markdown-body :global(td) {
-		color: var(--color-text-300);
+		color: oklch(from var(--color-base-content) l c h / 0.7);
 	}
 	.markdown-body :global(tr:nth-child(even) td) {
-		background: var(--color-surface-800);
+		background: var(--color-neutral);
 	}
 </style>

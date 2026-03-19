@@ -86,7 +86,7 @@
 {#if isSubagent && parentSessionId}
 	<a
 		href={resolve(`/session/${projectId}/${parentSessionId}`)}
-		class="bg-accent-500/10 text-accent-400 hover:bg-accent-500/20 mb-1.5 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors"
+		class="btn btn-ghost btn-xs text-primary mb-1.5 gap-1.5"
 	>
 		<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 			<path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M7 7h10v10" />
@@ -95,30 +95,25 @@
 	</a>
 {/if}
 
-<div class="border-surface-800 bg-surface-900/70 overflow-hidden rounded-xl border">
+<div class="card bg-base-100 overflow-hidden shadow-md">
 	<!-- Row 1: Title + State + Stop -->
 	<div class="flex items-center gap-2 px-4 pt-3 {isActive ? 'pb-1' : 'pb-2.5'}">
-		{#if isActive}
-			<span
-				class="h-2 w-2 shrink-0 rounded-full {currentColor} {currentLabel.pulse
-					? 'animate-pulse'
-					: ''}"
-			></span>
-		{/if}
 		{#if sessionTitle}
-			<span class="text-text-100 min-w-0 truncate text-sm font-medium" title={sessionTitle}>
+			<span class="text-base-content min-w-0 truncate text-sm font-medium" title={sessionTitle}>
 				{sessionTitle}
 			</span>
 		{/if}
 		{#if isActive}
-			<span class="text-text-500 shrink-0 text-xs">{currentLabel.label}</span>
+			<span
+				class="badge badge-sm shrink-0 {currentColor} {currentLabel.pulse ? 'animate-pulse' : ''}"
+			>
+				{currentLabel.label}
+			</span>
 			<button
 				onclick={() => onInterrupt?.()}
 				disabled={!canInterrupt}
 				aria-label="Interrupt session"
-				class="border-error-500/20 bg-error-500/10 text-error-400 ml-auto flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-colors {canInterrupt
-					? 'hover:bg-error-500/20 cursor-pointer'
-					: 'cursor-not-allowed opacity-40'}"
+				class="btn btn-error btn-sm ml-auto gap-1.5 {!canInterrupt ? 'btn-disabled' : ''}"
 			>
 				<svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
 					<rect x="6" y="6" width="12" height="12" rx="1" />
@@ -127,22 +122,22 @@
 			</button>
 		{:else}
 			{#if messageCount > 0}
-				<span class="text-text-500 text-xs"
+				<span class="text-base-content/50 text-xs"
 					>&middot; {messageCount} msg{messageCount !== 1 ? 's' : ''}</span
 				>
 			{/if}
 			{#if sessionId && showResumeCommand}
 				<button
 					onclick={copyResumeCommand}
-					class="text-text-500 hover:text-text-300 ml-auto flex cursor-pointer items-center gap-1.5 text-xs transition-colors"
+					class="text-base-content/50 hover:text-base-content/70 ml-auto flex cursor-pointer items-center gap-1.5 text-xs transition-colors"
 					title="Copy resume command"
 				>
-					<code class="text-text-600 max-w-[10rem] truncate font-mono text-[10px]"
+					<code class="text-base-content/40 max-w-[10rem] truncate font-mono text-[10px]"
 						>claude --resume {sessionId.slice(0, SESSION_ID_DISPLAY_LENGTH)}...</code
 					>
 					{#if copied}
 						<svg
-							class="text-success-500 h-3.5 w-3.5"
+							class="text-success h-3.5 w-3.5"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
@@ -172,23 +167,23 @@
 
 	<!-- Row 2: Metadata (active sessions only) -->
 	{#if isActive}
-		<div class="text-text-500 flex items-center gap-2 px-4 pb-2.5 text-xs">
+		<div class="text-base-content/50 flex items-center gap-2 px-4 pb-2.5 text-xs">
 			{#if messageCount > 0}
 				<span>{messageCount} msg{messageCount !== 1 ? 's' : ''}</span>
-				<span class="text-surface-700">&middot;</span>
+				<span class="text-base-content/15">&middot;</span>
 			{/if}
 
 			<button
 				onclick={cyclePermissionMode}
 				aria-label="Cycle permission mode"
-				class="bg-surface-800 text-text-300 hover:bg-surface-700 cursor-pointer rounded-lg px-3 py-1 text-xs transition-colors"
+				class="btn btn-ghost btn-xs"
 				title="Click to cycle permission mode"
 			>
 				{PERMISSION_MODE_LABELS[permissionMode] ?? permissionMode}
 			</button>
 
 			{#if model}
-				<span class="text-surface-700">&middot;</span>
+				<span class="text-base-content/15">&middot;</span>
 				<span class="min-w-0 truncate font-mono text-[10px]">{model}</span>
 			{/if}
 
@@ -202,9 +197,7 @@
 </div>
 
 {#if reconnecting}
-	<div
-		class="bg-warning-500/10 text-warning-500 mt-2 flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[11px]"
-	>
+	<div class="alert alert-warning mt-2 justify-center gap-1.5 py-2 text-[11px]">
 		<svg
 			class="h-3.5 w-3.5 shrink-0"
 			fill="none"
@@ -223,9 +216,7 @@
 {/if}
 
 {#if error}
-	<div
-		class="bg-error-500/10 text-error-400 mt-2 flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[11px]"
-	>
+	<div class="alert alert-error mt-2 justify-center gap-1.5 py-2 text-[11px]">
 		<svg
 			class="h-3.5 w-3.5 shrink-0"
 			fill="none"
@@ -244,9 +235,7 @@
 {/if}
 
 {#if resumeError}
-	<div
-		class="bg-error-500/10 text-error-400 mt-2 flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[11px]"
-	>
+	<div class="alert alert-error mt-2 justify-center gap-1.5 py-2 text-[11px]">
 		<svg
 			class="h-3.5 w-3.5 shrink-0"
 			fill="none"

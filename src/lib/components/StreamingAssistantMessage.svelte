@@ -27,19 +27,13 @@
 	});
 </script>
 
-<div class="max-w-[95%]">
-	<div
-		class="border-l-accent-400/30 bg-surface-900/70 rounded-xl rounded-bl-md border-l-2 px-4 py-3"
-	>
-		<!-- Header -->
-		<div class="mb-2 flex items-center gap-2">
-			<span class="text-accent-400 text-[10px] font-semibold tracking-wider uppercase">Claude</span>
-			{#if model}
-				<span class="text-text-500 text-[9px]">{model}</span>
-			{/if}
-			<span class="bg-accent-400 h-1.5 w-1.5 animate-pulse rounded-full"></span>
-		</div>
-
+<div class="chat chat-start">
+	<div class="chat-header text-xs">
+		Claude
+		{#if model}<span class="text-[9px] opacity-50">{model}</span>{/if}
+		<span class="bg-primary inline-block h-1.5 w-1.5 animate-pulse rounded-full"></span>
+	</div>
+	<div class="chat-bubble chat-bubble-primary bg-primary/10 text-base-content max-w-[95%]">
 		<div class="space-y-3">
 			<!-- Thinking -->
 			{#if thinking}
@@ -56,9 +50,11 @@
 					{/if}
 					{#if splitContent.trailing || (!splitContent.complete && text?.trim())}
 						<div
-							class="text-text-300 text-sm leading-relaxed {splitContent.complete ? 'mt-1' : ''}"
+							class="text-base-content/70 text-sm leading-relaxed {splitContent.complete
+								? 'mt-1'
+								: ''}"
 						>
-							{splitContent.trailing}<span class="animate-blink text-accent-400">&#x258A;</span>
+							{splitContent.trailing}<span class="animate-blink text-primary">&#x258A;</span>
 						</div>
 					{/if}
 				</div>

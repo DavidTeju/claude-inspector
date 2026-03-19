@@ -3,10 +3,10 @@
 
 <div class="flex items-center gap-3 leading-none">
 	<div
-		class="border-accent-500/25 bg-surface-900/80 relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border shadow-sm"
+		class="bg-primary/10 relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl shadow-sm"
 	>
-		<div class="border-accent-400/15 absolute inset-1 rounded-[0.9rem] border"></div>
-		<svg class="text-accent-300 h-6 w-6" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+		<div class="border-primary/20 absolute inset-1 rounded-[0.9rem] border"></div>
+		<svg class="text-primary h-6 w-6" viewBox="0 0 48 48" fill="none" aria-hidden="true">
 			<path
 				d="M27 13H21C16.582 13 13 16.582 13 21V27C13 31.418 16.582 35 21 35H27"
 				stroke="currentColor"
@@ -20,11 +20,11 @@
 	</div>
 
 	<div class="flex min-w-0 flex-col">
-		<span class="text-accent-300/80 text-[0.55rem] font-semibold tracking-[0.32em] uppercase"
+		<span class="text-primary/80 text-[0.55rem] font-semibold tracking-[0.32em] uppercase"
 			>Claude</span
 		>
 		<span
-			class="text-text-100 truncate text-[0.98rem] font-black tracking-[0.14em] uppercase italic"
+			class="text-base-content truncate text-[0.98rem] font-black tracking-[0.14em] uppercase italic"
 			>Inspector</span
 		>
 	</div>

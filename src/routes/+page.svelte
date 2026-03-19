@@ -159,8 +159,8 @@
 
 <div>
 	<div class="mb-8">
-		<h1 class="page-title">Search sessions</h1>
-		<p class="page-subtitle">
+		<h1 class="text-2xl font-bold tracking-tight lg:text-3xl">Search sessions</h1>
+		<p class="text-base-content/50 mt-2 text-sm">
 			Inspect transcripts, jump between projects, and find the exact Claude conversation you need.
 		</p>
 	</div>
@@ -171,31 +171,17 @@
 		<!-- Search results -->
 		<div>
 			{#if searchError}
-				<div class="bg-error-500/10 text-error-400 mb-4 rounded-md px-3 py-2 text-center text-xs">
+				<div class="alert alert-error mb-4 text-xs">
 					{searchError}
 				</div>
 			{/if}
 
 			<div
-				class="text-text-500 mb-4 flex flex-col gap-3 text-xs sm:flex-row sm:items-center sm:justify-between"
+				class="text-base-content/50 mb-4 flex flex-col gap-3 text-xs sm:flex-row sm:items-center sm:justify-between"
 			>
 				<div class="flex items-center gap-2">
 					{#if isSearching}
-						<svg class="text-accent-400 h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none">
-							<circle
-								class="opacity-25"
-								cx="12"
-								cy="12"
-								r="10"
-								stroke="currentColor"
-								stroke-width="4"
-							/>
-							<path
-								class="opacity-75"
-								fill="currentColor"
-								d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-							/>
-						</svg>
+						<span class="loading loading-spinner loading-xs text-primary"></span>
 						<span>Searching... {results.length} result{results.length !== 1 ? 's' : ''}</span>
 					{:else}
 						<span>{results.length} result{results.length !== 1 ? 's' : ''} for "{searchQuery}"</span
@@ -203,15 +189,15 @@
 					{/if}
 				</div>
 
-				<div class="flex items-center gap-1.5">
-					<span class="text-text-500 mr-1 text-[11px] tracking-wide uppercase">Sort</span>
+				<div class="join">
+					<span class="text-base-content/50 mr-2 self-center text-[11px] tracking-wide uppercase"
+						>Sort</span
+					>
 					{#each SEARCH_SORT_OPTIONS as option (option.value)}
 						<button
 							onclick={() => (searchSortMode = option.value)}
-							class={`rounded-md border px-2.5 py-1 transition-colors ${
-								searchSortMode === option.value
-									? 'border-accent-500/50 bg-accent-500/10 text-accent-300'
-									: 'border-surface-800 bg-surface-900/50 text-text-500 hover:border-surface-700 hover:text-text-100'
+							class={`join-item btn btn-xs ${
+								searchSortMode === option.value ? 'btn-primary btn-outline' : 'btn-ghost'
 							}`}
 						>
 							{option.label}
@@ -235,13 +221,13 @@
 				{#if hasMore}
 					<button
 						onclick={() => (displayCount += RESULTS_PER_PAGE)}
-						class="border-surface-800 bg-surface-900/50 text-text-300 hover:border-surface-700 hover:text-text-100 mt-4 w-full rounded-lg border py-2.5 text-xs transition-colors"
+						class="btn btn-ghost btn-block btn-sm text-base-content/70 mt-4"
 					>
 						Show more ({sortedResults.length - displayCount} remaining)
 					</button>
 				{/if}
 			{:else if !isSearching}
-				<div class="text-text-500 py-12 text-center">
+				<div class="text-base-content/50 py-12 text-center">
 					<p class="text-sm">No results found for "{searchQuery}"</p>
 					<p class="mt-1 text-xs">Try different keywords or check spelling</p>
 				</div>
@@ -251,8 +237,8 @@
 		<!-- Project grid -->
 		<div>
 			<div class="mb-4 flex items-baseline justify-between">
-				<h2 class="section-title">Projects</h2>
-				<span class="text-text-500 text-sm">{pluralize(projects.length, 'project')}</span>
+				<h2 class="text-base font-semibold">Projects</h2>
+				<span class="text-base-content/50 text-sm">{pluralize(projects.length, 'project')}</span>
 			</div>
 
 			<div class="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

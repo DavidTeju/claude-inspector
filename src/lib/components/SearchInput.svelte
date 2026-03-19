@@ -432,11 +432,11 @@
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="input-glow border-surface-800 bg-surface-900 focus-within:border-accent-500/50 flex min-h-[52px] items-center gap-1.5 rounded-xl border px-4 transition-colors"
+		class="bg-base-100 focus-within:border-primary/50 flex min-h-[52px] items-center gap-1.5 rounded-xl px-4 shadow-md transition-all focus-within:shadow-lg"
 		onclick={() => inputEl?.focus()}
 	>
 		<svg
-			class="text-text-500 h-5 w-5 shrink-0"
+			class="text-base-content/50 h-5 w-5 shrink-0"
 			fill="none"
 			viewBox="0 0 24 24"
 			stroke="currentColor"
@@ -450,9 +450,7 @@
 		</svg>
 
 		{#if searchModeLabel}
-			<span
-				class="shrink-0 rounded border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wider text-amber-400"
-			>
+			<span class="badge badge-warning badge-sm shrink-0 font-bold tracking-wider">
 				{searchModeLabel}
 			</span>
 		{/if}
@@ -487,14 +485,15 @@
 				placeholder={activeFilters.length > 0
 					? 'Add more filters or text...'
 					: 'Search sessions...'}
-				class="text-text-100 placeholder-text-500 w-full bg-transparent py-3.5 text-base outline-none"
+				class="text-base-content placeholder-base-content/50 w-full bg-transparent py-3.5 text-base outline-none"
 			/>
 			{#if ghostText}
 				<span
 					class="pointer-events-none absolute inset-0 overflow-hidden py-3.5 text-base whitespace-pre"
 					aria-hidden="true"
 				>
-					<span class="invisible">{inputText}</span><span class="text-text-500/40">{ghostText}</span
+					<span class="invisible">{inputText}</span><span class="text-base-content/20"
+						>{ghostText}</span
 					>
 				</span>
 			{/if}
@@ -508,7 +507,7 @@
 		{#if hasContent}
 			<button
 				onclick={() => (showPresetSave = !showPresetSave)}
-				class="text-text-500 hover:text-text-300 shrink-0 transition-colors"
+				class="btn btn-ghost btn-sm btn-circle shrink-0"
 				aria-label="Save preset"
 				title="Save filter preset"
 			>
@@ -524,8 +523,8 @@
 
 		<button
 			onclick={() => (showPopover = !showPopover)}
-			class={`shrink-0 rounded-md p-1.5 transition-colors ${
-				showPopover ? 'bg-accent-500/10 text-accent-300' : 'text-text-500 hover:text-text-300'
+			class={`btn btn-ghost btn-sm btn-circle shrink-0 ${
+				showPopover ? 'bg-primary/10 text-primary' : ''
 			}`}
 			aria-label="Filter options"
 		>
@@ -541,7 +540,7 @@
 		{#if hasContent}
 			<button
 				onclick={clearSearch}
-				class="text-text-500 hover:text-text-300 shrink-0 transition-colors"
+				class="btn btn-ghost btn-sm btn-circle shrink-0"
 				aria-label="Clear search"
 			>
 				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -553,27 +552,22 @@
 
 	{#if showPresetSave}
 		<div
-			class="border-surface-800 bg-surface-900 absolute top-full right-16 z-50 mt-1 flex items-center gap-2 rounded-lg border p-2 shadow-lg"
+			class="border-base-content/10 bg-base-100 absolute top-full right-16 z-50 mt-1 flex items-center gap-2 rounded-lg border p-2 shadow-lg"
 		>
 			<input
 				bind:value={presetName}
 				type="text"
 				placeholder="Preset name..."
-				class="border-surface-800 bg-surface-950 text-text-100 placeholder-text-500 focus:border-accent-500/50 w-40 rounded-md border px-2 py-1 text-xs outline-none"
+				class="input input-bordered input-xs w-40"
 				onkeydown={(e) => e.key === 'Enter' && savePreset()}
 			/>
-			<button
-				onclick={savePreset}
-				class="bg-accent-500/10 text-accent-300 hover:bg-accent-500/20 rounded-md px-2 py-1 text-xs transition-colors"
-			>
-				Save
-			</button>
+			<button onclick={savePreset} class="btn btn-primary btn-xs"> Save </button>
 		</div>
 	{/if}
 
 	{#if showAutocomplete && suggestions.length > 0}
 		<div
-			class="border-surface-800 bg-surface-900 absolute z-50 mt-1 overflow-hidden rounded-lg border shadow-lg"
+			class="border-base-content/10 bg-base-100 absolute z-50 mt-1 overflow-hidden rounded-lg border shadow-lg"
 			style="left: {dropdownLeft}px; min-width: {DROPDOWN_MIN_WIDTH}px; max-width: 300px;"
 		>
 			{#each suggestions as suggestion, i (suggestion.raw)}
@@ -581,14 +575,16 @@
 				<div
 					class={`flex cursor-pointer items-center justify-between gap-3 px-4 py-2.5 text-sm transition-colors ${
 						i === autocompleteIndex
-							? 'bg-accent-500/10 text-accent-300'
-							: 'text-text-300 hover:bg-surface-800'
+							? 'bg-primary/10 text-primary'
+							: 'text-base-content/70 hover:bg-neutral'
 					}`}
 					onmousedown={() => confirmSuggestion(suggestion)}
 					onmouseenter={() => (autocompleteIndex = i)}
 				>
 					<span class="font-mono text-xs">{suggestion.label}</span>
-					<span class="text-text-500 text-xs whitespace-nowrap">{suggestion.description}</span>
+					<span class="text-base-content/50 text-xs whitespace-nowrap"
+						>{suggestion.description}</span
+					>
 				</div>
 			{/each}
 		</div>

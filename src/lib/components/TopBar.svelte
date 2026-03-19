@@ -47,11 +47,13 @@
 	});
 </script>
 
-<header
-	class="border-surface-800 bg-surface-950/88 flex items-center gap-4 border-b px-4 py-2.5 backdrop-blur-md lg:px-6"
->
+<header class="navbar bg-base-100 min-h-0 gap-4 px-4 py-2.5 shadow-sm lg:px-6">
 	{#if !sidebarOpen}
-		<button onclick={onToggleSidebar} class="btn-icon-lg" aria-label="Open sidebar">
+		<button
+			onclick={onToggleSidebar}
+			class="btn btn-ghost btn-circle btn-sm"
+			aria-label="Open sidebar"
+		>
 			<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
 			</svg>
@@ -63,30 +65,31 @@
 	</a>
 
 	{#if breadcrumbs.length > 0}
-		<div class="border-surface-800 hidden h-9 border-l sm:block"></div>
-		<nav class="text-text-500 flex min-w-0 items-center gap-2 text-[0.9rem]">
-			{#each breadcrumbs as crumb, i (crumb.path)}
-				{#if i > 0}
-					<span class="text-text-700">/</span>
-				{/if}
-				{#if i === breadcrumbs.length - 1}
-					<span class="text-text-100 truncate font-medium">{crumb.label}</span>
-				{:else}
-					<a
-						href={resolve(crumb.path)}
-						class="hover:text-text-100 max-w-[14rem] truncate transition-colors"
-					>
-						{crumb.label}
-					</a>
-				{/if}
-			{/each}
-		</nav>
+		<div class="border-base-content/10 hidden h-5 border-l sm:block"></div>
+		<div class="breadcrumbs hidden p-0 text-sm sm:flex">
+			<ul>
+				{#each breadcrumbs as crumb, i (crumb.path)}
+					<li>
+						{#if i === breadcrumbs.length - 1}
+							<span class="text-base-content truncate font-medium">{crumb.label}</span>
+						{:else}
+							<a
+								href={resolve(crumb.path)}
+								class="text-base-content/50 hover:text-base-content max-w-[14rem] truncate transition-colors"
+							>
+								{crumb.label}
+							</a>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		</div>
 	{/if}
 
-	<div class="ml-auto flex items-center gap-3">
+	<div class="ml-auto flex items-center gap-1">
 		<button
 			onclick={() => theme.cycle()}
-			class="btn-icon-lg"
+			class="btn btn-ghost btn-circle btn-sm"
 			aria-label="Theme: {theme.preference}"
 			title={themeLabel + ' mode'}
 		>
@@ -120,7 +123,7 @@
 			{/if}
 		</button>
 
-		<a href={resolve('/')} class="btn-icon-lg" aria-label="Search sessions">
+		<a href={resolve('/')} class="btn btn-ghost btn-circle btn-sm" aria-label="Search sessions">
 			<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 				<path
 					stroke-linecap="round"

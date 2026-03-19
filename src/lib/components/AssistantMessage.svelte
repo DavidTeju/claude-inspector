@@ -49,22 +49,13 @@
 	});
 </script>
 
-<div class="max-w-[95%] min-w-0">
-	<div
-		class="border-l-accent-400/30 bg-surface-900/70 rounded-xl rounded-bl-md border-l-2 px-4 py-3"
-	>
-		<div class="mb-2 flex items-center justify-between gap-4">
-			<div class="flex items-center gap-2">
-				<span class="text-accent-400 text-[10px] font-semibold tracking-wider uppercase"
-					>Claude</span
-				>
-				{#if message.model}
-					<span class="text-text-500 text-[9px]">{message.model}</span>
-				{/if}
-			</div>
-			<span class="text-text-500 text-[10px]">{formatTime(message.timestamp)}</span>
-		</div>
-
+<div class="chat chat-start">
+	<div class="chat-header text-xs">
+		Claude
+		{#if message.model}<span class="text-[9px] opacity-50">{message.model}</span>{/if}
+		<time class="text-[10px] opacity-50">{formatTime(message.timestamp)}</time>
+	</div>
+	<div class="chat-bubble chat-bubble-primary bg-primary/10 text-base-content max-w-[95%]">
 		<div class="space-y-3">
 			{#each renderItems as item, i (i)}
 				{#if item.kind === 'thinking'}
