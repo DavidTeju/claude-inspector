@@ -146,24 +146,27 @@ describe('server/session-parser', () => {
 
 	it('logs malformed lines and continues parsing valid records', async () => {
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+		try {
+			const records = await parseSessionFile(
+				loadFixture('corrupt-project/corrupt-line-session.jsonl')
+			);
 
-		const records = await parseSessionFile(
-			loadFixture('corrupt-project/corrupt-line-session.jsonl')
-		);
-
-		expect(records).toHaveLength(2);
-		expect(
-			records.map(({ record, source }) => ({
-				type: record.type,
-				uuid: 'uuid' in record ? record.uuid : undefined,
-				recordIndex: source.recordIndex,
-				lineNumber: source.lineNumber
-			}))
-		).toEqual([
-			{ type: 'user', uuid: 'u1', recordIndex: 0, lineNumber: 1 },
-			{ type: 'assistant', uuid: 'a1', recordIndex: 1, lineNumber: 3 }
-		]);
-		expect(warn).toHaveBeenCalledTimes(1);
-		expect(warn).toHaveBeenCalledWith(expect.stringContaining('Skipping malformed line 2'));
+			expect(records).toHaveLength(2);
+			expect(
+				records.map(({ record, source }) => ({
+					type: record.type,
+					uuid: 'uuid' in record ? record.uuid : undefined,
+					recordIndex: source.recordIndex,
+					lineNumber: source.lineNumber
+				}))
+			).toEqual([
+				{ type: 'user', uuid: 'u1', recordIndex: 0, lineNumber: 1 },
+				{ type: 'assistant', uuid: 'a1', recordIndex: 1, lineNumber: 3 }
+			]);
+			expect(warn).toHaveBeenCalledTimes(1);
+			expect(warn).toHaveBeenCalledWith(expect.stringContaining('Skipping malformed line 2'));
+		} finally {
+			warn.mockRestore();
+		}
 	});
 });
