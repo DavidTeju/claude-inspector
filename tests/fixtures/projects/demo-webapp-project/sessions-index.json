@@ -1,0 +1,59 @@
+{
+	"version": 2,
+	"entries": [
+		{
+			"sessionId": "add-dark-mode",
+			"displaySessionId": "add-dark-mode",
+			"fullPath": "/home/runner/work/claude-inspector/claude-inspector/tests/fixtures/projects/demo-webapp-project/add-dark-mode.jsonl",
+			"relativePath": "add-dark-mode.jsonl",
+			"fileMtime": 1773947472669.073,
+			"firstPrompt": "Add a dark mode toggle to the settings page. Use system preference as default, persist the choice to localStorage.",
+			"summary": "Added dark mode with system preference detection. Theme store uses Svelte 5 runes with localStorage persistence. Three-mode toggle on settings page.",
+			"messageCount": 6,
+			"created": "2026-03-17T11:00:00.000Z",
+			"modified": "2026-03-17T11:00:55.000Z",
+			"gitBranch": "feat/dark-mode",
+			"projectPath": "add-dark-mode.jsonl",
+			"isSidechain": false,
+			"isSubagent": false,
+			"nativeSummary": "Added dark mode with system preference detection. Theme store uses Svelte 5 runes with localStorage persistence. Three-mode toggle on settings page.",
+			"lastPrompt": "Add a dark mode toggle to the settings page. Use system preference as default, persist the choice to localStorage."
+		},
+		{
+			"sessionId": "debug-sse-streaming",
+			"displaySessionId": "debug-sse-streaming",
+			"fullPath": "/home/runner/work/claude-inspector/claude-inspector/tests/fixtures/projects/demo-webapp-project/debug-sse-streaming.jsonl",
+			"relativePath": "debug-sse-streaming.jsonl",
+			"fileMtime": 1773947472669.2092,
+			"firstPrompt": "Search results are showing up blank in the UI. The counter says '12 results' but nothing renders. This started after the dedup PR merged yesterday.",
+			"summary": "Fixed blank search results caused by async dedup race condition in SSE streaming pipeline. Ripgrep emitting multiple matches per session created duplicates that Svelte's keyed {#each} silently dropped",
+			"messageCount": 8,
+			"created": "2026-03-16T14:30:00.000Z",
+			"modified": "2026-03-16T14:31:25.000Z",
+			"gitBranch": "fix/sse-bug",
+			"projectPath": "debug-sse-streaming.jsonl",
+			"isSidechain": false,
+			"isSubagent": false,
+			"nativeSummary": "Fixed blank search results caused by async dedup race condition in SSE streaming pipeline. Ripgrep emitting multiple matches per session created duplicates that Svelte's keyed {#each} silently dropped.",
+			"lastPrompt": "Search results are showing up blank in the UI. The counter says '12 results' but nothing renders. This started after the dedup PR merged yesterday."
+		},
+		{
+			"sessionId": "refactor-auth-middleware",
+			"displaySessionId": "refactor-auth-middleware",
+			"fullPath": "/home/runner/work/claude-inspector/claude-inspector/tests/fixtures/projects/demo-webapp-project/refactor-auth-middleware.jsonl",
+			"relativePath": "refactor-auth-middleware.jsonl",
+			"fileMtime": 1773947472669.2092,
+			"firstPrompt": "The auth middleware is storing session tokens in plain text. Legal flagged this — we need to encrypt tokens at rest and rotate the encryption key monthly. Can you refactor the middleware?",
+			"summary": "Refactored auth middleware to encrypt session tokens at rest using AES-256-GCM. Created crypto utility module, updated SessionStore to encrypt/decrypt transparently. Key rotation supported via ENCRYPT",
+			"messageCount": 7,
+			"created": "2026-03-15T09:12:00.000Z",
+			"modified": "2026-03-15T09:12:55.000Z",
+			"gitBranch": "main",
+			"projectPath": "refactor-auth-middleware.jsonl",
+			"isSidechain": false,
+			"isSubagent": false,
+			"nativeSummary": "Refactored auth middleware to encrypt session tokens at rest using AES-256-GCM. Created crypto utility module, updated SessionStore to encrypt/decrypt transparently. Key rotation supported via ENCRYPTION_KEY env var.",
+			"lastPrompt": "The auth middleware is storing session tokens in plain text. Legal flagged this — we need to encrypt tokens at rest and rotate the encryption key monthly. Can you refactor the middleware?"
+		}
+	]
+}
