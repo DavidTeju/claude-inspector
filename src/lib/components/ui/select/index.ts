@@ -7,3 +7,5 @@ export { default as SelectTrigger } from './select-trigger.svelte';
 export const Select = SelectPrimitive.Root;
 export const SelectGroup = SelectPrimitive.Group;
 export const SelectGroupHeading = SelectPrimitive.GroupHeading;
+export const SelectViewport = SelectPrimitive.Viewport;
+export const SelectPortal = SelectPrimitive.Portal;

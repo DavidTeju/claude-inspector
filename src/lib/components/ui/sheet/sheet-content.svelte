@@ -1,9 +1,5 @@
-<script lang="ts">
-	import { Dialog as SheetPrimitive } from 'bits-ui';
-	import type { Snippet } from 'svelte';
+<script lang="ts" module>
 	import { tv, type VariantProps } from 'tailwind-variants';
-	import { cn } from '$lib/utils.js';
-	import SheetOverlay from './sheet-overlay.svelte';
 
 	export const sheetVariants = tv({
 		base: 'fixed z-50 gap-4 bg-background p-6 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500 data-[state=open]:animate-in data-[state=closed]:animate-out',
@@ -23,6 +19,13 @@
 	});
 
 	type Side = VariantProps<typeof sheetVariants>['side'];
+</script>
+
+<script lang="ts">
+	import { Dialog as SheetPrimitive } from 'bits-ui';
+	import type { Snippet } from 'svelte';
+	import { cn } from '$lib/utils.js';
+	import SheetOverlay from './sheet-overlay.svelte';
 
 	interface Props {
 		class?: string;
