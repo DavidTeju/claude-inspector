@@ -6,6 +6,8 @@
 	import type { Project } from '$lib/types.js';
 	import { getErrorMessage } from '$lib/utils.js';
 	import Composer from './Composer.svelte';
+	import FormAlert from './FormAlert.svelte';
+	import FormField from './FormField.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 
@@ -111,70 +113,62 @@
 
 		<div class="space-y-4">
 			<!-- Project selector -->
-			<div>
-				<label for="modal-project-select" class="text-text-300 mb-1.5 block text-xs font-medium"
-					>Project</label
-				>
-				{#if projects.length === 0}
-					<p
-						class="text-text-500 border-surface-800 bg-surface-900 rounded-md border px-3 py-2.5 text-sm"
-					>
-						No projects found. Start a Claude session in a project directory first.
-					</p>
-				{:else}
-					<select
-						id="modal-project-select"
-						bind:value={selectedProject}
-						class="border-surface-800 bg-surface-900 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
-					>
-						{#each projects as project (project.id)}
-							<option value={project.id}>{project.displayName}</option>
-						{/each}
-					</select>
-				{/if}
-			</div>
+			<FormField id="modal-project-select" label="Project">
+				{#snippet children(fieldId)}
+					{#if projects.length === 0}
+						<p
+							class="text-text-500 border-surface-800 bg-surface-900 rounded-md border px-3 py-2.5 text-sm"
+						>
+							No projects found. Start a Claude session in a project directory first.
+						</p>
+					{:else}
+						<select
+							id={fieldId}
+							bind:value={selectedProject}
+							class="border-surface-800 bg-surface-900 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
+						>
+							{#each projects as project (project.id)}
+								<option value={project.id}>{project.displayName}</option>
+							{/each}
+						</select>
+					{/if}
+				{/snippet}
+			</FormField>
 
 			<!-- Permission mode + Model in a row -->
 			<div class="grid grid-cols-2 gap-3">
-				<div>
-					<label
-						for="modal-permission-select"
-						class="text-text-300 mb-1.5 block text-xs font-medium">Permission Mode</label
-					>
-					<select
-						id="modal-permission-select"
-						bind:value={permissionMode}
-						class="border-surface-800 bg-surface-900 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
-					>
-						{#each PERMISSION_MODES as mode (mode)}
-							<option value={mode}>{PERMISSION_MODE_LABELS[mode]}</option>
-						{/each}
-					</select>
-				</div>
-				<div>
-					<label for="modal-model-select" class="text-text-300 mb-1.5 block text-xs font-medium"
-						>Model</label
-					>
-					<select
-						id="modal-model-select"
-						bind:value={selectedModel}
-						class="border-surface-800 bg-surface-900 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
-					>
-						{#each models as modelOption (modelOption.value)}
-							<option value={modelOption.value}>{modelOption.displayName}</option>
-						{/each}
-					</select>
-				</div>
+				<FormField id="modal-permission-select" label="Permission Mode">
+					{#snippet children(fieldId)}
+						<select
+							id={fieldId}
+							bind:value={permissionMode}
+							class="border-surface-800 bg-surface-900 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
+						>
+							{#each PERMISSION_MODES as mode (mode)}
+								<option value={mode}>{PERMISSION_MODE_LABELS[mode]}</option>
+							{/each}
+						</select>
+					{/snippet}
+				</FormField>
+				<FormField id="modal-model-select" label="Model">
+					{#snippet children(fieldId)}
+						<select
+							id={fieldId}
+							bind:value={selectedModel}
+							class="border-surface-800 bg-surface-900 text-text-100 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
+						>
+							{#each models as modelOption (modelOption.value)}
+								<option value={modelOption.value}>{modelOption.displayName}</option>
+							{/each}
+						</select>
+					{/snippet}
+				</FormField>
 			</div>
 		</div>
 
 		<!-- Error banner -->
 		{#if errorMessage}
-			<div
-				class="border-error-500/30 bg-error-500/10 text-error-400 mt-4 rounded-md border px-3 py-2 text-xs"
-			>
-				{errorMessage}
-			</div>
+			<FormAlert type="error" message={errorMessage} class="mt-4" />
 		{/if}
 
 		<!-- Composer -->
