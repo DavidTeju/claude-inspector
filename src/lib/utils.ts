@@ -4,6 +4,8 @@
  * search/indexing code paths.
  */
 
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 import {
 	MS_PER_MINUTE,
 	MS_PER_HOUR,
@@ -13,6 +15,11 @@ import {
 	DAYS_PER_WEEK
 } from '$lib/constants.js';
 import { tokenizeQuery } from '$lib/shared/query-tokenizer.js';
+
+/** Merges Tailwind CSS classes with proper conflict resolution. */
+export function cn(...inputs: ClassValue[]) {
+	return twMerge(clsx(inputs));
+}
 
 /** Generate a v4 UUID, with fallback for browsers lacking crypto.randomUUID. */
 export function uuid(): string {
