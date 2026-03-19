@@ -14,9 +14,7 @@
 	} = $props();
 
 	let negPrefix = $derived(negated ? '-' : '');
-	let badgeClass = $derived(
-		negated ? 'badge badge-error badge-outline' : 'badge badge-primary badge-outline'
-	);
+	let badgeClass = $derived('badge badge-outline ' + (negated ? 'badge-error' : 'badge-primary'));
 	let valueColor = $derived(negated ? 'text-error' : 'text-primary');
 </script>
 

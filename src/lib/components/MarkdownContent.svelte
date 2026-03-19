@@ -73,17 +73,17 @@
 	}
 	.markdown-body :global(p) {
 		margin-bottom: 0.5em;
-		color: oklch(var(--color-base-content) / 0.7);
+		color: color-mix(in srgb, var(--color-base-content) 70%, transparent);
 	}
 	.markdown-body :global(p:last-child) {
 		margin-bottom: 0;
 	}
 	.markdown-body :global(code) {
-		background: oklch(var(--color-base-300));
+		background: var(--color-base-300);
 		padding: 0.125em 0.375em;
 		border-radius: 0.25rem;
 		font-size: 0.85em;
-		color: oklch(var(--color-primary));
+		color: var(--color-primary);
 	}
 	.markdown-body :global(pre code) {
 		background: none;
@@ -103,7 +103,7 @@
 		font-weight: 700;
 		margin-top: 1em;
 		margin-bottom: 0.5em;
-		color: oklch(var(--color-base-content));
+		color: var(--color-base-content);
 	}
 	.markdown-body :global(h1) {
 		font-size: 1.25em;
@@ -115,17 +115,17 @@
 		font-size: 1em;
 	}
 	.markdown-body :global(a) {
-		color: oklch(var(--color-primary));
+		color: var(--color-primary);
 		text-decoration: underline;
 	}
 	.markdown-body :global(blockquote) {
-		border-left: 2px solid oklch(var(--color-base-content) / 0.2);
+		border-left: 2px solid color-mix(in srgb, var(--color-base-content) 20%, transparent);
 		padding-left: 0.75em;
-		color: oklch(var(--color-base-content) / 0.7);
+		color: color-mix(in srgb, var(--color-base-content) 70%, transparent);
 		margin-bottom: 0.5em;
 	}
 	.markdown-body :global(strong) {
-		color: oklch(var(--color-base-content));
+		color: var(--color-base-content);
 		font-weight: 600;
 	}
 	.markdown-body :global(table) {
@@ -134,15 +134,15 @@
 		border-spacing: 0;
 		margin-bottom: 0.75em;
 		font-size: 0.85em;
-		border: 1px solid oklch(var(--color-base-content) / 0.1);
+		border: 1px solid color-mix(in srgb, var(--color-base-content) 10%, transparent);
 		border-radius: 0.5rem;
 		overflow: hidden;
 	}
 	.markdown-body :global(th),
 	.markdown-body :global(td) {
 		padding: 0.4em 0.75em;
-		border-bottom: 1px solid oklch(var(--color-base-content) / 0.1);
-		border-right: 1px solid oklch(var(--color-base-content) / 0.1);
+		border-bottom: 1px solid color-mix(in srgb, var(--color-base-content) 10%, transparent);
+		border-right: 1px solid color-mix(in srgb, var(--color-base-content) 10%, transparent);
 		text-align: left;
 	}
 	.markdown-body :global(th:last-child),
@@ -153,15 +153,15 @@
 		border-bottom: none;
 	}
 	.markdown-body :global(th) {
-		background: oklch(var(--color-base-200));
-		color: oklch(var(--color-primary));
+		background: var(--color-base-200);
+		color: var(--color-primary);
 		font-weight: 600;
-		border-bottom: 1.5px solid oklch(var(--color-base-content) / 0.2);
+		border-bottom: 1.5px solid color-mix(in srgb, var(--color-base-content) 20%, transparent);
 	}
 	.markdown-body :global(td) {
-		color: oklch(var(--color-base-content) / 0.7);
+		color: color-mix(in srgb, var(--color-base-content) 70%, transparent);
 	}
 	.markdown-body :global(tr:nth-child(even) td) {
-		background: oklch(var(--color-base-200));
+		background: var(--color-base-200);
 	}
 </style>
