@@ -6,6 +6,8 @@
 	import type { Project } from '$lib/types.js';
 	import { getErrorMessage } from '$lib/utils.js';
 	import Composer from './Composer.svelte';
+	import FormAlert from './FormAlert.svelte';
+	import FormField from './FormField.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 
@@ -111,10 +113,7 @@
 
 		<div class="space-y-4">
 			<!-- Project selector -->
-			<div>
-				<label for="modal-project-select" class="text-text-300 mb-1.5 block text-xs font-medium"
-					>Project</label
-				>
+			<FormField id="modal-project-select" label="Project">
 				{#if projects.length === 0}
 					<p
 						class="text-text-500 border-surface-800 bg-surface-900 rounded-md border px-3 py-2.5 text-sm"
@@ -132,15 +131,11 @@
 						{/each}
 					</select>
 				{/if}
-			</div>
+			</FormField>
 
 			<!-- Permission mode + Model in a row -->
 			<div class="grid grid-cols-2 gap-3">
-				<div>
-					<label
-						for="modal-permission-select"
-						class="text-text-300 mb-1.5 block text-xs font-medium">Permission Mode</label
-					>
+				<FormField id="modal-permission-select" label="Permission Mode">
 					<select
 						id="modal-permission-select"
 						bind:value={permissionMode}
@@ -150,11 +145,8 @@
 							<option value={mode}>{PERMISSION_MODE_LABELS[mode]}</option>
 						{/each}
 					</select>
-				</div>
-				<div>
-					<label for="modal-model-select" class="text-text-300 mb-1.5 block text-xs font-medium"
-						>Model</label
-					>
+				</FormField>
+				<FormField id="modal-model-select" label="Model">
 					<select
 						id="modal-model-select"
 						bind:value={selectedModel}
@@ -164,17 +156,13 @@
 							<option value={modelOption.value}>{modelOption.displayName}</option>
 						{/each}
 					</select>
-				</div>
+				</FormField>
 			</div>
 		</div>
 
 		<!-- Error banner -->
 		{#if errorMessage}
-			<div
-				class="border-error-500/30 bg-error-500/10 text-error-400 mt-4 rounded-md border px-3 py-2 text-xs"
-			>
-				{errorMessage}
-			</div>
+			<FormAlert type="error" message={errorMessage} class="mt-4" />
 		{/if}
 
 		<!-- Composer -->
