@@ -1,6 +1,6 @@
 import { Dialog as SheetPrimitive } from 'bits-ui';
 
-export { default as SheetContent } from './sheet-content.svelte';
+export { default as SheetContent, sheetVariants } from './sheet-content.svelte';
 export { default as SheetDescription } from './sheet-description.svelte';
 export { default as SheetFooter } from './sheet-footer.svelte';
 export { default as SheetHeader } from './sheet-header.svelte';
