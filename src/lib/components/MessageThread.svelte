@@ -127,25 +127,27 @@
 		<!-- Permission banner -->
 		{#if session?.pendingPermission}
 			{@const permissionId = session.pendingPermission.id}
-			<div class="pl-6">
-				<PermissionBanner
-					request={session.pendingPermission}
-					onAllow={(queuedNote) => {
-						onPermission?.({
-							toolUseId: permissionId,
-							behavior: 'allow',
-							queuedNote
-						});
-					}}
-					onDeny={(message) => {
-						onPermission?.({
-							toolUseId: permissionId,
-							behavior: 'deny',
-							message
-						});
-					}}
-				/>
-			</div>
+			{#key permissionId}
+				<div class="pl-6">
+					<PermissionBanner
+						request={session.pendingPermission}
+						onAllow={(queuedNote) => {
+							onPermission?.({
+								toolUseId: permissionId,
+								behavior: 'allow',
+								queuedNote
+							});
+						}}
+						onDeny={(message) => {
+							onPermission?.({
+								toolUseId: permissionId,
+								behavior: 'deny',
+								message
+							});
+						}}
+					/>
+				</div>
+			{/key}
 		{/if}
 
 		<!-- Ask user question -->
