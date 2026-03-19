@@ -23,10 +23,10 @@
 	>
 		<div class="mb-1.5 flex items-center justify-between gap-4">
 			<span class="text-user-400 text-[10px] font-semibold tracking-wider uppercase">You</span>
-			<span class="text-text-500 text-[10px]">{formatTime(message.timestamp)}</span>
+			<span class="text-muted-foreground text-[10px]">{formatTime(message.timestamp)}</span>
 		</div>
 		{#if message.textContent}
-			<div class="text-text-100 font-mono text-sm leading-relaxed break-words whitespace-pre-wrap">
+			<div class="text-foreground font-mono text-sm leading-relaxed break-words whitespace-pre-wrap">
 				{message.textContent}
 			</div>
 		{/if}

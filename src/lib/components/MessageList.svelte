@@ -35,7 +35,7 @@
 	});
 </script>
 
-<div class="border-surface-800/50 space-y-6 border-l pl-6">
+<div class="border-border/50 space-y-6 border-l pl-6">
 	{#each groupedMessages as group, i (group.message.uuid)}
 		<div
 			class="animate-fade-in-up relative"
@@ -46,7 +46,7 @@
 				class="absolute top-4 -left-6 h-2 w-2 -translate-x-1/2 rounded-full {group.message.role ===
 				'user'
 					? 'bg-user-400'
-					: 'bg-accent-400'}"
+					: 'bg-primary'}"
 			></div>
 			{#if group.message.role === 'user'}
 				<UserMessage message={group.message} />

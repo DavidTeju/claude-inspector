@@ -15,9 +15,9 @@
 </script>
 
 {#if filePath}
-	<div class="bg-surface-800 flex items-center gap-2 rounded-t-md px-3 py-1.5">
+	<div class="bg-muted flex items-center gap-2 rounded-t-md px-3 py-1.5">
 		<svg
-			class="text-text-500 h-3.5 w-3.5 flex-shrink-0"
+			class="text-muted-foreground h-3.5 w-3.5 flex-shrink-0"
 			fill="none"
 			viewBox="0 0 24 24"
 			stroke="currentColor"
@@ -29,10 +29,10 @@
 				d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"
 			/>
 		</svg>
-		<span class="text-text-300 truncate font-mono text-[10px]">{filePath}</span>
+		<span class="text-foreground/80 truncate font-mono text-[10px]">{filePath}</span>
 		{#if tool.input.replace_all}
 			<span
-				class="bg-accent-500/10 text-accent-300 ml-auto rounded px-1.5 py-0.5 text-[9px] font-medium"
+				class="bg-primary/10 text-primary ml-auto rounded px-1.5 py-0.5 text-[9px] font-medium"
 				>replace_all</span
 			>
 		{/if}
@@ -41,7 +41,7 @@
 
 {#if editDiff.length > 0}
 	<div
-		class="bg-surface-950 max-h-96 overflow-auto font-mono text-[11px] {filePath
+		class="bg-background max-h-96 overflow-auto font-mono text-[11px] {filePath
 			? 'rounded-b-md'
 			: 'rounded-md'}"
 	>
@@ -49,9 +49,9 @@
 			{@const lines = change.value.replace(/\n$/, '').split('\n')}
 			{#each lines as line, li (li)}
 				{#if change.removed}
-					<div class="bg-error-500/10 text-error-400 flex">
+					<div class="bg-destructive/10 text-destructive flex">
 						<span
-							class="border-error-500/20 w-10 flex-shrink-0 border-r pr-1 text-right select-none"
+							class="border-destructive/20 w-10 flex-shrink-0 border-r pr-1 text-right select-none"
 							>&minus;</span
 						>
 						<span class="pl-2 break-words whitespace-pre-wrap">{line}</span>
@@ -65,9 +65,9 @@
 						<span class="pl-2 break-words whitespace-pre-wrap">{line}</span>
 					</div>
 				{:else}
-					<div class="text-text-500 flex">
+					<div class="text-muted-foreground flex">
 						<span
-							class="border-surface-800 text-text-700 w-10 flex-shrink-0 border-r pr-1 text-right select-none"
+							class="border-border text-muted-foreground/60 w-10 flex-shrink-0 border-r pr-1 text-right select-none"
 							>&nbsp;</span
 						>
 						<span class="pl-2 break-words whitespace-pre-wrap">{line}</span>
@@ -78,7 +78,7 @@
 	</div>
 {:else}
 	<pre
-		class="bg-surface-950 text-text-300 max-h-64 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">{JSON.stringify(
+		class="bg-background text-foreground/80 max-h-64 overflow-auto rounded-md p-2 font-mono text-[11px] leading-relaxed break-words whitespace-pre-wrap">{JSON.stringify(
 			tool.input,
 			null,
 			2
@@ -86,5 +86,5 @@
 {/if}
 
 {#if tool.result?.isError}
-	<pre class="text-error-400 mt-1 text-[11px] break-words whitespace-pre-wrap">{resultText}</pre>
+	<pre class="text-destructive mt-1 text-[11px] break-words whitespace-pre-wrap">{resultText}</pre>
 {/if}
