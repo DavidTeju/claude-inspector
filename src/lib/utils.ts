@@ -12,6 +12,7 @@ import {
 	HOURS_PER_DAY,
 	DAYS_PER_WEEK
 } from '$lib/constants.js';
+import { tokenizeQuery } from '$lib/shared/query-tokenizer.js';
 
 /** Generate a v4 UUID, with fallback for browsers lacking crypto.randomUUID. */
 export function uuid(): string {
@@ -172,55 +173,86 @@ export interface ParsedFilter {
 	prefix: string;
 	value: string;
 	raw: string;
+	negated: boolean;
 }
 
 /** Filter prefixes that require an accompanying value (e.g. `tool:Read`). */
-const VALUE_FILTER_PREFIXES = ['tool:', 'branch:'] as const;
+const VALUE_FILTER_PREFIXES = ['project:', 'model:', 'date:'] as const;
 
 /** Exact-match filters that are recognised as-is (no separate value needed). */
 const EXACT_FILTERS: Record<string, { prefix: string; value: string }> = {
-	'is:error': { prefix: 'is', value: 'error' },
-	'is:subagent': { prefix: 'is', value: 'subagent' },
-	'has:tokens': { prefix: 'has', value: 'tokens' },
-	'has:cost': { prefix: 'has', value: 'cost' },
-	'mode:raw': { prefix: 'mode', value: 'raw' },
-	'debug:raw': { prefix: 'debug', value: 'raw' },
-	'source:raw': { prefix: 'source', value: 'raw' }
+	'has:error': { prefix: 'has', value: 'error' },
+	'is:error': { prefix: 'has', value: 'error' },
+	'is:subagent': { prefix: 'is', value: 'subagent' }
 };
 
+/** Tokens that activate raw search mode (not treated as filters). */
+export const RAW_MODE_TOKENS = new Set(['mode:raw', 'debug:raw', 'source:raw']);
+
 /**
- * Splits a query string into structured filters and remaining free text.
+ * Splits a query string into structured filters, remaining free text, and mode flags.
+ * Uses the shared tokenizer to handle quoted phrases and negation.
  * Mirrors the server-side `parseStructuredQuery` logic in `src/lib/server/search.ts`,
  * so any new filter token must be added in both places to keep the UI chips and
  * the actual search backend in sync.
  */
-export function parseClientFilters(text: string): { filters: ParsedFilter[]; freeText: string } {
+export function parseClientFilters(text: string): {
+	filters: ParsedFilter[];
+	freeText: string;
+	rawMode: boolean;
+	regexMode: boolean;
+} {
 	const filters: ParsedFilter[] = [];
 	const freeTokens: string[] = [];
+	let rawMode = false;
+	let regexMode = false;
 
-	for (const token of text.trim().split(/\s+/).filter(Boolean)) {
-		const lowerToken = token.toLowerCase();
-
-		const exactMatch = EXACT_FILTERS[lowerToken];
-		if (exactMatch) {
-			filters.push({ prefix: exactMatch.prefix, value: exactMatch.value, raw: token });
+	for (const token of tokenizeQuery(text)) {
+		// Quoted tokens are always free text (phrase search)
+		if (token.quoted) {
+			freeTokens.push(token.raw);
 			continue;
 		}
 
+		const lowerBody = token.body.toLowerCase();
+
+		// Raw/regex mode tokens (not negatable, not filters)
+		if (!token.negated && RAW_MODE_TOKENS.has(lowerBody)) {
+			rawMode = true;
+			continue;
+		}
+		if (!token.negated && lowerBody === 'mode:regex') {
+			regexMode = true;
+			continue;
+		}
+
+		// Exact filters
+		const exactMatch = EXACT_FILTERS[lowerBody];
+		if (exactMatch) {
+			filters.push({
+				prefix: exactMatch.prefix,
+				value: exactMatch.value,
+				raw: token.raw,
+				negated: token.negated
+			});
+			continue;
+		}
+
+		// Value prefix filters
 		const matchedPrefix = VALUE_FILTER_PREFIXES.find(
-			(p) => lowerToken.startsWith(p) && token.length > p.length
+			(p) => lowerBody.startsWith(p) && token.body.length > p.length
 		);
 		if (matchedPrefix) {
-			const prefix = matchedPrefix.slice(0, -1); // strip trailing ':'
-			const value = token.slice(matchedPrefix.length);
-			filters.push({ prefix, value, raw: token });
+			const prefix = matchedPrefix.slice(0, -1);
+			const value = token.body.slice(matchedPrefix.length);
+			filters.push({ prefix, value, raw: token.raw, negated: token.negated });
 			continue;
 		}
 
-		freeTokens.push(token);
+		freeTokens.push(token.raw);
 	}
 
-	return { filters, freeText: freeTokens.join(' ') };
+	return { filters, freeText: freeTokens.join(' '), rawMode, regexMode };
 }
 
 /**

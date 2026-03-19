@@ -77,4 +77,9 @@
 	</div>
 </div>
 
-<NewSessionModal projects={data.projects} models={data.models} />
+<NewSessionModal
+	projects={data.projects}
+	models={data.models}
+	defaultPermissionMode={data.defaultPermissionMode}
+	defaultModel={data.defaultModel}
+/>

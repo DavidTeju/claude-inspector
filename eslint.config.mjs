@@ -1,4 +1,6 @@
+// For more info, see https://github.com/storybookjs/eslint-plugin-storybook#configuration-flat-config-format
 import { createConfig } from '@davidteju/dev-config/eslint';
+import { configs as storybookConfigs } from 'eslint-plugin-storybook';
 import svelteConf from './svelte.config.js';
 
 export default [
@@ -12,5 +14,6 @@ export default [
 		rules: {
 			'svelte/no-at-html-tags': 'off'
 		}
-	}
+	},
+	...storybookConfigs['flat/recommended']
 ];

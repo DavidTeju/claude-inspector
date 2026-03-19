@@ -36,5 +36,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Sync SvelteKit
+        run: npx svelte-kit sync
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
       - name: Point app at test fixture data
         run: echo "CLAUDE_DATA_PATH=${{ github.workspace }}/tests/fixtures" >> "$GITHUB_ENV"
