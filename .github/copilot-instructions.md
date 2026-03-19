@@ -1,5 +1,7 @@
 # Copilot Instructions
 
+[IMPORTANT] You must follow the instructions on screenshots always or your PR will be rejected. Include screenshots of every edge case and every exposed ui change/addition as well as the standard pages.
+
 ## After every implementation
 
 Before marking a PR ready for review:
