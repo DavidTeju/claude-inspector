@@ -7,7 +7,7 @@
 
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { open, readdir, stat } from 'node:fs/promises';
+import { mkdir, open, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import {
 	query,
@@ -43,7 +43,7 @@ import type {
 import type { ModelOption } from '$lib/shared/models.js';
 import { FALLBACK_MODELS } from '$lib/shared/models.js';
 import type { ThreadMessage, ToolCall, ToolResultEntry, ToolResultMap } from '$lib/types.js';
-import { getErrorMessage } from '$lib/utils.js';
+import { getErrorMessage, pathToProjectId } from '$lib/utils.js';
 import {
 	cleanupOrphanedProcesses as cleanupTrackedProcesses,
 	renameActiveSessionProcess,
@@ -1411,20 +1411,41 @@ async function reapInactiveSessions(): Promise<void> {
 ensureMaintenanceLoops();
 
 export async function startNewSession(options: {
-	projectId: string;
+	projectId?: string;
+	projectPath?: string;
 	prompt: string;
 	permissionMode: PermissionMode;
 	model: string;
 }): Promise<ActiveSession> {
 	const prompt = ensureString(options.prompt, 'prompt is required');
-	const projectId = requireProjectId(options.projectId);
-	const storagePath = await resolveProjectPath(projectId);
-	const projectPath = await resolveRealProjectCwd(storagePath);
+
+	let projectId: string;
+	let projectCwd: string;
+
+	if (options.projectPath) {
+		// New project from a user-supplied directory path
+		const realPath = path.resolve(options.projectPath);
+		const dirStat = await stat(realPath).catch(() => null);
+		if (!dirStat?.isDirectory()) {
+			throw new SessionManagerError(HTTP_BAD_REQUEST, `Directory does not exist: ${realPath}`);
+		}
+		projectId = requireProjectId(pathToProjectId(realPath));
+		const storagePath = path.join(getProjectsDir(), projectId);
+		await mkdir(storagePath, { recursive: true });
+		projectCwd = realPath;
+	} else if (options.projectId) {
+		projectId = requireProjectId(options.projectId);
+		const storagePath = await resolveProjectPath(projectId);
+		projectCwd = await resolveRealProjectCwd(storagePath);
+	} else {
+		throw new SessionManagerError(HTTP_BAD_REQUEST, 'projectId or projectPath is required');
+	}
+
 	const sessionId = randomUUID();
 
 	const session = createSession(
 		projectId,
-		projectPath,
+		projectCwd,
 		sessionId,
 		options.permissionMode,
 		options.model

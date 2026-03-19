@@ -21,9 +21,13 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 
 		const projectId = asOptionalString(body.projectId);
+		const projectPath = asOptionalString(body.projectPath);
 		const prompt = asOptionalString(body.prompt);
-		if (!projectId || !prompt) {
-			return json({ error: 'projectId and prompt are required' }, { status: 400 });
+		if (projectId && projectPath) {
+			return json({ error: 'Provide either projectId or projectPath, not both' }, { status: 400 });
+		}
+		if ((!projectId && !projectPath) || !prompt) {
+			return json({ error: '(projectId or projectPath) and prompt are required' }, { status: 400 });
 		}
 
 		const config = await getConfig();
@@ -31,22 +35,29 @@ export const POST: RequestHandler = async ({ request }) => {
 		const model = asOptionalString(body.model) ?? config.defaultModel;
 		const sdkSessionId = asOptionalString(body.sdkSessionId);
 
-		const session = sdkSessionId
-			? await resumeSession({
-					projectId,
-					prompt,
-					sessionId: sdkSessionId,
-					permissionMode,
-					model
-				})
-			: await startNewSession({
-					projectId,
-					prompt,
-					permissionMode,
-					model
-				});
+		let session;
+		if (sdkSessionId) {
+			if (!projectId) {
+				return json({ error: 'projectId is required to resume a session' }, { status: 400 });
+			}
+			session = await resumeSession({
+				projectId,
+				prompt,
+				sessionId: sdkSessionId,
+				permissionMode,
+				model
+			});
+		} else {
+			session = await startNewSession({
+				projectId,
+				projectPath,
+				prompt,
+				permissionMode,
+				model
+			});
+		}
 
-		return json({ sessionId: session.sessionId });
+		return json({ sessionId: session.sessionId, projectId: session.projectId });
 	} catch (error) {
 		if (error instanceof SessionManagerError) {
 			return json({ error: error.message }, { status: error.status });

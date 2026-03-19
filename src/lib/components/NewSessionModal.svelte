@@ -22,12 +22,16 @@
 	} = $props();
 
 	let selectedProject = $state('');
+	let useCustomPath = $state(false);
+	let customPath = $state('');
 	let permissionMode = $state<PermissionMode>(defaultPermissionMode);
 	let selectedModel = $state(defaultModel);
 	let isStarting = $state(false);
 	let errorMessage = $state<string | null>(null);
 
 	let dialogEl: HTMLDialogElement | undefined = $state();
+
+	let hasTarget = $derived(useCustomPath ? customPath.trim() !== '' : selectedProject !== '');
 
 	// Sync dialog open/close with store
 	$effect(() => {
@@ -46,6 +50,8 @@
 	function handleClose() {
 		newSessionModal.hide();
 		errorMessage = null;
+		useCustomPath = false;
+		customPath = '';
 	}
 
 	function handleBackdropClick(e: MouseEvent) {
@@ -59,15 +65,21 @@
 		errorMessage = null;
 
 		try {
+			const payload: Record<string, unknown> = {
+				prompt,
+				permissionMode,
+				model: selectedModel || undefined
+			};
+			if (useCustomPath) {
+				payload.projectPath = customPath.trim();
+			} else {
+				payload.projectId = selectedProject;
+			}
+
 			const response = await fetch('/api/session/start', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					projectId: selectedProject,
-					prompt,
-					permissionMode,
-					model: selectedModel || undefined
-				})
+				body: JSON.stringify(payload)
 			});
 
 			const body = await response.json();
@@ -76,8 +88,9 @@
 				return;
 			}
 
+			const resolvedProjectId = body.projectId ?? selectedProject;
 			handleClose();
-			await goto(resolve(`/session/${selectedProject}/${body.sessionId}`), {
+			await goto(resolve(`/session/${resolvedProjectId}/${body.sessionId}`), {
 				invalidate: ['app:active-sessions']
 			});
 		} catch (err: unknown) {
@@ -112,14 +125,36 @@
 		<div class="space-y-4">
 			<!-- Project selector -->
 			<div>
-				<label for="modal-project-select" class="text-text-300 mb-1.5 block text-xs font-medium"
-					>Project</label
-				>
-				{#if projects.length === 0}
-					<p
-						class="text-text-500 border-surface-800 bg-surface-900 rounded-md border px-3 py-2.5 text-sm"
+				<div class="mb-1.5 flex items-center justify-between">
+					<label
+						for={useCustomPath ? 'modal-project-path' : 'modal-project-select'}
+						class="text-text-300 text-xs font-medium"
+						>{useCustomPath ? 'Project Directory' : 'Project'}</label
 					>
-						No projects found. Start a Claude session in a project directory first.
+					{#if projects.length > 0}
+						<button
+							type="button"
+							onclick={() => (useCustomPath = !useCustomPath)}
+							class="text-accent-400 hover:text-accent-300 cursor-pointer text-xs transition-colors"
+						>
+							{useCustomPath ? 'Select existing project' : 'Use custom path'}
+						</button>
+					{/if}
+				</div>
+				{#if useCustomPath || projects.length === 0}
+					<input
+						id="modal-project-path"
+						type="text"
+						bind:value={customPath}
+						placeholder="/path/to/your/project"
+						class="border-surface-800 bg-surface-900 text-text-100 placeholder:text-text-600 input-glow w-full rounded-md border px-3 py-2.5 text-sm outline-none"
+					/>
+					<p class="text-text-500 mt-1 text-xs">
+						{#if projects.length === 0 && !useCustomPath}
+							No existing projects found. Enter a project directory path to get started.
+						{:else}
+							Enter the absolute path to a local project directory.
+						{/if}
 					</p>
 				{:else}
 					<select
@@ -181,7 +216,7 @@
 		<div class="mt-5">
 			<Composer
 				onSubmit={startSession}
-				disabled={isStarting || !selectedProject}
+				disabled={isStarting || !hasTarget}
 				placeholder="Enter your prompt to start the session..."
 				draftKey="new-session-modal-draft"
 				buttonLabel="Start"
