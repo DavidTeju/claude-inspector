@@ -35,7 +35,7 @@
 	});
 </script>
 
-<div class="border-surface-800/50 space-y-6 border-l pl-6">
+<div class="border-border/50 space-y-6 border-l pl-6">
 	{#each groupedMessages as group, i (group.message.uuid)}
 		<div
 			class="animate-fade-in-up relative"

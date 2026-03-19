@@ -201,8 +201,8 @@
 		<!-- Message area -->
 		{#if pageMode === 'connecting'}
 			<div class="flex flex-1 items-center justify-center">
-				<div class="text-text-500 text-center text-sm">
-					<div class="bg-accent-400 mx-auto mb-3 h-2 w-2 animate-pulse rounded-full"></div>
+				<div class="text-muted-foreground text-center text-sm">
+					<div class="bg-primary mx-auto mb-3 h-2 w-2 animate-pulse rounded-full"></div>
 					Connecting...
 				</div>
 			</div>
@@ -218,7 +218,7 @@
 		<!-- Composer (visible for resumable sessions and active sessions) -->
 		{#if showComposer}
 			<div
-				class="border-surface-800 bg-surface-950/88 z-10 flex-shrink-0 border-t px-4 py-2 backdrop-blur-sm"
+				class="border-border bg-background/88 z-10 flex-shrink-0 border-t px-4 py-2 backdrop-blur-sm"
 			>
 				<Composer
 					onSubmit={handleSubmit}

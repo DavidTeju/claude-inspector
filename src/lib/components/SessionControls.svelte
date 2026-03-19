@@ -86,7 +86,7 @@
 {#if isSubagent && parentSessionId}
 	<a
 		href={resolve(`/session/${projectId}/${parentSessionId}`)}
-		class="bg-accent-500/10 text-accent-400 hover:bg-accent-500/20 mb-1.5 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors"
+		class="bg-primary/10 text-primary hover:bg-primary/20 mb-1.5 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors"
 	>
 		<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 			<path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M7 7h10v10" />
@@ -95,7 +95,7 @@
 	</a>
 {/if}
 
-<div class="border-surface-800 bg-surface-900/70 overflow-hidden rounded-xl border">
+<div class="border-border bg-card/70 overflow-hidden rounded-xl border">
 	<!-- Row 1: Title + State + Stop -->
 	<div class="flex items-center gap-2 px-4 pt-3 {isActive ? 'pb-1' : 'pb-2.5'}">
 		{#if isActive}
@@ -106,17 +106,17 @@
 			></span>
 		{/if}
 		{#if sessionTitle}
-			<span class="text-text-100 min-w-0 truncate text-sm font-medium" title={sessionTitle}>
+			<span class="text-foreground min-w-0 truncate text-sm font-medium" title={sessionTitle}>
 				{sessionTitle}
 			</span>
 		{/if}
 		{#if isActive}
-			<span class="text-text-500 shrink-0 text-xs">{currentLabel.label}</span>
+			<span class="text-muted-foreground shrink-0 text-xs">{currentLabel.label}</span>
 			<button
 				onclick={() => onInterrupt?.()}
 				disabled={!canInterrupt}
 				aria-label="Interrupt session"
-				class="border-error-500/20 bg-error-500/10 text-error-400 ml-auto flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-colors {canInterrupt
+				class="border-error-500/20 bg-destructive/10 text-destructive ml-auto flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs transition-colors {canInterrupt
 					? 'hover:bg-error-500/20 cursor-pointer'
 					: 'cursor-not-allowed opacity-40'}"
 			>
@@ -127,14 +127,14 @@
 			</button>
 		{:else}
 			{#if messageCount > 0}
-				<span class="text-text-500 text-xs"
+				<span class="text-muted-foreground text-xs"
 					>&middot; {messageCount} msg{messageCount !== 1 ? 's' : ''}</span
 				>
 			{/if}
 			{#if sessionId && showResumeCommand}
 				<button
 					onclick={copyResumeCommand}
-					class="text-text-500 hover:text-text-300 ml-auto flex cursor-pointer items-center gap-1.5 text-xs transition-colors"
+					class="text-muted-foreground hover:text-foreground/80 ml-auto flex cursor-pointer items-center gap-1.5 text-xs transition-colors"
 					title="Copy resume command"
 				>
 					<code class="text-text-600 max-w-[10rem] truncate font-mono text-[10px]"
@@ -142,7 +142,7 @@
 					>
 					{#if copied}
 						<svg
-							class="text-success-500 h-3.5 w-3.5"
+							class="text-success h-3.5 w-3.5"
 							fill="none"
 							viewBox="0 0 24 24"
 							stroke="currentColor"
@@ -172,7 +172,7 @@
 
 	<!-- Row 2: Metadata (active sessions only) -->
 	{#if isActive}
-		<div class="text-text-500 flex items-center gap-2 px-4 pb-2.5 text-xs">
+		<div class="text-muted-foreground flex items-center gap-2 px-4 pb-2.5 text-xs">
 			{#if messageCount > 0}
 				<span>{messageCount} msg{messageCount !== 1 ? 's' : ''}</span>
 				<span class="text-surface-700">&middot;</span>
@@ -181,7 +181,7 @@
 			<button
 				onclick={cyclePermissionMode}
 				aria-label="Cycle permission mode"
-				class="bg-surface-800 text-text-300 hover:bg-surface-700 cursor-pointer rounded-lg px-3 py-1 text-xs transition-colors"
+				class="bg-accent text-foreground/80 hover:bg-surface-700 cursor-pointer rounded-lg px-3 py-1 text-xs transition-colors"
 				title="Click to cycle permission mode"
 			>
 				{PERMISSION_MODE_LABELS[permissionMode] ?? permissionMode}
@@ -203,7 +203,7 @@
 
 {#if reconnecting}
 	<div
-		class="bg-warning-500/10 text-warning-500 mt-2 flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[11px]"
+		class="bg-warning-500/10 text-warning mt-2 flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[11px]"
 	>
 		<svg
 			class="h-3.5 w-3.5 shrink-0"
@@ -224,7 +224,7 @@
 
 {#if error}
 	<div
-		class="bg-error-500/10 text-error-400 mt-2 flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[11px]"
+		class="bg-destructive/10 text-destructive mt-2 flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[11px]"
 	>
 		<svg
 			class="h-3.5 w-3.5 shrink-0"
@@ -245,7 +245,7 @@
 
 {#if resumeError}
 	<div
-		class="bg-error-500/10 text-error-400 mt-2 flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[11px]"
+		class="bg-destructive/10 text-destructive mt-2 flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[11px]"
 	>
 		<svg
 			class="h-3.5 w-3.5 shrink-0"

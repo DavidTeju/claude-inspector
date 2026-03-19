@@ -48,54 +48,58 @@
 		onclick={() => (expanded = !expanded)}
 		aria-label="Toggle cost breakdown"
 		aria-expanded={expanded}
-		class="text-text-500 hover:text-text-300 cursor-pointer font-mono text-[10px] transition-colors"
+		class="text-muted-foreground hover:text-foreground/80 cursor-pointer font-mono text-[10px] transition-colors"
 	>
-		{formattedTotal} <span class="text-text-700">&middot;</span>
+		{formattedTotal} <span class="text-muted-foreground/50">&middot;</span>
 		{formattedTokens} tokens
 	</button>
 
 	{#if expanded}
 		<div
-			class="border-surface-700 bg-surface-850 absolute top-full right-0 z-10 mt-1 rounded-lg border p-3 shadow-lg"
+			class="border-border bg-muted absolute top-full right-0 z-10 mt-1 rounded-lg border p-3 shadow-lg"
 		>
 			<table class="text-[10px]">
 				<tbody>
 					<tr>
-						<td class="text-text-500 pr-4">Input tokens</td>
-						<td class="text-text-300 text-right font-mono">{cost.inputTokens.toLocaleString()}</td>
+						<td class="text-muted-foreground pr-4">Input tokens</td>
+						<td class="text-foreground/80 text-right font-mono"
+							>{cost.inputTokens.toLocaleString()}</td
+						>
 					</tr>
 					<tr>
-						<td class="text-text-500 pr-4">Output tokens</td>
-						<td class="text-text-300 text-right font-mono">{cost.outputTokens.toLocaleString()}</td>
+						<td class="text-muted-foreground pr-4">Output tokens</td>
+						<td class="text-foreground/80 text-right font-mono"
+							>{cost.outputTokens.toLocaleString()}</td
+						>
 					</tr>
 					<tr>
-						<td class="text-text-500 pr-4">Cache read</td>
-						<td class="text-text-300 text-right font-mono"
+						<td class="text-muted-foreground pr-4">Cache read</td>
+						<td class="text-foreground/80 text-right font-mono"
 							>{cost.cacheReadTokens.toLocaleString()}</td
 						>
 					</tr>
 					<tr>
-						<td class="text-text-500 pr-4">Cache write</td>
-						<td class="text-text-300 text-right font-mono"
+						<td class="text-muted-foreground pr-4">Cache write</td>
+						<td class="text-foreground/80 text-right font-mono"
 							>{cost.cacheWriteTokens.toLocaleString()}</td
 						>
 					</tr>
-					<tr class="border-surface-700 border-t">
-						<td class="text-text-300 pt-1 pr-4 font-semibold">Total</td>
-						<td class="text-text-100 pt-1 text-right font-mono">{formattedTotal}</td>
+					<tr class="border-border border-t">
+						<td class="text-foreground/80 pt-1 pr-4 font-semibold">Total</td>
+						<td class="text-foreground pt-1 text-right font-mono">{formattedTotal}</td>
 					</tr>
 				</tbody>
 			</table>
 
 			{#if hasMultipleModels}
-				<div class="border-surface-700 mt-2 border-t pt-2">
-					<div class="text-text-500 mb-1 text-[9px] font-semibold tracking-wider uppercase">
+				<div class="border-border mt-2 border-t pt-2">
+					<div class="text-muted-foreground mb-1 text-[9px] font-semibold tracking-wider uppercase">
 						Per model
 					</div>
 					{#each modelEntries as [model, usage] (model)}
 						<div class="flex items-center justify-between gap-4 text-[10px]">
-							<span class="text-text-500 font-mono">{model}</span>
-							<span class="text-text-300 font-mono">
+							<span class="text-muted-foreground font-mono">{model}</span>
+							<span class="text-foreground/80 font-mono">
 								{usage.inputTokens.toLocaleString()} in / {usage.outputTokens.toLocaleString()} out
 							</span>
 						</div>

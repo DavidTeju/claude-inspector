@@ -27,17 +27,17 @@
 	<!-- Collapsed: subtle inline summary -->
 	<button
 		onclick={() => (expanded = true)}
-		class="text-text-500 hover:text-text-300 border-surface-800/60 hover:border-surface-700 flex w-full flex-wrap items-center gap-x-2 gap-y-1 overflow-hidden rounded-md border border-dashed px-3 py-1.5 text-left transition-colors"
+		class="text-muted-foreground hover:text-foreground/80 border-border/60 hover:border-border flex w-full flex-wrap items-center gap-x-2 gap-y-1 overflow-hidden rounded-md border border-dashed px-3 py-1.5 text-left transition-colors"
 	>
 		<span class="text-[11px]">{tools.length} tool calls</span>
-		<span class="text-text-700 text-[10px]">&mdash;</span>
+		<span class="text-muted-foreground/50 text-[10px]">&mdash;</span>
 		{#each toolSummary as { name, count } (name)}
 			<span class="font-mono text-[10px]">
 				{name}{count > 1 ? ` \u00d7${count}` : ''}
 			</span>
 		{/each}
 		{#if errorCount > 0}
-			<span class="text-error-400 ml-auto text-[10px]">
+			<span class="text-destructive ml-auto text-[10px]">
 				{errorCount} error{errorCount > 1 ? 's' : ''}
 			</span>
 		{/if}
@@ -52,7 +52,7 @@
 		</div>
 		<button
 			onclick={() => (expanded = false)}
-			class="text-text-500 hover:text-text-300 mt-2 w-full py-1 text-center text-[10px] transition-colors"
+			class="text-muted-foreground hover:text-foreground/80 mt-2 w-full py-1 text-center text-[10px] transition-colors"
 		>
 			Hide {tools.length} tool calls
 		</button>

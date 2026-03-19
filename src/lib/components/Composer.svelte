@@ -178,13 +178,13 @@
 </script>
 
 <div
-	class="border-surface-800 bg-surface-900/50 focus-within:ring-accent-500/30 focus-within:shadow-accent-500/10 rounded-xl border transition-shadow focus-within:shadow-[0_0_12px_-4px] focus-within:ring-1"
+	class="border-border bg-card/50 focus-within:ring-accent-500/30 focus-within:shadow-accent-500/10 rounded-xl border transition-shadow focus-within:shadow-[0_0_12px_-4px] focus-within:ring-1"
 >
 	<div class="relative">
 		<!-- Slash command popup (above the textarea, follows cursor) -->
 		{#if showCommandList}
 			<div
-				class="border-surface-700 bg-surface-900 absolute bottom-full z-20 mb-1 max-w-sm min-w-[16rem] overflow-hidden rounded-lg border shadow-lg"
+				class="border-border bg-card absolute bottom-full z-20 mb-1 max-w-sm min-w-[16rem] overflow-hidden rounded-lg border shadow-lg"
 				style="left: {caretLeftPx}px;"
 				id="slash-command-listbox"
 				role="listbox"
@@ -203,22 +203,24 @@
 						onclick={() => acceptCommand(cmd)}
 					>
 						<span class="flex items-baseline gap-2 text-xs">
-							<span class="text-accent-400 shrink-0 font-medium">/{cmd.name}</span>
+							<span class="text-primary shrink-0 font-medium">/{cmd.name}</span>
 							{#if cmd.argumentHint}
 								<span class="text-text-600 shrink-0">{cmd.argumentHint}</span>
 							{/if}
 						</span>
-						<span class="text-text-500 truncate text-[11px]">{cmd.description}</span>
+						<span class="text-muted-foreground truncate text-[11px]">{cmd.description}</span>
 					</button>
 				{/each}
 
 				<!-- Keyboard hint footer -->
-				<div class="border-surface-700 text-text-700 flex gap-2 border-t px-3 py-1.5 text-[10px]">
-					<span><kbd class="text-text-500">↑↓</kbd> navigate</span>
+				<div
+					class="border-border text-muted-foreground/50 flex gap-2 border-t px-3 py-1.5 text-[10px]"
+				>
+					<span><kbd class="text-muted-foreground">↑↓</kbd> navigate</span>
 					<span class="text-surface-700">&middot;</span>
-					<span><kbd class="text-text-500">Tab</kbd> accept</span>
+					<span><kbd class="text-muted-foreground">Tab</kbd> accept</span>
 					<span class="text-surface-700">&middot;</span>
-					<span><kbd class="text-text-500">Esc</kbd> dismiss</span>
+					<span><kbd class="text-muted-foreground">Esc</kbd> dismiss</span>
 				</div>
 			</div>
 		{/if}
@@ -241,30 +243,34 @@
 			aria-controls="slash-command-listbox"
 			aria-expanded={showCommandList}
 			aria-activedescendant={showCommandList ? `slash-cmd-${effectiveIndex}` : undefined}
-			class="text-text-100 placeholder-text-500 w-full resize-none bg-transparent px-4 py-2.5 text-sm focus:outline-none disabled:opacity-40 supports-[field-sizing:content]:field-sizing-content"
+			class="text-foreground placeholder-muted-foreground w-full resize-none bg-transparent px-4 py-2.5 text-sm focus:outline-none disabled:opacity-40 supports-[field-sizing:content]:field-sizing-content"
 			style="min-height: 36px; max-height: 200px;"
 		></textarea>
 
 		<!-- Ghost text for slash command completion -->
 		{#if ghostText}
 			<div class="pointer-events-none absolute top-2.5 left-4 text-sm">
-				<span class="invisible">{text}</span><span class="text-text-700">{ghostText}</span>
-				<span class="border-surface-700 text-text-500 ml-1 rounded border px-1 py-0.5 text-[10px]"
+				<span class="invisible">{text}</span><span class="text-muted-foreground/50"
+					>{ghostText}</span
+				>
+				<span
+					class="border-border text-muted-foreground ml-1 rounded border px-1 py-0.5 text-[10px]"
 					>Tab</span
 				>
 			</div>
 		{:else if suggestion && !text.trim()}
-			<div class="text-text-700 pointer-events-none absolute top-2.5 left-4 text-sm">
+			<div class="text-muted-foreground/50 pointer-events-none absolute top-2.5 left-4 text-sm">
 				{suggestion}
-				<span class="border-surface-700 text-text-500 ml-2 rounded border px-1 py-0.5 text-[10px]"
+				<span
+					class="border-border text-muted-foreground ml-2 rounded border px-1 py-0.5 text-[10px]"
 					>Tab</span
 				>
 			</div>
 		{/if}
 	</div>
 
-	<div class="border-surface-800/50 flex items-center justify-between border-t px-3 py-1.5">
-		<span class="text-text-700 text-[11px]">
+	<div class="border-border/50 flex items-center justify-between border-t px-3 py-1.5">
+		<span class="text-muted-foreground/50 text-[11px]">
 			{#if isQueuing}
 				Message will be queued
 			{:else}
@@ -277,7 +283,7 @@
 			disabled={!canSubmit}
 			aria-label={isQueuing ? 'Queue message' : 'Send message'}
 			class="rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-colors {isQueuing
-				? 'border-warning-500/30 bg-warning-500/20 text-warning-500 border'
+				? 'border-warning-500/30 bg-warning-500/20 text-warning border'
 				: 'bg-accent-500 text-surface-950'} {!canSubmit
 				? 'cursor-not-allowed opacity-40'
 				: 'cursor-pointer'}"

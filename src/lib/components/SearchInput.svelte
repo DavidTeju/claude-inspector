@@ -432,11 +432,11 @@
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
 	<div
-		class="input-glow border-surface-800 bg-surface-900 focus-within:border-accent-500/50 flex min-h-[52px] items-center gap-1.5 rounded-xl border px-4 transition-colors"
+		class="border-border bg-card focus-within:border-primary/50 flex min-h-[52px] items-center gap-1.5 rounded-xl border px-4 transition-colors"
 		onclick={() => inputEl?.focus()}
 	>
 		<svg
-			class="text-text-500 h-5 w-5 shrink-0"
+			class="text-muted-foreground h-5 w-5 shrink-0"
 			fill="none"
 			viewBox="0 0 24 24"
 			stroke="currentColor"
@@ -487,14 +487,15 @@
 				placeholder={activeFilters.length > 0
 					? 'Add more filters or text...'
 					: 'Search sessions...'}
-				class="text-text-100 placeholder-text-500 w-full bg-transparent py-3.5 text-base outline-none"
+				class="text-foreground placeholder-muted-foreground w-full bg-transparent py-3.5 text-base outline-none"
 			/>
 			{#if ghostText}
 				<span
 					class="pointer-events-none absolute inset-0 overflow-hidden py-3.5 text-base whitespace-pre"
 					aria-hidden="true"
 				>
-					<span class="invisible">{inputText}</span><span class="text-text-500/40">{ghostText}</span
+					<span class="invisible">{inputText}</span><span class="text-muted-foreground/40"
+						>{ghostText}</span
 					>
 				</span>
 			{/if}
@@ -508,7 +509,7 @@
 		{#if hasContent}
 			<button
 				onclick={() => (showPresetSave = !showPresetSave)}
-				class="text-text-500 hover:text-text-300 shrink-0 transition-colors"
+				class="text-muted-foreground hover:text-foreground/80 shrink-0 transition-colors"
 				aria-label="Save preset"
 				title="Save filter preset"
 			>
@@ -541,7 +542,7 @@
 		{#if hasContent}
 			<button
 				onclick={clearSearch}
-				class="text-text-500 hover:text-text-300 shrink-0 transition-colors"
+				class="text-muted-foreground hover:text-foreground/80 shrink-0 transition-colors"
 				aria-label="Clear search"
 			>
 				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -553,18 +554,18 @@
 
 	{#if showPresetSave}
 		<div
-			class="border-surface-800 bg-surface-900 absolute top-full right-16 z-50 mt-1 flex items-center gap-2 rounded-lg border p-2 shadow-lg"
+			class="border-border bg-card absolute top-full right-16 z-50 mt-1 flex items-center gap-2 rounded-lg border p-2 shadow-lg"
 		>
 			<input
 				bind:value={presetName}
 				type="text"
 				placeholder="Preset name..."
-				class="border-surface-800 bg-surface-950 text-text-100 placeholder-text-500 focus:border-accent-500/50 w-40 rounded-md border px-2 py-1 text-xs outline-none"
+				class="border-border bg-background text-foreground placeholder-muted-foreground focus:border-primary/50 w-40 rounded-md border px-2 py-1 text-xs outline-none"
 				onkeydown={(e) => e.key === 'Enter' && savePreset()}
 			/>
 			<button
 				onclick={savePreset}
-				class="bg-accent-500/10 text-accent-300 hover:bg-accent-500/20 rounded-md px-2 py-1 text-xs transition-colors"
+				class="bg-primary/10 text-primary hover:bg-primary/20 rounded-md px-2 py-1 text-xs transition-colors"
 			>
 				Save
 			</button>
@@ -573,7 +574,7 @@
 
 	{#if showAutocomplete && suggestions.length > 0}
 		<div
-			class="border-surface-800 bg-surface-900 absolute z-50 mt-1 overflow-hidden rounded-lg border shadow-lg"
+			class="border-border bg-card absolute z-50 mt-1 overflow-hidden rounded-lg border shadow-lg"
 			style="left: {dropdownLeft}px; min-width: {DROPDOWN_MIN_WIDTH}px; max-width: 300px;"
 		>
 			{#each suggestions as suggestion, i (suggestion.raw)}
@@ -588,7 +589,9 @@
 					onmouseenter={() => (autocompleteIndex = i)}
 				>
 					<span class="font-mono text-xs">{suggestion.label}</span>
-					<span class="text-text-500 text-xs whitespace-nowrap">{suggestion.description}</span>
+					<span class="text-muted-foreground text-xs whitespace-nowrap"
+						>{suggestion.description}</span
+					>
 				</div>
 			{/each}
 		</div>
