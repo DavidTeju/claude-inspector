@@ -319,9 +319,7 @@ export function createActiveSessionConnection(
 		model = event.model;
 		permissionMode = event.permissionMode;
 		dangerousPermissionsAllowed = event.dangerousPermissionsAllowed;
-		if (event.error) {
-			error = event.error;
-		}
+		error = event.error ?? null;
 	}
 
 	function handleConfigChange(event: ClientEvent) {
