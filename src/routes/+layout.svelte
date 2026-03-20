@@ -2,6 +2,7 @@
 	import '../app.css';
 	import '$lib/stores/theme.svelte.js';
 	import NewSessionModal from '$lib/components/NewSessionModal.svelte';
+	import SearchOverlay from '$lib/components/SearchOverlay.svelte';
 	import Sidebar from '$lib/components/Sidebar.svelte';
 	import TopBar from '$lib/components/TopBar.svelte';
 	import { newSessionModal } from '$lib/stores/new-session-modal.svelte.js';
@@ -83,3 +84,5 @@
 	defaultPermissionMode={data.defaultPermissionMode}
 	defaultModel={data.defaultModel}
 />
+
+<SearchOverlay />

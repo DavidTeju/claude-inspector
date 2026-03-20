@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { searchOverlay } from '$lib/stores/search-overlay.svelte.js';
 	import type { SearchResult } from '$lib/types.js';
 	import { highlightTerms, formatDate } from '$lib/utils.js';
 	import { resolve } from '$app/paths';
@@ -8,6 +9,7 @@
 
 <a
 	href={resolve(`/session/${result.projectId}/${result.sessionId}`)}
+	onclick={() => searchOverlay.hide()}
 	class="card-hover border-surface-800 bg-surface-900/50 hover:border-surface-700 hover:bg-surface-900 block rounded-lg border p-4 transition-all"
 >
 	<div class="mb-2 flex items-center gap-2">
