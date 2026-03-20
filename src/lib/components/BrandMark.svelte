@@ -6,26 +6,29 @@
 		class="border-accent-500/25 bg-surface-900/80 relative flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border shadow-sm"
 	>
 		<div class="border-accent-400/15 absolute inset-1 rounded-[0.9rem] border"></div>
-		<svg class="text-accent-300 h-6 w-6" viewBox="0 0 48 48" fill="none" aria-hidden="true">
-			<path
-				d="M27 13H21C16.582 13 13 16.582 13 21V27C13 31.418 16.582 35 21 35H27"
-				stroke="currentColor"
-				stroke-width="3.25"
-				stroke-linecap="round"
-				stroke-linejoin="round"
-			/>
-			<path d="M31 14V34" stroke="currentColor" stroke-width="3.25" stroke-linecap="round" />
-			<circle cx="31" cy="9.5" r="2.5" fill="currentColor" opacity="0.9" />
+		<svg
+			class="text-accent-300 h-6 w-6"
+			viewBox="0 0 48 48"
+			fill="none"
+			stroke="currentColor"
+			stroke-width="2.5"
+			stroke-linecap="round"
+			stroke-linejoin="round"
+			aria-hidden="true"
+		>
+			<path d="M10,38 L24,6 L38,38 L24,30Z" />
+			<circle cx="38" cy="8" r="1.5" fill="currentColor" stroke="none" />
+			<line x1="38" y1="4" x2="38" y2="5.5" />
+			<line x1="38" y1="10.5" x2="38" y2="12" />
+			<line x1="34" y1="8" x2="35.5" y2="8" />
+			<line x1="40.5" y1="8" x2="42" y2="8" />
 		</svg>
 	</div>
 
 	<div class="flex min-w-0 flex-col">
-		<span class="text-accent-300/80 text-[0.55rem] font-semibold tracking-[0.32em] uppercase"
-			>Claude</span
-		>
 		<span
 			class="text-text-100 truncate text-[0.98rem] font-black tracking-[0.14em] uppercase italic"
-			>Inspector</span
+			>Sessionaut</span
 		>
 	</div>
 </div>

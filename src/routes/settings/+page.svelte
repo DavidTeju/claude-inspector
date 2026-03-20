@@ -16,7 +16,7 @@
 </script>
 
 <svelte:head>
-	<title>Settings - Claude Inspector</title>
+	<title>Settings - Sessionaut</title>
 </svelte:head>
 
 <div class="mx-auto max-w-xl">

@@ -165,7 +165,7 @@
 </script>
 
 <svelte:head>
-	<title>{sessionTitle} — {dirNameToDisplayName(data.projectId)} — Claude Inspector</title>
+	<title>{sessionTitle} — {dirNameToDisplayName(data.projectId)} — Sessionaut</title>
 </svelte:head>
 
 <div

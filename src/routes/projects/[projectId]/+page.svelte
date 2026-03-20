@@ -40,7 +40,7 @@
 </script>
 
 <svelte:head>
-	<title>{dirNameToDisplayName(data.projectId)} - Claude Inspector</title>
+	<title>{dirNameToDisplayName(data.projectId)} - Sessionaut</title>
 </svelte:head>
 
 <div>
