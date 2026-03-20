@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Check } from '@lucide/svelte';
 	import type { AskUserQuestionRequest } from '$lib/shared/active-session-types.js';
 
 	const OTHER_SENTINEL = '__other__';
@@ -110,15 +111,7 @@
 								: 'full'} border {selected ? 'border-user-400 bg-user-400' : 'border-surface-600'}"
 						>
 							{#if selected}
-								<svg
-									class="text-surface-950 h-2.5 w-2.5"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="3"
-								>
-									<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-								</svg>
+								<Check class="text-surface-950 h-2.5 w-2.5" stroke-width="3" />
 							{/if}
 						</span>
 
@@ -154,15 +147,7 @@
 								: 'border-surface-600'}"
 						>
 							{#if otherSelected}
-								<svg
-									class="text-surface-950 h-2.5 w-2.5"
-									fill="none"
-									viewBox="0 0 24 24"
-									stroke="currentColor"
-									stroke-width="3"
-								>
-									<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-								</svg>
+								<Check class="text-surface-950 h-2.5 w-2.5" stroke-width="3" />
 							{/if}
 						</span>
 

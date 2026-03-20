@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Search } from '@lucide/svelte';
 	import type { ToolCall } from '$lib/types.js';
 
 	let { tool, resultText }: { tool: ToolCall; resultText: string } = $props();
@@ -13,19 +14,7 @@
 		<div
 			class="bg-accent-500/5 border-accent-500/20 flex items-center gap-1.5 rounded border px-2 py-1"
 		>
-			<svg
-				class="text-accent-400/60 h-3 w-3 flex-shrink-0"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="2"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-				/>
-			</svg>
+			<Search class="text-accent-400/60 h-3 w-3 flex-shrink-0" />
 			<span class="text-accent-300 font-mono text-[11px] break-words whitespace-pre-wrap"
 				>{tool.input.pattern}</span
 			>

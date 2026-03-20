@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ChevronsLeft, Plus, Settings } from '@lucide/svelte';
 	import type { ActiveSessionSummary } from '$lib/shared/active-session-types.js';
 	import { STATE_COLORS } from '$lib/shared/state-colors.js';
 	import type { Project } from '$lib/types.js';
@@ -48,20 +49,10 @@
 				class="btn-icon-sm hover:text-accent-400 hover:bg-accent-500/10 cursor-pointer"
 				aria-label="New session"
 			>
-				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-				</svg>
+				<Plus class="h-4 w-4" />
 			</button>
 			<button onclick={onToggle} class="btn-icon-sm" aria-label="Close sidebar">
-				<svg
-					class="h-[1.125rem] w-[1.125rem]"
-					fill="none"
-					viewBox="0 0 24 24"
-					stroke="currentColor"
-					stroke-width="2"
-				>
-					<path stroke-linecap="round" stroke-linejoin="round" d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
-				</svg>
+				<ChevronsLeft class="h-[1.125rem] w-[1.125rem]" />
 			</button>
 		</div>
 	</div>
@@ -120,20 +111,7 @@
 			href={resolve('/settings')}
 			class="text-text-500 hover:bg-surface-800/50 hover:text-text-100 flex items-center gap-2 rounded-md px-2 py-1.5 text-[13px] transition-colors"
 		>
-			<svg
-				class="h-3.5 w-3.5"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-				stroke-width="2"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-				/>
-				<path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-			</svg>
+			<Settings class="h-3.5 w-3.5" />
 			Settings
 		</a>
 	</div>

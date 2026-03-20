@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ChevronRight } from '@lucide/svelte';
 	import type { Snippet } from 'svelte';
 	// eslint-disable-next-line import-x/no-duplicates
 	import { cubicOut } from 'svelte/easing';
@@ -27,17 +28,11 @@
 		onclick={() => (expanded = !expanded)}
 		class="hover:bg-surface-800/30 flex w-full items-center gap-2 px-3 py-2 text-left text-xs transition-colors"
 	>
-		<svg
+		<ChevronRight
 			class="text-text-500 h-3 w-3 flex-shrink-0 transition-transform duration-200 {expanded
 				? 'rotate-90'
 				: ''}"
-			fill="none"
-			viewBox="0 0 24 24"
-			stroke="currentColor"
-			stroke-width="2"
-		>
-			<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-		</svg>
+		/>
 
 		{@render header()}
 	</button>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { X } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 	import { filterPresets } from '$lib/stores/filter-presets.svelte.js';
 	import type { ParsedFilter } from '$lib/utils.js';
@@ -185,15 +186,7 @@
 							class="text-text-500 shrink-0 p-1 text-xs transition-colors hover:text-red-400"
 							aria-label="Delete preset {preset.name}"
 						>
-							<svg
-								class="h-3 w-3"
-								fill="none"
-								viewBox="0 0 24 24"
-								stroke="currentColor"
-								stroke-width="2"
-							>
-								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-							</svg>
+							<X class="h-3 w-3" />
 						</button>
 					</div>
 				{/each}

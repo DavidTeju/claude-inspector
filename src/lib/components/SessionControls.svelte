@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { AlertTriangle, ArrowUpRight, Check, Copy, Square, XCircle } from '@lucide/svelte';
 	import { SESSION_ID_DISPLAY_LENGTH } from '$lib/constants.js';
 	import type {
 		ActiveSessionState,
@@ -88,9 +89,7 @@
 		href={resolve(`/session/${projectId}/${parentSessionId}`)}
 		class="bg-accent-500/10 text-accent-400 hover:bg-accent-500/20 mb-1.5 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors"
 	>
-		<svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-			<path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M7 7h10v10" />
-		</svg>
+		<ArrowUpRight class="h-3 w-3" />
 		Parent session
 	</a>
 {/if}
@@ -120,9 +119,7 @@
 					? 'hover:bg-error-500/20 cursor-pointer'
 					: 'cursor-not-allowed opacity-40'}"
 			>
-				<svg class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
-					<rect x="6" y="6" width="12" height="12" rx="1" />
-				</svg>
+				<Square class="h-3.5 w-3.5" fill="currentColor" />
 				Stop
 			</button>
 		{:else}
@@ -141,29 +138,9 @@
 						>claude --resume {sessionId.slice(0, SESSION_ID_DISPLAY_LENGTH)}...</code
 					>
 					{#if copied}
-						<svg
-							class="text-success-500 h-3.5 w-3.5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-						</svg>
+						<Check class="text-success-500 h-3.5 w-3.5" />
 					{:else}
-						<svg
-							class="h-3.5 w-3.5"
-							fill="none"
-							viewBox="0 0 24 24"
-							stroke="currentColor"
-							stroke-width="2"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-							/>
-						</svg>
+						<Copy class="h-3.5 w-3.5" />
 					{/if}
 				</button>
 			{/if}
@@ -205,19 +182,7 @@
 	<div
 		class="bg-warning-500/10 text-warning-500 mt-2 flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[11px]"
 	>
-		<svg
-			class="h-3.5 w-3.5 shrink-0"
-			fill="none"
-			viewBox="0 0 24 24"
-			stroke="currentColor"
-			stroke-width="2"
-		>
-			<path
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-			/>
-		</svg>
+		<AlertTriangle class="h-3.5 w-3.5 shrink-0" />
 		Reconnecting...
 	</div>
 {/if}
@@ -226,19 +191,7 @@
 	<div
 		class="bg-error-500/10 text-error-400 mt-2 flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[11px]"
 	>
-		<svg
-			class="h-3.5 w-3.5 shrink-0"
-			fill="none"
-			viewBox="0 0 24 24"
-			stroke="currentColor"
-			stroke-width="2"
-		>
-			<path
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-			/>
-		</svg>
+		<XCircle class="h-3.5 w-3.5 shrink-0" />
 		{error}
 	</div>
 {/if}
@@ -247,19 +200,7 @@
 	<div
 		class="bg-error-500/10 text-error-400 mt-2 flex items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[11px]"
 	>
-		<svg
-			class="h-3.5 w-3.5 shrink-0"
-			fill="none"
-			viewBox="0 0 24 24"
-			stroke="currentColor"
-			stroke-width="2"
-		>
-			<path
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-			/>
-		</svg>
+		<XCircle class="h-3.5 w-3.5 shrink-0" />
 		{resumeError}
 	</div>
 {/if}

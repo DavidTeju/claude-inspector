@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { X } from '@lucide/svelte';
 	import type { PermissionMode } from '$lib/shared/active-session-types.js';
 	import type { ModelOption } from '$lib/shared/models.js';
 	import { PERMISSION_MODES, PERMISSION_MODE_LABELS } from '$lib/shared/permission-modes.js';
@@ -105,9 +106,7 @@
 				class="text-text-500 hover:text-text-300 cursor-pointer transition-colors"
 				aria-label="Close"
 			>
-				<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-				</svg>
+				<X class="h-5 w-5" />
 			</button>
 		</div>
 
