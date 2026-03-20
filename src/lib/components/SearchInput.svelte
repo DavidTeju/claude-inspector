@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Bookmark, Filter, Search, X } from '@lucide/svelte';
 	import { filterPresets } from '$lib/stores/filter-presets.svelte.js';
 	import { parseClientFilters, rebuildQuery, type ParsedFilter } from '$lib/utils.js';
 	import FilterPill from './FilterPill.svelte';
@@ -11,10 +12,22 @@
 
 	let {
 		query = $bindable(''),
-		onSearch
+		onSearch,
+		compact = false,
+		autofocus = true,
+		onFocus,
+		onClear,
+		externalFilters = [],
+		onRemoveExternalFilter
 	}: {
 		query: string;
 		onSearch: (query: string) => void;
+		compact?: boolean;
+		autofocus?: boolean;
+		onFocus?: () => void;
+		onClear?: () => void;
+		externalFilters?: ParsedFilter[];
+		onRemoveExternalFilter?: (index: number) => void;
 	} = $props();
 
 	const initialParsed = query ? parseClientFilters(query) : null;
@@ -112,7 +125,7 @@
 	});
 
 	$effect(() => {
-		inputEl?.focus();
+		if (autofocus) inputEl?.focus();
 	});
 
 	// Position dropdown after DOM flush so measureEl dimensions are current
@@ -134,7 +147,8 @@
 		const modeParts: string[] = [];
 		if (rawMode) modeParts.push('mode:raw');
 		if (regexMode) modeParts.push('mode:regex');
-		const rebuilt = rebuildQuery(activeFilters, [...modeParts, inputText].join(' ').trim());
+		const allFilters = [...activeFilters, ...externalFilters];
+		const rebuilt = rebuildQuery(allFilters, [...modeParts, inputText].join(' ').trim());
 		query = rebuilt;
 
 		if (debounceTimer) clearTimeout(debounceTimer);
@@ -402,6 +416,7 @@
 		showPopover = false;
 		showPresetSave = false;
 		onSearch('');
+		onClear?.();
 		inputEl?.focus();
 	}
 
@@ -423,49 +438,54 @@
 		showPopover = false;
 	}
 
+	let placeholderText = $derived.by(() => {
+		if (compact) return 'Search sessions...';
+		if (activeFilters.length > 0) return 'Add more filters or text...';
+		return 'Search sessions...';
+	});
+
 	let hasContent = $derived(
 		activeFilters.length > 0 || inputText.length > 0 || rawMode || regexMode
 	);
 </script>
 
-<div bind:this={containerEl} class="relative mb-6">
-	<!-- svelte-ignore a11y_click_events_have_key_events -->
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div bind:this={containerEl} class="relative w-full {compact ? '' : 'mb-6'}">
 	<div
-		class="input-glow border-surface-800 bg-surface-900 focus-within:border-accent-500/50 flex min-h-[52px] items-center gap-1.5 rounded-xl border px-4 transition-colors"
+		class="input-glow border-surface-800 bg-surface-900 focus-within:border-accent-500/50 flex items-center gap-1.5 rounded-xl border px-4 transition-all duration-300 {compact
+			? 'min-h-[38px]'
+			: 'min-h-[52px]'}"
 		onclick={() => inputEl?.focus()}
 	>
-		<svg
-			class="text-text-500 h-5 w-5 shrink-0"
-			fill="none"
-			viewBox="0 0 24 24"
-			stroke="currentColor"
-			stroke-width="2"
-		>
-			<path
-				stroke-linecap="round"
-				stroke-linejoin="round"
-				d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-			/>
-		</svg>
+		<Search class="text-text-500 shrink-0 {compact ? 'h-4 w-4' : 'h-5 w-5'}" />
 
-		{#if searchModeLabel}
-			<span
-				class="shrink-0 rounded border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wider text-amber-400"
-			>
-				{searchModeLabel}
-			</span>
+		{#if !compact}
+			{#if searchModeLabel}
+				<span
+					class="shrink-0 rounded border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wider text-amber-400"
+				>
+					{searchModeLabel}
+				</span>
+			{/if}
+
+			{#each activeFilters as filter, i (filter.raw + i)}
+				<FilterPill
+					prefix={filter.prefix}
+					value={filter.value}
+					negated={filter.negated}
+					onremove={() => removeFilter(i)}
+					ontogglenegation={() => toggleFilterNegation(i)}
+				/>
+			{/each}
+
+			{#each externalFilters as filter, i ('ext-' + filter.raw + i)}
+				<FilterPill
+					prefix={filter.prefix}
+					value={filter.value}
+					negated={filter.negated}
+					onremove={() => onRemoveExternalFilter?.(i)}
+				/>
+			{/each}
 		{/if}
-
-		{#each activeFilters as filter, i (filter.raw + i)}
-			<FilterPill
-				prefix={filter.prefix}
-				value={filter.value}
-				negated={filter.negated}
-				onremove={() => removeFilter(i)}
-				ontogglenegation={() => toggleFilterNegation(i)}
-			/>
-		{/each}
 
 		<div class="relative min-w-[120px] flex-1">
 			<input
@@ -478,20 +498,23 @@
 				onfocus={() => {
 					updateCursorAtEnd();
 					updateAutocomplete();
+					onFocus?.();
 				}}
 				onblur={() => {
 					cursorAtEnd = false;
 					setTimeout(() => (showAutocomplete = false), BLUR_CLOSE_DELAY_MS);
 				}}
 				type="text"
-				placeholder={activeFilters.length > 0
-					? 'Add more filters or text...'
-					: 'Search sessions...'}
-				class="text-text-100 placeholder-text-500 w-full bg-transparent py-3.5 text-base outline-none"
+				placeholder={placeholderText}
+				class="text-text-100 placeholder-text-500 w-full bg-transparent outline-none {compact
+					? 'py-2 text-sm'
+					: 'py-3.5 text-base'}"
 			/>
 			{#if ghostText}
 				<span
-					class="pointer-events-none absolute inset-0 overflow-hidden py-3.5 text-base whitespace-pre"
+					class="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre {compact
+						? 'py-2 text-sm'
+						: 'py-3.5 text-base'}"
 					aria-hidden="true"
 				>
 					<span class="invisible">{inputText}</span><span class="text-text-500/40">{ghostText}</span
@@ -500,54 +523,44 @@
 			{/if}
 			<span
 				bind:this={measureEl}
-				class="invisible absolute top-0 left-0 py-3.5 text-base whitespace-pre"
+				class="invisible absolute top-0 left-0 whitespace-pre {compact
+					? 'py-2 text-sm'
+					: 'py-3.5 text-base'}"
 				aria-hidden="true">{measureText}</span
 			>
 		</div>
 
-		{#if hasContent}
-			<button
-				onclick={() => (showPresetSave = !showPresetSave)}
-				class="text-text-500 hover:text-text-300 shrink-0 transition-colors"
-				aria-label="Save preset"
-				title="Save filter preset"
-			>
-				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-					/>
-				</svg>
-			</button>
-		{/if}
+		{#if !compact}
+			{#if hasContent}
+				<button
+					onclick={() => (showPresetSave = !showPresetSave)}
+					class="text-text-500 hover:text-text-300 shrink-0 transition-colors"
+					aria-label="Save preset"
+					title="Save filter preset"
+				>
+					<Bookmark class="h-4 w-4" />
+				</button>
+			{/if}
 
-		<button
-			onclick={() => (showPopover = !showPopover)}
-			class={`shrink-0 rounded-md p-1.5 transition-colors ${
-				showPopover ? 'bg-accent-500/10 text-accent-300' : 'text-text-500 hover:text-text-300'
-			}`}
-			aria-label="Filter options"
-		>
-			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-				/>
-			</svg>
-		</button>
-
-		{#if hasContent}
 			<button
-				onclick={clearSearch}
-				class="text-text-500 hover:text-text-300 shrink-0 transition-colors"
-				aria-label="Clear search"
+				onclick={() => (showPopover = !showPopover)}
+				class={`shrink-0 rounded-md p-1.5 transition-colors ${
+					showPopover ? 'bg-accent-500/10 text-accent-300' : 'text-text-500 hover:text-text-300'
+				}`}
+				aria-label="Filter options"
 			>
-				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-					<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-				</svg>
+				<Filter class="h-4 w-4" />
 			</button>
+
+			{#if hasContent}
+				<button
+					onclick={clearSearch}
+					class="text-text-500 hover:text-text-300 shrink-0 transition-colors"
+					aria-label="Clear search"
+				>
+					<X class="h-4 w-4" />
+				</button>
+			{/if}
 		{/if}
 	</div>
 
@@ -577,7 +590,6 @@
 			style="left: {dropdownLeft}px; min-width: {DROPDOWN_MIN_WIDTH}px; max-width: 300px;"
 		>
 			{#each suggestions as suggestion, i (suggestion.raw)}
-				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div
 					class={`flex cursor-pointer items-center justify-between gap-3 px-4 py-2.5 text-sm transition-colors ${
 						i === autocompleteIndex

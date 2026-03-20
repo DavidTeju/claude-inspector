@@ -138,6 +138,12 @@ export interface ContentSegment {
 	toolCalls: ToolCall[];
 }
 
+/** A recent session with its parent project info, for the homepage feed. */
+export interface RecentSession extends SessionEntry {
+	projectId: string;
+	projectDisplayName: string;
+}
+
 export interface SearchResult {
 	projectId: string;
 	projectName: string;

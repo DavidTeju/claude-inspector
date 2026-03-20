@@ -7,7 +7,7 @@
 
 import { mkdirSync } from 'fs';
 import SQLite from 'better-sqlite3';
-import type { Project, SessionEntry } from '../types.js';
+import type { Project, RecentSession, SessionEntry } from '../types.js';
 import { dirNameToDisplayName, isDoubleMangledProjectId } from '../utils.js';
 import { getInspectorDataDir, getSessionIndexDbPath } from './paths.js';
 import type {
@@ -176,6 +176,38 @@ export function getIndexedSessions(projectId: string): SessionEntry[] {
 		.all(projectId);
 
 	return toSqlRows(rows).map((row) => rowToSessionEntry(toSessionRow(row)));
+}
+
+/** Returns the most recently modified non-subagent, non-sidechain sessions across all projects. */
+export function getRecentSessions(limit: number, projectId?: string): RecentSession[] {
+	const db = getDatabase();
+	const params: Array<string | number> = [];
+	let whereExtra = '';
+	if (projectId) {
+		whereExtra = ' AND s.project_id = ?';
+		params.push(projectId);
+	}
+	params.push(limit);
+
+	const rows = db
+		.prepare(
+			`SELECT s.*, p.display_name AS project_display_name
+			 FROM sessions s
+			 JOIN projects p ON s.project_id = p.id
+			 WHERE s.is_subagent = 0 AND s.is_sidechain = 0${whereExtra}
+			 ORDER BY s.modified DESC
+			 LIMIT ?`
+		)
+		.all(...params);
+
+	return toSqlRows(rows).map((row) => {
+		const sessionRow = toSessionRow(row);
+		return {
+			...rowToSessionEntry(sessionRow),
+			projectId: sessionRow.project_id,
+			projectDisplayName: requireString(row, 'project_display_name')
+		};
+	});
 }
 
 export function getIndexedSessionsByPath(projectId: string): Map<string, StoredIndexedSession> {
