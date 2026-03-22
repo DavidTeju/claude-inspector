@@ -128,7 +128,9 @@
 		if (autofocus) inputEl?.focus();
 	});
 
-	// Position dropdown after DOM flush so measureEl dimensions are current
+	// Must use $effect (not $derived) — getBoundingClientRect() reads DOM geometry
+	// which is only current after Svelte's DOM flush. $derived runs before the flush,
+	// so it would always read stale dimensions from the previous render.
 	$effect(() => {
 		void inputText;
 		if (showAutocomplete && measureEl && containerEl) {
