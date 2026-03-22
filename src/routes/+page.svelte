@@ -95,7 +95,7 @@
 	<title>Sessionaut</title>
 </svelte:head>
 
-<div class="mx-auto max-w-4xl px-4">
+<div class="mx-auto w-full max-w-4xl px-4">
 	{#if isLanding}
 		<BrandingHeader />
 	{/if}
