@@ -57,6 +57,10 @@ export function getFixtureJsonlPath(fixtureName: string): string {
 	throw new Error(`Fixture "${fixtureName}" was not found in ${PROJECT_FIXTURES_DIR}`);
 }
 
+export function loadFixture(fixtureName: string): string {
+	return getFixtureJsonlPath(fixtureName);
+}
+
 export function createTempDirectory(prefix = 'claude-inspector-test-'): string {
 	const directory = mkdtempSync(join(tmpdir(), prefix));
 	tempDirectories.add(directory);

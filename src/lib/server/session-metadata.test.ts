@@ -1,6 +1,10 @@
+import { statSync } from 'node:fs';
+import { basename } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { loadFixture } from '../../../tests/setup.js';
 import type { SessionFileDescriptor } from './session-discovery.js';
 import { extractSessionEntry } from './session-metadata.js';
+import { parseSessionFile } from './session-parser.js';
 import type { ParsedSessionRecord } from './session-schema.js';
 
 function wrapRecord(record: ParsedSessionRecord['record']): ParsedSessionRecord {
@@ -31,6 +35,18 @@ function createFileStat() {
 		mtime: new Date('2025-01-02T00:00:00.000Z'),
 		birthtime: new Date('2025-01-01T00:00:00.000Z')
 	};
+}
+
+function createFixtureDescriptor(filePath: string, overrides: Partial<SessionFileDescriptor> = {}) {
+	const sessionId = basename(filePath, '.jsonl');
+
+	return createDescriptor({
+		sessionId,
+		routeId: sessionId,
+		fullPath: filePath,
+		relativePath: `${sessionId}.jsonl`,
+		...overrides
+	});
 }
 
 describe('server/session-metadata', () => {
@@ -203,6 +219,50 @@ describe('server/session-metadata', () => {
 			isSubagent: true,
 			parentSessionId: 'parent',
 			firstPrompt: 'Subagent prompt'
+		});
+	});
+
+	it('extracts native titles, summaries, last prompt fallback, and git branch from fixture data', async () => {
+		const filePath = loadFixture('metadata-project/native-title-summary-session.jsonl');
+		const records = await parseSessionFile(filePath);
+		const entry = extractSessionEntry(
+			createFixtureDescriptor(filePath),
+			records,
+			statSync(filePath)
+		);
+
+		expect(entry).toMatchObject({
+			sessionId: 'native-title-summary-session',
+			displaySessionId: 'native-title-summary-session',
+			firstPrompt: 'Refactor the raw schema handling.',
+			summary: 'Native Titles Win',
+			messageCount: 1,
+			created: '2026-03-02T00:00:00.000Z',
+			modified: '2026-03-02T00:00:01.000Z',
+			gitBranch: 'feat/metadata',
+			customTitle: 'Native Titles Win',
+			nativeSummary: 'This session migrated the parser.\nIt kept the UI adapter intact.',
+			lastPrompt: 'Refactor the raw schema handling.'
+		});
+	});
+
+	it('deduplicates chunked assistant updates when deriving fixture metadata', async () => {
+		const filePath = loadFixture('chunked-project/chunked-assistant-usage-session.jsonl');
+		const records = await parseSessionFile(filePath);
+		const entry = extractSessionEntry(
+			createFixtureDescriptor(filePath),
+			records,
+			statSync(filePath)
+		);
+
+		expect(entry).toMatchObject({
+			sessionId: 'chunked-assistant-usage-session',
+			messageCount: 1,
+			created: '2026-03-05T00:00:00.000Z',
+			modified: '2026-03-05T00:00:02.000Z',
+			gitBranch: 'feat/chunked',
+			firstPrompt: '',
+			summary: ''
 		});
 	});
 });

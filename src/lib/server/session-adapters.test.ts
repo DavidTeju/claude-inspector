@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { toSharedContent, toThreadMessages } from './session-adapters.js';
+import { loadFixture } from '../../../tests/setup.js';
+import { parseSessionMessages, toSharedContent, toThreadMessages } from './session-adapters.js';
 import type { ParsedSessionRecord } from './session-schema.js';
 
 function wrapRecord(record: ParsedSessionRecord['record']): ParsedSessionRecord {
@@ -247,8 +248,98 @@ describe('server/session-adapters', () => {
 			]);
 		});
 
+		it('maps tool_result blocks to the shared camel-cased content union', () => {
+			expect(
+				toSharedContent([
+					{
+						type: 'tool_result',
+						tool_use_id: 'tool-1',
+						content: [{ type: 'text', text: 'Nested result text' }],
+						is_error: true
+					}
+				])
+			).toEqual([
+				{
+					type: 'tool_result',
+					toolUseId: 'tool-1',
+					content: [{ type: 'text', text: 'Nested result text' }],
+					isError: true
+				}
+			]);
+		});
+
 		it('returns an empty array for an empty content array', () => {
 			expect(toSharedContent([])).toEqual([]);
+		});
+	});
+
+	describe('parseSessionMessages', () => {
+		it('converts the basic fixture into assistant content with thinking blocks and tool results', async () => {
+			const messages = await parseSessionMessages(
+				loadFixture('basic-project/basic-linear-session.jsonl')
+			);
+
+			expect(messages).toEqual([
+				{
+					uuid: 'a1',
+					role: 'assistant',
+					timestamp: '2026-03-01T00:00:01.000Z',
+					textContent: "I'll inspect the parser.",
+					toolCalls: [
+						{
+							id: 'tool_basic_1',
+							name: 'Read',
+							input: { file_path: 'src/lib/server/messages.ts' },
+							result: { content: 'file contents', isError: false }
+						}
+					],
+					thinkingBlocks: ['Need to open the parser first.'],
+					rawContent: [
+						{
+							type: 'thinking',
+							thinking: 'Need to open the parser first.',
+							signature: 'sig-basic'
+						},
+						{ type: 'text', text: "I'll inspect the parser." },
+						{
+							type: 'tool_use',
+							id: 'tool_basic_1',
+							name: 'Read',
+							input: { file_path: 'src/lib/server/messages.ts' },
+							caller: 'assistant'
+						}
+					],
+					model: 'claude-sonnet-4.5'
+				}
+			]);
+		});
+
+		it('keeps chunked assistant updates in order for downstream UI reassembly', async () => {
+			const messages = await parseSessionMessages(
+				loadFixture('chunked-project/chunked-assistant-usage-session.jsonl')
+			);
+
+			expect(
+				messages.map(({ uuid, role, textContent, timestamp }) => ({
+					uuid,
+					role,
+					textContent,
+					timestamp
+				}))
+			).toEqual([
+				{
+					uuid: 'a1',
+					role: 'assistant',
+					textContent: 'Working',
+					timestamp: '2026-03-05T00:00:01.000Z'
+				},
+				{
+					uuid: 'a2',
+					role: 'assistant',
+					textContent: 'Working on it',
+					timestamp: '2026-03-05T00:00:02.000Z'
+				}
+			]);
 		});
 	});
 });
