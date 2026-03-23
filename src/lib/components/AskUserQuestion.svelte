@@ -15,6 +15,50 @@
 	let answers = $state<Record<number, string | string[]>>({});
 	let otherTexts = $state<Record<number, string>>({});
 
+	// Pagination state
+	let currentPage = $state(0);
+	let totalPages = $derived(request.questions.length);
+	let isSingleQuestion = $derived(totalPages === 1);
+	let isFirstPage = $derived(currentPage === 0);
+	let isLastPage = $derived(currentPage === totalPages - 1);
+	let currentQuestion = $derived(request.questions[currentPage]);
+
+	function goNext() {
+		if (!isLastPage) currentPage++;
+	}
+
+	function goPrev() {
+		if (!isFirstPage) currentPage--;
+	}
+
+	function handleKeydown(e: KeyboardEvent) {
+		if (isSingleQuestion) return;
+
+		// Don't intercept arrow keys when focus is on interactive text controls
+		const target = e.target as HTMLElement;
+		if (
+			target.tagName === 'INPUT' ||
+			target.tagName === 'TEXTAREA' ||
+			target.tagName === 'SELECT' ||
+			target.isContentEditable
+		)
+			return;
+
+		if (e.key === 'ArrowRight') {
+			e.preventDefault();
+			goNext();
+		} else if (e.key === 'ArrowLeft') {
+			e.preventDefault();
+			goPrev();
+		}
+	}
+
+	function dotClass(index: number): string {
+		if (index === currentPage) return 'bg-user-400';
+		if (answers[index] !== undefined) return 'bg-user-400/40';
+		return 'bg-surface-600';
+	}
+
 	function selectSingle(questionIdx: number, value: string) {
 		answers[questionIdx] = value;
 	}
@@ -83,22 +127,41 @@
 	);
 </script>
 
-<div class="border-l-user-400 bg-user-700/10 rounded-xl border-l-2 px-4 py-3">
-	{#each request.questions as question, qi (qi)}
-		<div class={qi > 0 ? 'border-surface-800/50 mt-4 border-t pt-4' : ''}>
-			{#if question.header}
-				<div class="text-text-100 mb-1 text-[11px] font-semibold">{question.header}</div>
-			{/if}
-			<div class="text-text-300 mb-2 text-sm">{question.question}</div>
+<div
+	role="group"
+	class="border-l-user-400 bg-user-700/10 rounded-xl border-l-2 px-4 py-3"
+	onkeydown={handleKeydown}
+>
+	{#if totalPages > 0}
+		<!-- Progress indicator (multi-question only) -->
+		{#if !isSingleQuestion}
+			<div class="text-text-500 mb-2 flex items-center justify-between text-[11px]">
+				<span>{currentPage + 1} / {totalPages}</span>
+				<div class="flex gap-1">
+					{#each request.questions as _, i (i)}
+						<span class="inline-block h-1.5 w-1.5 rounded-full transition-colors {dotClass(i)}"
+						></span>
+					{/each}
+				</div>
+			</div>
+		{/if}
 
-			<div class="space-y-1" role={question.multiSelect ? 'group' : 'radiogroup'}>
-				{#each question.options as option (option.label)}
+		<div>
+			{#if currentQuestion.header}
+				<div class="text-text-100 mb-1 text-[11px] font-semibold">{currentQuestion.header}</div>
+			{/if}
+			<div class="text-text-300 mb-2 text-sm">{currentQuestion.question}</div>
+
+			<div class="space-y-1" role={currentQuestion.multiSelect ? 'group' : 'radiogroup'}>
+				{#each currentQuestion.options as option (option.label)}
 					{@const value = option.value ?? option.label}
-					{@const selected = isSelected(qi, value)}
+					{@const selected = isSelected(currentPage, value)}
 					<button
 						onclick={() =>
-							question.multiSelect ? toggleMulti(qi, value) : selectSingle(qi, value)}
-						role={question.multiSelect ? 'checkbox' : 'radio'}
+							currentQuestion.multiSelect
+								? toggleMulti(currentPage, value)
+								: selectSingle(currentPage, value)}
+						role={currentQuestion.multiSelect ? 'checkbox' : 'radio'}
 						aria-checked={selected}
 						class="hover:bg-surface-800/30 flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors {selected
 							? 'border-user-400/30 bg-surface-800/50 border'
@@ -106,7 +169,7 @@
 					>
 						<!-- Radio / Checkbox indicator -->
 						<span
-							class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-{question.multiSelect
+							class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-{currentQuestion.multiSelect
 								? 'sm'
 								: 'full'} border {selected ? 'border-user-400 bg-user-400' : 'border-surface-600'}"
 						>
@@ -125,14 +188,14 @@
 				{/each}
 
 				<!-- Other option — only for non-binary questions -->
-				{#if question.options.length > 2}
-					{@const otherSelected = isSelected(qi, OTHER_SENTINEL)}
+				{#if currentQuestion.options.length > 2}
+					{@const otherSelected = isSelected(currentPage, OTHER_SENTINEL)}
 					<button
 						onclick={() =>
-							question.multiSelect
-								? toggleMulti(qi, OTHER_SENTINEL)
-								: selectSingle(qi, OTHER_SENTINEL)}
-						role={question.multiSelect ? 'checkbox' : 'radio'}
+							currentQuestion.multiSelect
+								? toggleMulti(currentPage, OTHER_SENTINEL)
+								: selectSingle(currentPage, OTHER_SENTINEL)}
+						role={currentQuestion.multiSelect ? 'checkbox' : 'radio'}
 						aria-checked={otherSelected}
 						class="hover:bg-surface-800/30 flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors {otherSelected
 							? 'border-user-400/30 bg-surface-800/50 border'
@@ -140,7 +203,7 @@
 					>
 						<!-- Radio / Checkbox indicator -->
 						<span
-							class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-{question.multiSelect
+							class="flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-{currentQuestion.multiSelect
 								? 'sm'
 								: 'full'} border {otherSelected
 								? 'border-user-400 bg-user-400'
@@ -153,15 +216,15 @@
 
 						<input
 							type="text"
-							bind:value={otherTexts[qi]}
+							bind:value={otherTexts[currentPage]}
 							placeholder="Other..."
 							onclick={(e) => {
 								e.stopPropagation();
 								if (!otherSelected) {
-									if (question.multiSelect) {
-										toggleMulti(qi, OTHER_SENTINEL);
+									if (currentQuestion.multiSelect) {
+										toggleMulti(currentPage, OTHER_SENTINEL);
 									} else {
-										selectSingle(qi, OTHER_SENTINEL);
+										selectSingle(currentPage, OTHER_SENTINEL);
 									}
 								}
 							}}
@@ -179,17 +242,58 @@
 				{/if}
 			</div>
 		</div>
-	{/each}
 
-	<div class="mt-3">
-		<button
-			onclick={handleSubmit}
-			disabled={!hasAnyAnswer}
-			class="bg-user-500 text-surface-950 rounded-lg px-4 py-2 text-[11px] font-semibold transition-colors {hasAnyAnswer
-				? 'hover:bg-user-400 cursor-pointer'
-				: 'cursor-not-allowed opacity-40'}"
-		>
-			Submit
-		</button>
-	</div>
+		<!-- Navigation controls -->
+		<div class="mt-3 flex items-center gap-2">
+			{#if !isSingleQuestion && !isFirstPage}
+				<button
+					onclick={goPrev}
+					class="text-text-300 hover:text-text-100 flex cursor-pointer items-center gap-1 rounded-lg px-3 py-2 text-[11px] font-semibold transition-colors"
+				>
+					<svg
+						class="h-3 w-3"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+					</svg>
+					Previous
+				</button>
+			{/if}
+
+			<div class="flex-1"></div>
+
+			{#if !isSingleQuestion && !isLastPage}
+				<button
+					onclick={goNext}
+					class="text-text-300 hover:text-text-100 flex cursor-pointer items-center gap-1 rounded-lg px-3 py-2 text-[11px] font-semibold transition-colors"
+				>
+					Next
+					<svg
+						class="h-3 w-3"
+						fill="none"
+						viewBox="0 0 24 24"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+					</svg>
+				</button>
+			{/if}
+
+			{#if isSingleQuestion || isLastPage}
+				<button
+					onclick={handleSubmit}
+					disabled={!hasAnyAnswer}
+					class="bg-user-500 text-surface-950 rounded-lg px-4 py-2 text-[11px] font-semibold transition-colors {hasAnyAnswer
+						? 'hover:bg-user-400 cursor-pointer'
+						: 'cursor-not-allowed opacity-40'}"
+				>
+					Submit
+				</button>
+			{/if}
+		</div>
+	{/if}
 </div>
